@@ -1343,14 +1343,12 @@ pipe_line(plustek8200i_device_t *dev, int y, uint16_t *out)
         pipe_resample_row(dev, yb, tmp);
         for (x = 2; x < px3; x += 3) row[x] = tmp[x];
     }
-    if (!plustek8200i_use_legacy_ccd()) {
-        for (x = 0; x < px / 2; x++) {
-            int o = px - 1 - x;
-            for (c = 0; c < 3; c++) {
-                uint16_t t = row[x * 3 + c];
-                row[x * 3 + c] = row[o * 3 + c];
-                row[o * 3 + c] = t;
-            }
+    for (x = 0; x < px / 2; x++) {
+        int o = px - 1 - x;
+        for (c = 0; c < 3; c++) {
+            uint16_t t = row[x * 3 + c];
+            row[x * 3 + c] = row[o * 3 + c];
+            row[o * 3 + c] = t;
         }
     }
     if (dev->opt_mode == MODE_COLOR) {
@@ -1383,8 +1381,7 @@ pipe_setup(plustek8200i_device_t *dev, uint8_t *raw, int raw_lines, int raw_line
     dev->p_ring_lines = 0;
     dev->p_raw_lines = raw_lines;
     dev->p_raw_line_bytes = raw_line_bytes;
-    dev->p_vsquash = plustek8200i_use_legacy_ccd()
-        ? 1.0 : (double)plustek8200i_target_vdpi(rdpi) / (double)rdpi;
+    dev->p_vsquash = (double)plustek8200i_target_vdpi(rdpi) / (double)rdpi;
     dev->p_res_lines = dev->p_vsquash <= 1.01 ? raw_lines
                        : (int)(raw_lines / dev->p_vsquash);
     if (dev->p_res_lines < 1) dev->p_res_lines = 1;
@@ -1453,17 +1450,12 @@ stream_cleanup(plustek8200i_device_t *dev)
 /*
  * Release everything a scan pass allocated, whatever path it died on.
  * stream_cleanup() covers the pipeline, the staging and ring buffers, the
- * IR plane and the stashed IR map; check_raw belongs to the diagnostic
- * equivalence check and is otherwise only freed on that path's success.
- * Safe to call repeatedly and on a device that never scanned.
+ * IR plane and the stashed IR map. Safe to call repeatedly and on a device that never scanned.
  */
 static void
 release_scan_resources(plustek8200i_device_t *dev)
 {
     stream_cleanup(dev);
-    free(dev->check_raw);
-    dev->check_raw = NULL;
-    dev->check_raw_lines = dev->check_raw_line_bytes = 0;
     dev->scanning = SANE_FALSE;
     dev->bytes_read = dev->bytes_total = 0;
 }
@@ -1724,16 +1716,11 @@ out:
 static int
 stream_wanted(plustek8200i_device_t *dev)
 {
-    const char *sm = getenv("PLUSTEK8200I_STREAM");
-    const char *rp = getenv("PLUSTEK8200I_RAWIMG");
-    const char *sc = getenv("PLUSTEK8200I_STREAMCHECK");
-    int base = !(sm && *sm == '0') && !plustek8200i_use_legacy_ccd()
-               && !(rp && *rp) && !(sc && *sc == '1');
     if (dev->in_ir_pass)
-        return base;
+        return 1;
     if (dev->opt_rgbi)
         return 1;
-    return base && !dev->opt_auto_wb;
+    return !dev->opt_auto_wb;
 }
 
 /*
@@ -2761,7 +2748,6 @@ scan_program_image_pass(plustek8200i_device_t *dev)
          * options are applied by cropping at the end of sane_start.
          * 36 x 24 mm is the nominal frame the geometry was tuned for --
          * the margins added below make the delivered window larger. */
-        double width_mm = PLUSTEK8200I_FRAME_W_MM;
         double height_mm = PLUSTEK8200I_FRAME_H_MM;
         /*
          * DPI and DPISET.
@@ -2786,19 +2772,6 @@ scan_program_image_pass(plustek8200i_device_t *dev)
          * 512-pixel readout cycle. Post-processing (circular shift +
          * block averaging) extracts the unique 512-pixel image.
          */
-        /*
-         * CCD configuration. The verified profile (DPISET=100 plus the
-         * Windows CCD/AFE/SCANMOD values) is now the DEFAULT: it is the
-         * only configuration that produces a usable image. The old
-         * macOS-derived values are kept reachable for A/B work with
-         *     PLUSTEK8200I_CCD_PROFILE=legacy
-         * but that path no longer has a desegmentation stage, so its
-         * output is the modulated stream raw. Check either with
-         * a USB stream decoder; the pass condition is "carrier
-         * PRESENT at the line period".
-         */
-        int use_verified = !plustek8200i_use_legacy_ccd();
-
         /* Tell the register layer whether this is an infrared pass. */
         plustek8200i_set_infrared(dev->opt_mode == MODE_INFRARED);
 
@@ -2826,9 +2799,9 @@ scan_program_image_pass(plustek8200i_device_t *dev)
          * extra lines genuinely exist; below it, the motor stays at the
          * known-good speed and the surplus is downsampled away.
          */
-        int pixel_dpi = use_verified ? req_dpi : 1200;
+        int pixel_dpi = req_dpi;
         int line_dpi = 1200;    /* Geometry DPI for height */
-        int hw_dpiset = use_verified ? (req_dpi / 6) : 1200;  /* DPISET */
+        int hw_dpiset = req_dpi / 6;  /* DPISET */
         int lincnt, feedl;
         int output_lines, raw_lines;
         int scan_pixels, scan_line_bytes;
@@ -2843,19 +2816,14 @@ scan_program_image_pass(plustek8200i_device_t *dev)
         uint32_t maxwd;
         int color_shift_g, color_shift_b;
 
-        /* Scan geometry: wide pixels (7200 DPI), same line count as before */
-        scan_pixels = (int)(width_mm * pixel_dpi / 25.4 + 0.5);
-        if (use_verified) {
-            /*
-             * The sensor emits a fixed dpi*1.44 px per line regardless of
-             * the requested width -- it always scans the full 1.44 inch
-             * frame. width_mm * dpi / 25.4 lands a few pixels short
-             * because the device scans slightly wider than our 36.0 mm
-             * figure. Use the measured hardware width so the line
-             * arithmetic and SANE parameters match the data.
-             */
-            scan_pixels = (req_dpi * 36) / 25;      /* dpi * 1.44 */
-        }
+        /*
+         * The sensor emits a fixed dpi*1.44 px per line regardless of
+         * the requested width -- it always scans the full 1.44 inch
+         * frame. That is a few pixels more than the nominal 36.0 mm
+         * would give, so use the measured hardware width: the line
+         * arithmetic and SANE parameters then match the data.
+         */
+        scan_pixels = (req_dpi * 36) / 25;      /* dpi * 1.44 */
         scan_line_bytes = scan_pixels * bytes_per_sample * channels;
 
         /* TRIED AND REJECTED 2026-10-05: rounding scan_pixels up to even,
@@ -3085,12 +3053,10 @@ scan_program_image_pass(plustek8200i_device_t *dev)
          * block above so they win over anything set during init, and so
          * the final state matches the Windows capture exactly.
          */
-        if (use_verified) {
-            status = plustek8200i_apply_verified_ccd_regs(dev->usb_fd);
-            if (status != SANE_STATUS_GOOD) {
-                DBG(DBG_error, "MOVE #4: verified CCD register write failed\n");
-                return status;
-            }
+        status = plustek8200i_apply_verified_ccd_regs(dev->usb_fd);
+        if (status != SANE_STATUS_GOOD) {
+            DBG(DBG_error, "MOVE #4: verified CCD register write failed\n");
+            return status;
         }
 
         /*
@@ -3110,36 +3076,7 @@ scan_program_image_pass(plustek8200i_device_t *dev)
             plustek8200i_write_regs(dev->usb_fd, t7200, sizeof(t7200));
         }
 
-        /*
-         * CCD sensor registers from sane-genesys sensor table
-         * (CCD_PLUSTEK_OPTICFILM_8200I).
-         *
-         * These control CCD phase clocking, ADC sampling timing,
-         * color mux selection, and exposure. With correct values,
-         * each pixel outputs clean R, G, B — no R/GB alternation
-         * or dark band artifacts. No desegmentation needed.
-         *
-         * Previous B=0 test (with macOS LPERIOD=17408) likely failed
-         * because not all registers were changed simultaneously.
-         * Now writing ALL sensor regs + LPERIOD=14000 together.
-         */
-        /*
-         * CCD sensor registers: use macOS init values (from pass3).
-         *
-         * The macOS CCD registers (0x52=0x08, 0x70=0x06) produce R/GB
-         * interleaved data which we handle via desegmentation + demosaic.
-         * This approach produces actual image content.
-         *
-         * The sane-genesys CCD registers (0x52=0x09, 0x70=0x0A) should
-         * produce clean per-pixel RGB, but currently produce green-only
-         * constant data (G=49152, R=621, B=0). Root cause unknown —
-         * possibly register corruption (ENDPIXEL/LPERIOD get overwritten)
-         * or timing incompatibility with macOS motor/DPISET configuration.
-         *
-         * Keep macOS CCD registers until genesys timing issue is resolved.
-         */
-        DBG(DBG_info, "MOVE #4: CCD profile: %s\n",
-            use_verified ? "verified (Windows-derived)" : "legacy macOS");
+        DBG(DBG_info, "MOVE #4: CCD profile: verified\n");
 
         /*
          * Image buffers (0xE0-0xF7): Keep calibration/init values.
@@ -3413,17 +3350,14 @@ scan_shading_and_reference(plustek8200i_device_t *dev)
     dev->shading_ok = 0;
     dev->ir_scale = 1.0;
     if (dev->opt_mode == MODE_INFRARED || plustek8200i_use_infrared()) {
-        const char *sh = getenv("PLUSTEK8200I_SHADING");
-        if (!(sh && *sh == '0'))
-            plustek8200i_ir_reference(dev->usb_fd, dev->scan_pixels,
-                dev->img_lincnt, dev->img_feedl, dev->img_table_period,
-                (int)(PLUSTEK8200I_BASE_EXPOSURE * SANE_UNFIX(dev->opt_exposure) + 0.5),
-                &dev->ir_scale);
+        plustek8200i_ir_reference(dev->usb_fd, dev->scan_pixels,
+            dev->img_lincnt, dev->img_feedl, dev->img_table_period,
+            (int)(PLUSTEK8200I_BASE_EXPOSURE * SANE_UNFIX(dev->opt_exposure) + 0.5),
+            &dev->ir_scale);
     }
     dev->shading_ok = 0;
     if (dev->opt_mode != MODE_INFRARED && !plustek8200i_use_infrared()) {
-        const char *sh = getenv("PLUSTEK8200I_SHADING");
-        if (!(sh && *sh == '0')) {
+        {
             plustek8200i_shading_stats_t sst;
             SANE_Status shst = plustek8200i_shading_calibrate(dev->usb_fd,
                                    dev->scan_pixels, dev->img_lincnt,
@@ -3480,22 +3414,6 @@ scan_shading_and_reference(plustek8200i_device_t *dev)
      * shading table was loaded. */
     DBG(DBG_info, "MOVE #4: Enable SCAN (0x%02x)\n", dev->shading_ok ? 0x23 : 0x03);
     plustek8200i_write_reg(dev->usb_fd, 0x01, dev->shading_ok ? 0x23 : 0x03);
-
-    /* MOVE command — LISTEN FOR MOTOR! */
-    {
-        /* PLUSTEK8200I_DRYRUN=1: stop here, with every image register
-         * programmed but the image pass not started (for register
-         * comparisons -- nothing moves). */
-        const char *dr = getenv("PLUSTEK8200I_DRYRUN");
-        if (dr && *dr == '1') {
-            plustek8200i_regtrace_mark("DRYRUN STOP");
-            plustek8200i_write_reg(dev->usb_fd, 0x01, 0x02);
-            free(dev->image_buffer);
-            dev->image_buffer = NULL;
-            dev->buffer_size = 0;
-            return SANE_STATUS_CANCELLED;
-        }
-    }
 
     return SANE_STATUS_GOOD;
 }
@@ -3606,88 +3524,6 @@ image_apply_ir_repair(plustek8200i_device_t *dev)
 }
 
 /*
- * PLUSTEK8200I_STREAMCHECK diagnostic: rebuild the frame through the
- * streaming pipeline and compare it with the whole-buffer result.
- */
-static void
-image_streamcheck(plustek8200i_device_t *dev)
-{
-    if (dev->check_raw) {
-        int comps = dev->opt_mode == MODE_COLOR ? 3 : 1, y, diff = 0, maxd = 0;
-        size_t ln = (size_t)dev->scan_pixels * comps;
-        uint16_t *line = malloc(ln * 2);
-        if (line && pipe_setup(dev, dev->check_raw, dev->check_raw_lines,
-                               dev->check_raw_line_bytes) == 0) {
-            int lines = dev->p_res_lines;
-            if (dev->ir_map && dev->opt_mode == MODE_COLOR)
-                DBG(DBG_warning, "STREAMCHECK: IR repair not compared (map freed)\n");
-            dev->ir_ready = 0;
-            for (y = 0; y < lines && y < dev->raw_scan_lines; y++) {
-                const uint16_t *ref = (const uint16_t *)(dev->image_buffer +
-                                      (size_t)y * dev->scan_line_bytes);
-                size_t i;
-                pipe_line(dev, y, line);
-                for (i = 0; i < ln; i++) {
-                    int d = abs((int)line[i] - (int)ref[i]);
-                    if (d) diff++;
-                    if (d > maxd) maxd = d;
-                }
-            }
-            DBG(DBG_info, "STREAMCHECK: %d lines (full path %d), %d samples differ, "
-                "max difference %d\n", lines, dev->raw_scan_lines, diff, maxd);
-            /* Same again through a ring sized as in stream_begin, fed in
-             * USB-chunk-sized pieces as stream_read does. */
-            {
-                int lb = dev->check_raw_line_bytes, ring, rdiff = 0, rmax = 0, bad = 0;
-                double v = dev->p_vsquash <= 1.01 ? 1.0 : dev->p_vsquash;
-                size_t total = (size_t)dev->check_raw_lines * lb, rd = 0, rb;
-                uint8_t *rbuf;
-                ring = (int)((2 * dev->p_shift + 1) * v + 0.999) + 2
-                       + PLUSTEK8200I_STREAM_CHUNK / lb + 2 + 16;
-                if (ring > dev->check_raw_lines) ring = dev->check_raw_lines;
-                rb = (size_t)ring * lb;
-                rbuf = malloc(rb);
-                if (rbuf) {
-                    dev->p_raw = rbuf;
-                    dev->p_ring_lines = ring;
-                    for (y = 0; y < lines && y < dev->raw_scan_lines && !bad; y++) {
-                        const uint16_t *ref = (const uint16_t *)(dev->image_buffer +
-                                              (size_t)y * dev->scan_line_bytes);
-                        size_t i;
-                        while ((int)(rd / lb) < pipe_raw_needed(dev, y) && rd < total) {
-                            size_t got = total - rd, pos = rd % rb, n1 = rb - pos;
-                            if (got > PLUSTEK8200I_STREAM_CHUNK) got = PLUSTEK8200I_STREAM_CHUNK & ~(size_t)511;
-                            if ((rd + got + lb - 1) / lb > (size_t)pipe_raw_oldest(dev, y) + ring) {
-                                bad = 1;
-                                break;
-                            }
-                            if (n1 > got) n1 = got;
-                            memcpy(rbuf + pos, dev->check_raw + rd, n1);
-                            memcpy(rbuf, dev->check_raw + rd + n1, got - n1);
-                            rd += got;
-                        }
-                        pipe_line(dev, y, line);
-                        for (i = 0; i < ln; i++) {
-                            int d = abs((int)line[i] - (int)ref[i]);
-                            if (d) rdiff++;
-                            if (d > rmax) rmax = d;
-                        }
-                    }
-                    DBG(DBG_info, "STREAMCHECK ring: %d lines (%.1f MB vs %.1f MB), %s, "
-                        "%d samples differ, max difference %d\n", ring, rb / 1e6,
-                        total / 1e6, bad ? "OVERRUN" : "no overrun", rdiff, rmax);
-                    free(rbuf);
-                }
-            }
-        }
-        free(line);
-        pipe_free(dev);
-        free(dev->check_raw);
-        dev->check_raw = NULL;
-    }
-}
-
-/*
  * Cut the requested rectangle out of the delivered full window.
  */
 static void
@@ -3791,21 +3627,6 @@ scan_run_image_pass(plustek8200i_device_t *dev)
         }
 
         DBG(DBG_info, "Scan data read complete. Post-processing...\n");
-        {
-            /* PLUSTEK8200I_RAWIMG=<path>: the raw buffer as read, before any
-             * post-processing (word order exactly as the ASIC sends it). */
-            const char *rp = getenv("PLUSTEK8200I_RAWIMG");
-            if (rp && *rp) {
-                FILE *rf = fopen(rp, "wb");
-                if (rf) {
-                    fwrite(dev->image_buffer, 1, dev->buffer_size, rf);
-                    fclose(rf);
-                    DBG(DBG_info, "raw image (%zu bytes, %d bytes/line) -> %s\n",
-                        dev->buffer_size, dev->scan_line_bytes, rp);
-                }
-            }
-        }
-
         /* Read motor/scan counters for analysis */
         {
             uint8_t fedcnt_h, fedcnt_m, fedcnt_l;
@@ -3843,23 +3664,6 @@ scan_run_image_pass(plustek8200i_device_t *dev)
         plustek8200i_scan_stop(dev->usb_fd);
         DBG(DBG_info, "Scan stopped after data read; carriage returns home (AGOHOME)\n");
 
-        /* PLUSTEK8200I_STREAMCHECK=1: keep the raw buffer, and after the
-         * full-buffer post-processing rebuild every line with the
-         * line-by-line pipeline and compare (see pipe_line). */
-        {
-            const char *sc = getenv("PLUSTEK8200I_STREAMCHECK");
-            free(dev->check_raw);
-            dev->check_raw = NULL;
-            if (sc && *sc == '1' && !dev->opt_auto_wb && !dev->in_ir_pass) {
-                dev->check_raw = malloc(dev->buffer_size);
-                if (dev->check_raw) {
-                    memcpy(dev->check_raw, dev->image_buffer, dev->buffer_size);
-                    dev->check_raw_lines = dev->raw_scan_lines;
-                    dev->check_raw_line_bytes = dev->scan_line_bytes;
-                }
-            }
-        }
-
         /*
          * Vertical resample to square pixels.
          *
@@ -3887,9 +3691,7 @@ scan_run_image_pass(plustek8200i_device_t *dev)
             double vsquash;
             if (rdpi != 300 && rdpi != 600 && rdpi != 1200 &&
                 rdpi != 2400 && rdpi != 3600 && rdpi != 7200) rdpi = 600;
-            vsquash = plustek8200i_use_legacy_ccd()
-                ? 1.0
-                : (double)plustek8200i_target_vdpi(rdpi) / (double)rdpi;
+            vsquash = (double)plustek8200i_target_vdpi(rdpi) / (double)rdpi;
             int src_lines = dev->raw_scan_lines;
             int dst_lines = (int)(src_lines / vsquash);
             /*
@@ -4022,7 +3824,7 @@ scan_run_image_pass(plustek8200i_device_t *dev)
          * scores ncc +0.7696 / gradcorr +0.6454, unmirrored +0.5797 /
          * +0.6039.
          */
-        if (!plustek8200i_use_legacy_ccd()) {
+        {
             /* Always three channels in the buffer here; see above. */
             int nchan = 3;
             int px = dev->scan_pixels;
@@ -4182,8 +3984,6 @@ scan_run_image_pass(plustek8200i_device_t *dev)
         return status;
 
     image_apply_ir_repair(dev);
-
-    image_streamcheck(dev);
 
     image_crop_to_scan_area(dev);
 

@@ -113,7 +113,6 @@ typedef struct plustek8200i_device {
     double    p_vsquash;
     double   *p_acc;
     uint16_t *p_row, *p_tmp;
-    uint8_t  *check_raw;
     /* streaming (sane_read pulls raw data and builds lines on demand) */
     int       streaming, s_hw_done, s_first, s_ir_reported, s_frame, s_out_y, s_x0, s_y0, s_x1, s_y1, s_comps;
     size_t    s_raw_read, s_raw_total, s_line_len, s_line_pos;
@@ -124,7 +123,6 @@ typedef struct plustek8200i_device {
     uint8_t  *s_out;
     double    s_t0;
     volatile int in_read;         /* sane_read is running */
-    int       check_raw_lines, check_raw_line_bytes;
     volatile int in_start;        /* sane_start is running */
     uint8_t  *ir_map;            /* stashed IR frame, 16-bit gray */
     size_t    ir_map_size;
@@ -798,8 +796,7 @@ SANE_Status plustek8200i_init_pass3_registers(int fd);
 /*
  * Apply the CCD timing / clock / segment registers captured from the
  * Windows driver, which are known to produce a clean bulk stream.
- * Enabled by PLUSTEK8200I_CCD_PROFILE=windows. See the definition in
- * plustek8200i-init.c and the recorded Windows register set.
+ * See the definition in plustek8200i-init.c.
  */
 SANE_Status plustek8200i_apply_verified_ccd_regs(int fd);
 
@@ -920,7 +917,6 @@ static inline int plustek8200i_full_frame_pixels(int req_dpi)
 }
 
 /* PLUSTEK8200I_CCD_PROFILE=legacy selects the old macOS CCD values. */
-int plustek8200i_use_legacy_ccd(void);
 
 /* True when the infrared pass should be configured. Set from the scan
  * mode; PLUSTEK8200I_IR=1 forces it on for testing. */

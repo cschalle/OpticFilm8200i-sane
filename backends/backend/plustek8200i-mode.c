@@ -34,24 +34,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*
- * CCD profile selection. See plustek8200i_apply_verified_ccd_regs().
- *
- * The verified (Windows-derived) configuration is the default because it
- * is the only one that produces a usable image. The old macOS values are
- * reachable for A/B work:
- *
- *   PLUSTEK8200I_CCD_PROFILE=legacy    old macOS CCD values
- *   (unset, or anything else)          verified
- */
-int
-plustek8200i_use_legacy_ccd(void)
-{
-    const char *p = getenv("PLUSTEK8200I_CCD_PROFILE");
-
-    return (p && strcmp(p, "legacy") == 0);
-}
-
 /* Infrared pass: set from the SANE scan mode. */
 static int g_infrared;
 

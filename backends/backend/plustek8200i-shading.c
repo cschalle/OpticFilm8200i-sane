@@ -22,9 +22,7 @@
    The ASIC's shading unit (DVDSET, register 0x01 bit 5) computes
    (raw - dark) * gain / 8192 for every sample, from a table at AHB
    0x10014000. Table format and the dark-strip procedure were decoded
-   from our usbmon captures of SilverFast
-   (a SilverFast USB capture,
-   the capture decoding tools):
+   from usbmon captures of the vendor's SilverFast software:
 
      512-byte blocks of 42 pixels x (R, G, B) x (dark u16 LE, gain u16 LE,
      8192 = 1.0) = 504 bytes, then 8 bytes of padding; the last block is

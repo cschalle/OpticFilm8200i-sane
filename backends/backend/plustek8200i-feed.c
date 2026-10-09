@@ -7,8 +7,8 @@
  * ramp tables uploaded to 0x1000C000 and 0x10010000), then starts the
  * image with FEEDL = 1.
  *
- * Everything here is taken from our own SilverFast recording
- * (a SilverFast USB capture):
+ * Everything here is taken from a USB capture of the vendor's
+ * SilverFast software:
  *  - feed register block at 5.040 s and 6.100 s;
  *  - ramp tables: the first feed (FEEDL 28292) used feed_ramp_slow, the
  *    second (13128) feed_ramp_fast, each written to both table addresses;

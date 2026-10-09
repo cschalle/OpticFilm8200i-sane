@@ -871,9 +871,8 @@ SANE_Status plustek8200i_configure_scan_phase(int fd)
 /*
  * Verified-good CCD timing / clock / segment configuration.
  *
- * Source: the Windows SilverFast USB capture
- *   a SilverFast USB capture
- * Full register table: the recorded Windows register set
+ * Source: a USB capture of the Windows SilverFast software, taken on
+ * this model.
  *
  * These are not derived by analogy and not guessed. They are the exact
  * values observed driving this physical scanner minutes before our own
@@ -1020,10 +1019,6 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
         { 0x06, 0x00, 0x2B },   /* offset G */
         { 0x07, 0x00, 0x1B },   /* offset B */
     };
-    uint8_t afe_use[sizeof(afe) / sizeof(afe[0])][3];
-
-    memcpy(afe_use, afe, sizeof(afe_use));
-
     DBG(DBG_info, "Applying VERIFIED CCD/clock/segment registers "
         "(Windows capture 20261005-092303); DPISET=100\n");
 
@@ -1033,51 +1028,12 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
 
     /*
      * Indices 0x02-0x04 are the R/G/B offsets, 0x05-0x07 the gains.
-     * Used to characterise the AFE response for per-device calibration.
+     * Written as (index, offset/gain high byte, low byte) triples.
      */
-    /*
-     * Per-device calibration, if present. One "idx=value" pair per line,
-     * hex, '#' comments allowed:
-     *     ~/.sane/plustek8200i-afe.conf
-     * Produced by tools/calibrate_afe.py, which converges the gains on
-     * the actual scanner rather than trusting values captured from a
-     * different unit..
-     */
-    {
-        const char *home = getenv("HOME");
-        char path[512];
-        FILE *f;
-        if (home) {
-            snprintf(path, sizeof(path),
-                     "%s/.sane/plustek8200i-afe.conf", home);
-            f = fopen(path, "r");
-            if (f) {
-                char line[128];
-                int n = 0;
-                while (fgets(line, sizeof(line), f)) {
-                    unsigned int idx, val;
-                    char *h = strchr(line, '#');
-                    if (h) *h = '\0';
-                    if (sscanf(line, "%x=%x", &idx, &val) == 2) {
-                        for (i = 0; i < (int)(sizeof(afe)/sizeof(afe[0])); i++)
-                            if (afe_use[i][0] == idx) {
-                                afe_use[i][1] = (uint8_t)(val >> 8);
-                                afe_use[i][2] = (uint8_t)(val & 0xFF);
-                                n++;
-                            }
-                    }
-                }
-                fclose(f);
-                DBG(DBG_info, "AFE: %d values from %s\n", n, path);
-            }
-        }
-    }
-
-
     for (i = 0; i < (int)(sizeof(afe) / sizeof(afe[0])); i++) {
-        uint8_t block[6] = { 0x51, afe_use[i][0],
-                             0x5D, afe_use[i][1],
-                             0x5E, afe_use[i][2] };
+        uint8_t block[6] = { 0x51, afe[i][0],
+                             0x5D, afe[i][1],
+                             0x5E, afe[i][2] };
         status = plustek8200i_write_regs(fd, block, sizeof(block));
         if (status != SANE_STATUS_GOOD) {
             DBG(DBG_error, "AFE write %d failed\n", i);
@@ -1086,8 +1042,8 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
     }
     DBG(DBG_info, "AFE: gains R/G/B = %02X/%02X/%02X, "
         "offsets R/G/B = %02X/%02X/%02X\n",
-        afe_use[0][2], afe_use[1][2], afe_use[2][2],
-        afe_use[3][2], afe_use[4][2], afe_use[5][2]);
+        afe[0][2], afe[1][2], afe[2][2],
+        afe[3][2], afe[4][2], afe[5][2]);
 
     /*
      * Infrared channel.
@@ -1108,36 +1064,9 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
      */
     if (plustek8200i_use_infrared()) {
         uint8_t cur = 0, v;
-        uint8_t ir_gain[3] = { 0x01, 0x01, 0x01 };
-        int ir_calibrated = 0;
+        const uint8_t ir_gain[3] = { 0x01, 0x01, 0x01 };
         int k;
 
-
-        /* IR gains from the per-device calibration file, if present. */
-        if (!ir_calibrated) {
-            const char *home = getenv("HOME");
-            char path[512];
-            FILE *f;
-            if (home) {
-                snprintf(path, sizeof(path),
-                         "%s/.sane/plustek8200i-afe.conf", home);
-                f = fopen(path, "r");
-                if (f) {
-                    char line[128];
-                    while (fgets(line, sizeof(line), f)) {
-                        unsigned int idx, val;
-                        char *h = strchr(line, '#');
-                        if (h) *h = '\0';
-                        if (sscanf(line, "ir%x=%x", &idx, &val) == 2 &&
-                            idx >= 0x02 && idx <= 0x04) {
-                            ir_gain[idx - 0x02] = (uint8_t)val;
-                            ir_calibrated = 1;
-                        }
-                    }
-                    fclose(f);
-                }
-            }
-        }
 
         /* 1. IR illumination on: reg 0x37, mask 0x04, value 0x04. */
         plustek8200i_read_reg(fd, 0x37, &cur);
@@ -1169,11 +1098,8 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
          * The plist carries NegativeIR / PositiveIR profiles, but their
          * LINEGAIN / PIXELGAIN / LINEDARK values drive the ASIC's
          * shading-correction tables (DVDSET), which this driver does
-         * not implement -- so they cannot be applied as-is. Instead the
-         * IR gains are calibrated per device like the visible ones, by
-         * tools/calibrate_afe.py --infrared, and cached as ir02/ir03/
-         * ir04 in ~/.sane/plustek8200i-afe.conf. Gain 1 is the fallback
-         * when no calibration exists: safe, because it cannot clip.
+         * not implement -- so they cannot be applied as-is. Gain 1 is
+         * used instead: safe, because it cannot clip.
          */
         for (k = 0; k < 3; k++) {
             uint8_t g = ir_gain[k];
@@ -1181,15 +1107,9 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
                                0x5D, 0x00, 0x5E, g };
             plustek8200i_write_regs(fd, blk, sizeof(blk));
         }
-        DBG(DBG_info, "IR: AFE gains %02X/%02X/%02X%s\n",
-            ir_gain[0], ir_gain[1], ir_gain[2],
-            ir_calibrated ? " (calibrated)" : " (default, uncalibrated)");
+        DBG(DBG_info, "IR: AFE gains %02X/%02X/%02X\n",
+            ir_gain[0], ir_gain[1], ir_gain[2]);
     }
 
-    /*
-     * Debug hook for bisecting against a reference capture:
-     * Written last, so these win over everything above. Pairs are
-     * hex "reg=value", comma separated.
-     */
     return SANE_STATUS_GOOD;
 }

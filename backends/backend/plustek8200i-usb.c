@@ -104,48 +104,23 @@ plustek8200i_read_reg(int usb_fd, uint16_t reg_addr, uint8_t *value)
  * wValue=0x0083, wIndex=0x0000, data=[reg, val].
  */
 /*
- * PLUSTEK8200I_REGTRACE=<path>: append every register write as
- * "W reg val" lines, plus "M <text>" markers from plustek8200i_regtrace_mark,
- * so the register state at any point of a scan can be reconstructed
- * without usbmon (which needs root).
+ * Register-write tracing goes through the debug levels: the register
+ * state at any point of a scan can be reconstructed from the log with
+ * SANE_DEBUG_PLUSTEK8200I set to DBG_data or above.
  */
-static FILE *regtrace_fp;
-static int regtrace_init;
-
-static FILE *
-regtrace_file(void)
-{
-    if (!regtrace_init) {
-        const char *p = getenv("PLUSTEK8200I_REGTRACE");
-        regtrace_init = 1;
-        if (p && *p)
-            regtrace_fp = fopen(p, "a");
-    }
-    return regtrace_fp;
-}
-
 void
 plustek8200i_regtrace_pairs(const uint8_t *pairs, size_t count)
 {
-    FILE *f = regtrace_file();
     size_t i;
 
-    if (!f)
-        return;
     for (i = 0; i + 1 < count; i += 2)
-        fprintf(f, "W %02x %02x\n", pairs[i], pairs[i + 1]);
-    fflush(f);
+        DBG(DBG_data, "reg write: 0x%02x = 0x%02x\n", pairs[i], pairs[i + 1]);
 }
 
 void
 plustek8200i_regtrace_mark(const char *text)
 {
-    FILE *f = regtrace_file();
-
-    if (!f)
-        return;
-    fprintf(f, "M %s\n", text);
-    fflush(f);
+    DBG(DBG_info, "trace: %s\n", text);
 }
 
 SANE_Status
@@ -155,7 +130,6 @@ plustek8200i_write_reg(int usb_fd, uint8_t reg, uint8_t val)
     SANE_Status status;
 
     DBG(DBG_debug, "write_reg: reg=0x%02x value=0x%02x\n", reg, val);
-    plustek8200i_regtrace_pairs(reg_val_pair, 2);
 
     status = sanei_usb_control_msg(usb_fd,
                                    0x40,    /* bmRequestType */
