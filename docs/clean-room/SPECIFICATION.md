@@ -134,8 +134,8 @@ offsets. Gain is a 6-bit field with response:
 
 `gain(code) = 6 / (1 + 5*(63-code)/63)`, for `0<=code<=63`.
 
-The source provides fixed defaults and optional per-device overrides;
-visible per-scan calibration subsequently replaces the gain codes. Use
+The source provides fixed defaults; visible per-scan calibration
+subsequently replaces the gain codes. Use
 `INITIAL_AFE`, `SCAN_BASE_AFE`, and `VISIBLE_DEFAULT_AFE` at the stages
 specified below. A register read of `5e` is not a substitute for reading
 the entire indirect AFE state.
@@ -331,14 +331,13 @@ is the baseline green sample point, `06=f0` the sensor mode, and
 `70:71:72:73=0a:0b:0c:0d` the clock sequence. Leave the resolution
 selector from the dynamic list intact.
 
-Send `VISIBLE_DEFAULT_AFE`, applying any selected per-device overrides
-first. For an IR pass, after those writes:
+Send `VISIBLE_DEFAULT_AFE`. For an IR pass, after those writes:
 
 1. Read register `37` and set bit `04`, preserving the other bits.
 2. Read register `03`, clear bit `10`, and set bit `20`, preserving the
    other bits. This disables the visible lamp while selecting transparency.
-3. Write IR-specific AFE gain codes at indices `02/03/04`; default is
-   `01/01/01`, with high data byte zero. Retain the offset settings.
+3. Write IR-specific AFE gain codes `01/01/01` at indices `02/03/04`,
+   with high data byte zero. Retain the offset settings.
 
 For 7200 dpi only, then send the following register list, after the
 verified sensor and AFE configuration:
@@ -714,19 +713,17 @@ storage and report cancellation. A close releases all pass storage
 and the USB handle. Cancellation after completed acquisition should
 only discard host storage, permitting automatic carriage return.
 
-Optional compatibility with the baseline calibration file uses
-`~/.sane/plustek8200i-afe.conf`: hexadecimal `index=value` lines for
-visible AFE indices `02..07`, and `ir02=value`, `ir03=value`,
-`ir04=value` for IR gains. Strip `#` comments. Visible values are
-16-bit; IR overrides use the low byte with high byte zero. Apply
-overrides before per-pass calibration. The driver does not require
-this file for normal operation and does not generate it during scanning.
+The driver reads no per-user calibration file and no environment
+variable. The visible AFE values start from `VISIBLE_DEFAULT_AFE` and
+are replaced by the per-scan calibration; the IR gains are fixed at
+`01/01/01`.
 
 ## 10. Qualification and error policy
 
-This packet describes the current default verified-sensor path. An older
-sensor profile and debugging overrides are outside normal conformance.
-They are not alternative supported hardware configurations.
+This packet describes the verified-sensor path, the only sensor
+configuration the driver implements. The older sensor profile and the
+debugging overrides of earlier versions have been removed, so there are
+no alternative configurations to conform to.
 
 The reference is permissive about several failures: lamp-drive errors,
 some initialization/GPIO/status operations, move-table loading, move
