@@ -1,0 +1,6 @@
+regdump
+regwrite
+ahbwrite
+vread
+replay
+usbreplay
