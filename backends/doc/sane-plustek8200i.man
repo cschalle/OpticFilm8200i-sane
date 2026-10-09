@@ -79,6 +79,52 @@ the backend runs on. Frontends that write a fixed-endian file format must
 byte-swap accordingly, and
 .BR saned (8)
 reconciles the byte order itself when the client and server differ.
+.SH LIMITATIONS
+.IP \(bu 2
+The backend scans one frame per
+.BR sane_start .
+It does not advance the film or select a frame: position the holder by
+hand, then scan. There is no batch mode.
+.IP \(bu 2
+Only the 35 mm frame is supported. The largest scan window is about
+36.5 x 27.2 mm, the frame plus a margin at each end. The
+.B \-l \-t \-x \-y
+options select a part of that window.
+.IP \(bu 2
+The resolutions are those listed under
+.BR \-\-resolution ;
+there is nothing below 300 dpi. A 7200 dpi scan is about 10368 x 7755
+pixels and takes roughly two minutes. Above about 1490 dpi the film is
+sampled more finely by slowing the carriage, so scans at the highest
+settings take proportionally longer.
+.IP \(bu 2
+The image is delivered as the sensor measured it, after shading
+correction. The backend does not invert negatives, apply a gamma curve or
+attach a colour profile; the frontend has to.
+.IP \(bu 2
+The scanner is calibrated before every scan, and the result is not
+cached. This adds to the scan time but keeps the calibration current.
+.IP \(bu 2
+Infrared dust and scratch repair
+.RB ( \-\-ir\-clean )
+applies to colour scans only.
+.B Color+Infrared
+needs a frontend that accepts more than one SANE frame per image.
+.IP \(bu 2
+Non-blocking I/O is not supported:
+.BR sane_set_io_mode
+refuses it and
+.BR sane_get_select_fd
+returns
+.BR SANE_STATUS_UNSUPPORTED .
+.IP \(bu 2
+The backend was developed and verified against a single scanner. The
+image geometry (the vertical scale, the horizontal mirroring and the
+margins) was fitted against scans made with the vendor's own software,
+and another unit or hardware revision may need adjustments. The older
+OpticFilm 8200i with USB product ID
+.B 0x130d
+is not handled by this backend.
 .SH FILES
 .TP
 .I @CONFIGDIR@/plustek8200i.conf
@@ -95,46 +141,9 @@ support dynamic loading).
 .B SANE_DEBUG_PLUSTEK8200I
 If the library was compiled with debug support enabled, this variable
 controls the debug level: 0 errors, 1 adds warnings, 2 adds progress,
-3 and above add protocol detail.
-.PP
-The following are diagnostic aids. They are not a configuration
-interface, they are not stable between releases, and a normal scan needs
-none of them.
-.TP
-.B PLUSTEK8200I_REGTRACE=\fIpath\fP
-Append every register write, and the phase markers between them, to
-.IR path .
-Reconstructs the register state at any point of a scan without needing
-usbmon (which needs root).
-.TP
-.B PLUSTEK8200I_DRYRUN=1
-Program every image-pass register, then stop before the carriage moves.
-With
-.B PLUSTEK8200I_REGTRACE
-this makes a deterministic fingerprint of everything a scan decides,
-which is how changes to the scan path are checked for equivalence.
-.TP
-.B PLUSTEK8200I_STREAM=0
-Read the whole frame before returning from
-.BR sane_start ,
-instead of streaming it line by line from
-.BR sane_read .
-Streaming is used by default where it can be.
-.TP
-.B PLUSTEK8200I_STREAMCHECK=1
-Rebuild the frame through the streaming pipeline as well and compare the
-two, to verify they agree.
-.TP
-.B PLUSTEK8200I_SHADING=0
-Skip shading calibration and the infrared reference measurement.
-.TP
-.B PLUSTEK8200I_RAWIMG=\fIpath\fP
-Write the raw sensor data, before any processing, to
-.IR path .
-.TP
-.B PLUSTEK8200I_CCD_PROFILE=legacy
-Use the older macOS-derived CCD register values instead of the verified
-ones. Retained for A/B comparison; it does not produce a usable image.
+3 adds detail on the scan setup, and 4 adds every register write.
+Level 4 is enough to reconstruct the register state at any point of a
+scan without a USB sniffer.
 .SH "SEE ALSO"
 .BR sane (7),
 .BR sane\-genesys (5),
