@@ -1,0 +1,145 @@
+.TH sane\-plustek8200i 5 "07 Oct 2026" "@PACKAGEVERSION@" "SANE Scanner Access Now Easy"
+.IX sane\-plustek8200i
+.SH NAME
+sane\-plustek8200i \- SANE backend for the Plustek OpticFilm 8200i (GL128)
+.SH DESCRIPTION
+The
+.B sane\-plustek8200i
+library implements a SANE (Scanner Access Now Easy) backend that provides
+access to the Genesys GL128 based Plustek OpticFilm 8200i film scanner:
+.PP
+.RS
+.ft CR
+.nf
+Vendor  Product  Chipset  Connection
+------  -------  -------  ----------
+0x07b3  0x1825   GL128    USB
+.fi
+.ft R
+.RE
+.PP
+.B Note:
+an older scanner sells under the same model name but reports USB product ID
+.BR 0x130d ,
+and uses a GL845. That one is driven by
+.BR sane\-genesys (5),
+not by this backend. Identify the device by its USB ID or chipset rather
+than by its model name.
+.PP
+This is a transparency-only scanner: there is no flatbed mode. The device
+has a fourth, infrared illuminant that this backend uses to detect and
+repair dust and scratches.
+.SH OPTIONS
+.TP
+.B \-\-mode Color|Gray|Infrared|Color+Infrared
+Selects the scan mode.
+.B Color
+delivers RGB and
+.B Gray
+a single averaged channel.
+.B Infrared
+delivers only the infrared channel, in which film dye is transparent, so
+that physical defects alone remain.
+.B Color+Infrared
+delivers two SANE frames: the colour image, then its pixel-aligned
+infrared plane as a gray frame. SANE has no standard four-channel frame
+format, so a frontend must accept multiple frames to use it;
+.BR scanimage (1)
+cannot save the second frame.
+.TP
+.B \-\-resolution 300|600|1200|2400|3600|7200
+Scan resolution in dpi. Above roughly 1490 dpi the vertical sampling is
+set by the line rate against the motor speed, so the higher settings are
+upsampled vertically to the resolution they report.
+.TP
+.B \-\-depth 8|16
+Bits per channel. The sensor is 16 bit; 8 bit keeps the high byte of each
+sample.
+.TP
+.B \-\-ir\-clean[=yes|no]
+Make an additional infrared pass and repair dust and scratches in the
+colour image from it. This roughly doubles the scan time.
+.TP
+.B \-\-auto\-wb[=yes|no]
+Scale the colour channels so that their means match. Off by default,
+because negative conversion and colour profiling need the sensor's
+calibrated response unchanged.
+.TP
+.B \-\-exposure 1.0..4.0
+Light integration time as a multiple of the default. The carriage slows
+down to preserve the geometry, so the scan takes proportionally longer.
+For dense negatives and dark slides.
+.TP
+.B \-l \-t \-x \-y
+The scan window, in millimetres, within the film frame.
+.SH IMAGE DATA
+As required by the SANE standard, 16 bit samples are delivered in the
+.B native byte order of the host
+the backend runs on. Frontends that write a fixed-endian file format must
+byte-swap accordingly, and
+.BR saned (8)
+reconciles the byte order itself when the client and server differ.
+.SH FILES
+.TP
+.I @CONFIGDIR@/plustek8200i.conf
+The backend configuration file.
+.TP
+.I @LIBDIR@/libsane\-plustek8200i.a
+The static library implementing this backend.
+.TP
+.I @LIBDIR@/libsane\-plustek8200i.so
+The shared library implementing this backend (present on systems that
+support dynamic loading).
+.SH ENVIRONMENT
+.TP
+.B SANE_DEBUG_PLUSTEK8200I
+If the library was compiled with debug support enabled, this variable
+controls the debug level: 0 errors, 1 adds warnings, 2 adds progress,
+3 and above add protocol detail.
+.PP
+The following are diagnostic aids. They are not a configuration
+interface, they are not stable between releases, and a normal scan needs
+none of them.
+.TP
+.B PLUSTEK8200I_REGTRACE=\fIpath\fP
+Append every register write, and the phase markers between them, to
+.IR path .
+Reconstructs the register state at any point of a scan without needing
+usbmon (which needs root).
+.TP
+.B PLUSTEK8200I_DRYRUN=1
+Program every image-pass register, then stop before the carriage moves.
+With
+.B PLUSTEK8200I_REGTRACE
+this makes a deterministic fingerprint of everything a scan decides,
+which is how changes to the scan path are checked for equivalence.
+.TP
+.B PLUSTEK8200I_STREAM=0
+Read the whole frame before returning from
+.BR sane_start ,
+instead of streaming it line by line from
+.BR sane_read .
+Streaming is used by default where it can be.
+.TP
+.B PLUSTEK8200I_STREAMCHECK=1
+Rebuild the frame through the streaming pipeline as well and compare the
+two, to verify they agree.
+.TP
+.B PLUSTEK8200I_SHADING=0
+Skip shading calibration and the infrared reference measurement.
+.TP
+.B PLUSTEK8200I_RAWIMG=\fIpath\fP
+Write the raw sensor data, before any processing, to
+.IR path .
+.TP
+.B PLUSTEK8200I_CCD_PROFILE=legacy
+Use the older macOS-derived CCD register values instead of the verified
+ones. Retained for A/B comparison; it does not produce a usable image.
+.SH "SEE ALSO"
+.BR sane (7),
+.BR sane\-genesys (5),
+.BR sane\-usb (5),
+.BR scanimage (1),
+.BR saned (8)
+.SH AUTHOR
+Christian Schaller

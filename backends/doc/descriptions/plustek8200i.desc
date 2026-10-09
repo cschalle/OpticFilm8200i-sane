@@ -1,0 +1,26 @@
+;
+; SANE Backend description file for the plustek8200i backend
+;
+; This backend drives the Genesys GL128 based Plustek OpticFilm 8200i
+; (USB 0x07b3/0x1825). The older OpticFilm 8200i (0x07b3/0x130d) uses a
+; GL845 and is handled by the genesys backend instead -- the two share a
+; model name but not a chipset.
+;
+
+:backend "plustek8200i"
+:version "1.0"
+:manpage "sane-plustek8200i"
+:url "https://gitlab.com/sane-project/backends"
+
+:devicetype :scanner
+
+;* Plustek *********************************************************************
+
+:mfg "Plustek"
+:url "https://www.plustek.com/"
+
+:model "OpticFilm 8200i"
+:interface "USB"
+:usbid "0x07b3" "0x1825"
+:status :good
+:comment "Film scanner, transparency only. Colour, Gray, Infrared and Color+Infrared modes; 300-7200 dpi; 8 and 16 bit. The infrared channel drives dust and scratch removal (--ir-clean). GL128 chipset; the 0x130d variant of this model is a GL845 and belongs to the genesys backend."
