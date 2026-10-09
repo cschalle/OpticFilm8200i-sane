@@ -1,0 +1,4 @@
+# Run before SANE's autosuspend rule and systemd's seat-access rules.
+# Local desktop users receive access through systemd-logind; no user-specific
+# group or world-writable USB device is needed.
+ACTION!="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="07b3", ATTR{idProduct}=="1825", ENV{libsane_matched}="yes", TAG+="uaccess"
