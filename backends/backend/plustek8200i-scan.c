@@ -40,13 +40,11 @@
 /*
  * Register initialization blocks from USB capture
  *
- * CRITICAL UPDATE: These are the FINAL register values after all dynamic updates
- * from macOS driver. The macOS driver computes register values dynamically based
- * on scan parameters (resolution, mode, area), then updates them after initial
- * register setup. These values include all those dynamic updates.
- *
- * Source: a macOS USB capture
- * Extracted by: tools/extract_final_registers.py
+ * These are the FINAL register values after all dynamic updates. The
+ * vendor driver computes register values dynamically from the scan
+ * parameters (resolution, mode, area), then updates them after the
+ * initial register setup; these values include those updates. They were
+ * read from a USB capture of the vendor driver.
  *
  * Key changes from previous static values:
  *   - 0x0B (TG0CNT): 0x6C → 0x8C (CCD timing)
