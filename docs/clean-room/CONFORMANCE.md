@@ -79,6 +79,10 @@ A fake-device command log for one pass must contain:
 9. Scan-control bit 0 clear at normal finish, with no ordinary motor
    power-off operation while the automatic home return runs.
 
+The baseline also issues optional diagnostic reads (specification section
+4.10). A trace may contain them; an implementation that omits them still
+conforms, so do not require or forbid them in these checks.
+
 For fast-feed polling, provide `20,21,01,20` as live status values.
 The first `20` must not complete the feed; `21` establishes running;
 the last `20` completes it. In the starting `20` state, bit 5 is the
@@ -235,7 +239,8 @@ film. Cover all six resolutions, all modes, both depths, full and partial
 windows, repair on/off, and exposures whose table period stays accepted.
 
 Compare request types, payload order, table hashes, START placement,
-poll conditions, raw byte counts, and frame metadata. Strip means,
+poll conditions, raw byte counts, and frame metadata. Ignore the optional
+diagnostic reads of specification section 4.10 in the comparison. Strip means,
 calibrated gain codes, image samples, and timing can vary with sensor
 noise, lamp stabilization, and exposure; expect those to be measured
 comparisons rather than literal whole-image hashes.

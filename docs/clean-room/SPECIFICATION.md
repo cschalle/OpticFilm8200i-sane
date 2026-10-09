@@ -1,6 +1,6 @@
 # Plustek OpticFilm 8200i GL128 behavioral specification
 
-Version 1 — 2026-10-07 — USB `07b3:1825`.
+Version 1.1 — 2026-10-09 — USB `07b3:1825`.
 
 ## 1. Scope and conventions
 
@@ -55,10 +55,14 @@ one separate AFE transaction as defined in section 2.4. A
 | Bulk packet alignment used by the driver | 512 bytes |
 
 The transport MUST acquire exclusive usable access to the USB device and
-discover/claim the interface exposing these endpoints. This source-derived
-packet does not establish a required configuration number, interface number,
-alternate setting, or a full-speed operating mode. Those MUST be determined
-from descriptors instead of guessed. Device opening itself does not scan or
+discover/claim the interface exposing these endpoints. The reference unit's
+descriptors, read on 2026-10-09, show one configuration (value 1) with a
+single interface 0, alternate setting 0, carrying the three endpoints above.
+It enumerates at USB 2.0 high speed (480 Mbit/s): the bulk endpoints have a
+512-byte maximum packet and the interrupt endpoint a 1-byte maximum packet.
+These are observations of one unit, not requirements derived from the source;
+an implementation SHOULD still locate the interface from the descriptors
+instead of hard-coding the numbers. Device opening itself does not scan or
 perform the initialization sequence; initialization runs for each physical
 image pass.
 
@@ -114,10 +118,13 @@ received; issue a new setup request for the remaining data. Zero bytes or
 a failed request is an error. USB chunk boundaries need not coincide with
 sensor line or sample boundaries: accumulate bytes across chunks.
 
-Allow 180 seconds for the first image bulk read, then 30 seconds for each
-later read. The stationary strips also use the image FIFO mechanism. The
-older 30-second first-read limit did not cover all lead-in behavior at high
-resolution; retain the longer budget even with fast positioning enabled.
+Each image-read operation allows 180 seconds for its first bulk read, then
+30 seconds for each later read of that operation. An image-read operation is
+the image pass itself and also each stationary strip of sections 5 and 6,
+which use the same FIFO mechanism: every strip's first read gets the long
+budget, not only the first read of the scan. The older 30-second first-read
+limit did not cover all lead-in behavior at high resolution; retain the
+longer budget even with fast positioning enabled.
 
 The one early 3,072-byte read in section 4.5 uses memory DMA with request
 `a0`, not the image FIFO path. Generic memory bulk reads use a 30-second
@@ -425,6 +432,22 @@ an early finish rather than full-window acquisition; retain the home
 and idle wait before the next pass. Exact behavior of all residual
 FIFO states in that early-finish case is not independently established.
 
+### 4.10 Optional diagnostic reads
+
+The baseline also issues the register reads below. It only logs their
+values. An implementation MAY omit them, and their presence or absence
+MUST NOT be used as a pass/fail criterion; expect them when comparing a
+transaction trace with the baseline.
+
+- Section 4.2, after the 500-ms wait and before `03=30`: live `H(01)`,
+  shadow `R(0b)`, shadow `R(02)`.
+- Section 4.4: the two extra live `H(01)` reads already described there.
+- Section 4.5, while polling for the early read: one live `H(40)` read,
+  issued once the poll has run for about 4 ms.
+- Section 4.9, after a buffered (non-streaming) full-frame read and before
+  clearing scan-control bit 0: shadow reads of `48`, `49`, `4a`, `4b`,
+  `4c`, `4d`, and `41`.
+
 ## 5. Visible calibration and hardware shading
 
 ### 5.1 Stationary-strip acquisition
@@ -693,6 +716,11 @@ For a SANE-compatible interface:
   have no settable value. Automatic option actions are unsupported.
 - Mark repair and automatic white balance inactive in Infrared mode.
   Gray uses no IR pre-pass even if its repair option was enabled.
+- Option identifiers: `mode` (string list `Color`, `Gray`, `Infrared`,
+  `Color+Infrared`), `depth` (word list 8, 16), `resolution` (word list,
+  dpi), `ir-clean` (boolean), `auto-wb` (boolean), `exposure` (fixed,
+  1.0..4.0, step 0.05, no unit), and the scan window `tl-x`, `tl-y`,
+  `br-x`, `br-y` (fixed, millimetres, ranges as in section 3).
 - Blocking reads are supported. Nonblocking reads and a selectable
   file descriptor are not supplied by this baseline.
 
