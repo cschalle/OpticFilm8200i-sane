@@ -22,29 +22,29 @@ Line numbers identify the examined snapshot, not an API dependency.
 
 | Packet topic | Source evidence |
 | --- | --- |
-| Device selection and endpoints | `backends/backend/plustek8200i.h:794`; `backends/backend/plustek8200i.c:549` |
-| Register USB format and confirmation | `backends/backend/plustek8200i-usb.c:78`, `:170`; `backends/backend/plustek8200i-scan.c:94` |
-| DMA requests, bulk padding, readiness | `backends/backend/plustek8200i-dma.c:119`, `:185`, `:241`, `:384` |
-| Image FIFO header and chunk sizing | `backends/backend/plustek8200i-dma.c:451`, `:511` |
-| Defaults and option dependencies | `backends/backend/plustek8200i.c:174`, `:369`, `:674` |
-| Pre-start geometry and crop | `backends/backend/plustek8200i.h:833`; `backends/backend/plustek8200i.c:857`, `:882` |
-| Physical pass dispatch | `backends/backend/plustek8200i.c:4217` |
-| Initial sequence and lamp-drive requests | `backends/backend/plustek8200i.c:1804` |
-| Home, intermediate, reinit, short move | `backends/backend/plustek8200i.c:2112`, `:2210`, `:2309`, `:2385` |
-| Scan base and early discarded read | `backends/backend/plustek8200i.c:2515`, `:2591`, `:2686` |
-| Dynamic image geometry and timing | `backends/backend/plustek8200i.c:2759` |
-| Visible/IR calibration, fast feed, START flags | `backends/backend/plustek8200i.c:3364` |
-| Fixed initialization lists and AFE | `backends/backend/plustek8200i-init.c:87`, `:249`, `:302`, `:366` |
-| Constant-period tables and accepted-period bounds | `backends/backend/plustek8200i-init.c:561` |
-| Scan-base lists and buffer boundaries | `backends/backend/plustek8200i-init.c:672` |
-| Verified sensor set, AFE defaults/overrides, IR flags | `backends/backend/plustek8200i-init.c:920` |
-| Home ramp | `backends/backend/plustek8200i-motor-tables.c:111` |
-| Fast feed register preservation and ramps | `backends/backend/plustek8200i-feed.c:67`, `:156`, `:181`; `backends/backend/plustek8200i-feed.h:48` |
-| Visible shading and IR reference | `backends/backend/plustek8200i-shading.c:91`, `:237`, `:432` |
-| Image reconstruction and full-frame path | `backends/backend/plustek8200i.c:1284`, `:1291`, `:1349`, `:3530`, `:3751` |
-| IR detection and repair | `backends/backend/plustek8200i.c:952`, `:1223` |
-| Streaming, two frames, cancellation, cleanup | `backends/backend/plustek8200i.c:1490`, `:1606`, `:1743`, `:1764`, `:4343`, `:4399`, `:4480` |
-| Scan stop and abort motor operations | `backends/backend/plustek8200i-scan.c:147`; `backends/backend/plustek8200i-motor.c:179` |
+| Device selection and endpoints | `backends/backend/plustek8200i.h:771`; `backends/backend/plustek8200i.c:531` |
+| Register USB format and confirmation | `backends/backend/plustek8200i-usb.c:60`, `:127`; `backends/backend/plustek8200i-scan.c:74` |
+| DMA requests, bulk padding, readiness | `backends/backend/plustek8200i-dma.c:101`, `:167`, `:223`, `:366` |
+| Image FIFO header and chunk sizing | `backends/backend/plustek8200i-dma.c:433`, `:493` |
+| Defaults and option dependencies | `backends/backend/plustek8200i.c:156`, `:351`, `:656` |
+| Pre-start geometry and crop | `backends/backend/plustek8200i.h:809`; `backends/backend/plustek8200i.c:839`, `:864` |
+| Physical pass dispatch | `backends/backend/plustek8200i.c:3998` |
+| Initial sequence and lamp-drive requests | `backends/backend/plustek8200i.c:1773` |
+| Home, intermediate, reinit, short move | `backends/backend/plustek8200i.c:2081`, `:2179`, `:2278`, `:2354` |
+| Scan base and early discarded read | `backends/backend/plustek8200i.c:2484`, `:2559`, `:2654` |
+| Dynamic image geometry and timing | `backends/backend/plustek8200i.c:2727` |
+| Visible/IR calibration, fast feed, START flags | `backends/backend/plustek8200i.c:3282` |
+| Fixed initialization lists and AFE | `backends/backend/plustek8200i-init.c:69`, `:231`, `:284`, `:348` |
+| Constant-period tables and accepted-period bounds | `backends/backend/plustek8200i-init.c:543` |
+| Scan-base lists and buffer boundaries | `backends/backend/plustek8200i-init.c:654` |
+| Verified sensor set, AFE defaults, IR flags | `backends/backend/plustek8200i-init.c:901` |
+| Home ramp | `backends/backend/plustek8200i-motor-tables.c:92` |
+| Fast feed register preservation and ramps | `backends/backend/plustek8200i-feed.c:49`, `:138`, `:163`; `backends/backend/plustek8200i-feed.h:30` |
+| Visible shading and IR reference | `backends/backend/plustek8200i-shading.c:73`, `:217`, `:412` |
+| Image reconstruction and full-frame path | `backends/backend/plustek8200i.c:1266`, `:1273`, `:1331`, `:3429`, `:3568` |
+| IR detection and repair | `backends/backend/plustek8200i.c:934`, `:1205` |
+| Streaming, two frames, cancellation, cleanup | `backends/backend/plustek8200i.c:1464`, `:1580`, `:1717`, `:1733`, `:4124`, `:4180`, `:4261` |
+| Scan stop and abort motor operations | `backends/backend/plustek8200i-scan.c:127`; `backends/backend/plustek8200i-motor.c:159` |
 | Measured full-frame dimension fixtures | `backends/testsuite/backend/plustek8200i/tests.c:63` |
 
 ## Extraction method
@@ -157,18 +157,18 @@ that every hardware acceptance case in the implementer packet was run.
 
 | Source | SHA-256 |
 | --- | --- |
-| `backends/backend/plustek8200i.c` | `542c10699fdd47c89596f9d618903d993272dc57184eb8d80a422880a005f2b0` |
-| `backends/backend/plustek8200i.h` | `edf9c8ea397a7ccd12878b61d751d3b1369b2c84e9efb09d693ae908ce4754ae` |
-| `backends/backend/plustek8200i-usb.c` | `ac3090a7456ae82e81a3af605a8c3ab6f97a3a8333601054f9c12c6394cdae78` |
-| `backends/backend/plustek8200i-dma.c` | `81df263564ae5404b8c67bd522c8d66b2f03a69c6f267aa60dcc34adaea4bb19` |
-| `backends/backend/plustek8200i-scan.c` | `28d9c23c603e4a9178ffb9bc1a5d11bc4077b212f0eaee811fc6ad6c04e8ae20` |
-| `backends/backend/plustek8200i-init.c` | `d428b2b4a83109f64fb407c0a4707e6fc230cd5e211ab4ac45573b6ebc9fde7b` |
-| `backends/backend/plustek8200i-motor-tables.c` | `46e7ecf6db4189ee55f631b29abe8c6f2c7c1d697bb2d97cc9b3dbb6b8b59e50` |
-| `backends/backend/plustek8200i-motor.c` | `e3ed4792917dec7577e2e738b3078e6404cee859a3c56fc48709e696ba86f63c` |
-| `backends/backend/plustek8200i-feed.c` | `11d04740bfd845dfee5e92a60eac1dd2a92717e79e2346bc4a455b474b027fbe` |
-| `backends/backend/plustek8200i-mode.c` | `429577da82ebd44b3cd756e53562a4d31a329d72585207b45e8ccba92f8dd3f0` |
-| `backends/backend/plustek8200i-shading.c` | `dcbb6a9e04c1887bd695a99af5b6344e63dd87fe85ba8af5f946b9fb6703ec60` |
-| `backends/testsuite/backend/plustek8200i/tests.c` | `1df52e009689a0de274dfa7104fabb0ce29328b0f6eb29c41ecc1f7d315bee96` |
+| `backends/backend/plustek8200i.c` | `89d1f726036000b7a573c0e2af45d3fcb6983ada9d083690eb15e3c3d64c639e` |
+| `backends/backend/plustek8200i.h` | `c608a40e5114fefb93768059a062e53b8e10703e87ccf5188588fa6d4a928c19` |
+| `backends/backend/plustek8200i-usb.c` | `792309793256d7e1668acb1a50cbbe06e396fa8ddbd7ce916a10999664c49b6e` |
+| `backends/backend/plustek8200i-dma.c` | `5bff9ccfecd49dbe5037b932c707b8d3c6599fb78145e87b5164e02fbd5f8274` |
+| `backends/backend/plustek8200i-scan.c` | `d902dd52d7bd9304d75b48ba0029df5bb2a071dda166dae04f2646e182649c28` |
+| `backends/backend/plustek8200i-init.c` | `5374a61d2060a625f9fc5bc7cfff2602308dac6800e08614261f673bffa36c43` |
+| `backends/backend/plustek8200i-motor-tables.c` | `3789650fb1e2ca031fda13368d8c4527bfcb502fb2aaafa33db55215e6b1e7dc` |
+| `backends/backend/plustek8200i-motor.c` | `0eba5d3be11b101bd5b551524f9f7f986efca4aa46c7206daaf57a80ec422ed2` |
+| `backends/backend/plustek8200i-feed.c` | `d51e94241102262951462be7c37185b29a991e61e8ac451d649f612ade142511` |
+| `backends/backend/plustek8200i-mode.c` | `87ea110d8be5ee2c1a33848f957a594a62980b3428f070bc46a2901a9a60657a` |
+| `backends/backend/plustek8200i-shading.c` | `d89f04296f2016c85cb6d69864db05399017612ff5c8ee9adc848bcfa59acff2` |
+| `backends/testsuite/backend/plustek8200i/tests.c` | `c32aebc71e7c0594c3fc5c03fe8a49ab2082bdf30b240f22ba754458b371b017` |
 
 The generated SANE stub `plustek8200i-s.c`, unrelated backends, archived
 documents, and historical analyses are not derivation sources.
