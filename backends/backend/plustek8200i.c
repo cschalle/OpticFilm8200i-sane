@@ -1,0 +1,4546 @@
+/* sane - Scanner Access Now Easy.
+
+   Copyright (C) 2025 Christian Schaller
+
+   This file is part of the SANE package.
+
+   This library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   This library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with this library; if not, see
+   <https://www.gnu.org/licenses/>.
+
+   SPDX-License-Identifier: LGPL-2.1-or-later
+*/
+
+/*
+ * SANE backend for Plustek OpticFilm 8200i film scanner
+ *
+ * This is a MINIMAL driver for hardware testing of motor control
+ * ported from macOS driver.
+ *
+ * Current status:
+ * - Motor control ported and unit tested
+ * - Basic SANE backend structure (this file)
+ * - Ready for hardware validation
+ */
+
+#include <math.h>
+#include "plustek8200i.h"
+#include "plustek8200i-motor.h"
+#include "plustek8200i-motor-tables.h"
+#include "plustek8200i-dma.h"
+#include "plustek8200i-scan.h"
+#include "plustek8200i-shading.h"
+#include "plustek8200i-feed.h"
+#include "../include/sane/sanei_config.h"
+#include <sys/time.h>
+#include <limits.h>
+
+#ifndef PLUSTEK8200I_CONFIG_FILE
+#define PLUSTEK8200I_CONFIG_FILE "plustek8200i.conf"
+#endif
+
+/* Global variables */
+static int num_devices = 0;
+static plustek8200i_device_t *first_device = NULL;
+static const SANE_Device **device_list = NULL;
+
+/* String lists for SANE options */
+/*
+ * "Infrared" is the dust/scratch channel -- the "i" in 8200i. The IR
+ * LED is switched on, the white lamp off, and the AFE dropped to
+ * minimum gain; film dye is transparent to IR, so the dye image
+ * vanishes and only physical defects remain. Output is single-channel.
+ */
+static SANE_String_Const mode_list[] = {
+    "Color", "Gray", "Infrared", "Color+Infrared", NULL
+};
+/*
+ * "Color+Infrared" delivers two frames: the colour image (SANE_FRAME_RGB,
+ * last_frame FALSE), then, on the next sane_start, its infrared plane
+ * (SANE_FRAME_GRAY, last_frame TRUE), same size and pixel-aligned. The
+ * IR comes from an infrared pass made first (the one --ir-clean uses).
+ * SANE has no standard 4-channel format (SANE_FRAME_RGBI is under #if 0
+ * in sane.h), so this is the conforming way; scanimage only accepts
+ * extra R/G/B frames and cannot save it, a libsane client can.
+ * Internally the colour pass runs as MODE_COLOR with dev->opt_rgbi set.
+ */
+#define MODE_STR_RGBI  3
+
+#define MODE_COLOR     0
+#define MODE_GRAY      1
+#define MODE_INFRARED  2
+
+/*
+ * Supported resolutions.
+ *
+ * MEASURED: the horizontal sampling is DPISET * 6 dpi, and the line is
+ * DPISET * 8.64 px. Swept on the hardware and exactly linear:
+ *
+ *     DPISET   50 ->  432 px ->  300 dpi
+ *             100 ->  864 px ->  600 dpi
+ *             200 -> 1728 px -> 1200 dpi
+ *             400 -> 3456 px -> 2400 dpi
+ *
+ * 7200 dpi (DPISET 1200) WORKS as of c06379c: 10368x7755 px, ~118 s per
+ * scan. It had previously been recorded here as impossible -- the first
+ * bulk read failed and the scanner dropped off the USB bus -- but the
+ * cause was a 30 s read timeout expiring during the 57.5 s lead-in feed,
+ * not a hardware line-width limit. The fix was the longer first-read
+ * timeout plus SilverFast's 7200 line timing.
+ *
+ * Note that above PLUSTEK8200I_HW_LINE_DPI (1490) the VERTICAL sampling
+ * is set by line rate against motor speed, not by DPISET, so the higher
+ * entries are vertically upsampled to the resolution they report -- see
+ * plustek8200i_target_vdpi().
+ *
+ * 150 dpi is omitted: DPISET 25 gives 216 px, below the 216-px floor the
+ * scoring and registration tools assume, and it is trivially derived
+ * from 300 by the frontend anyway.
+ */
+static const SANE_Word resolution_list[] = {
+    6,     /* number of entries */
+    300, 600, 1200, 2400, 3600, 7200
+};
+
+static const SANE_Range exposure_range = {
+    SANE_FIX(1.0), SANE_FIX(PLUSTEK8200I_EXPOSURE_MAX), SANE_FIX(0.05)
+};
+
+static const SANE_Word bit_depth_list[] = {
+    2,     /* number of entries */
+    8, 16
+};
+
+/* Scan area range in mm (SANE_FIX format)
+ * Film frame: ~36mm x 24mm (35mm film)
+ * From plist PAGESIZE: 10368,7200 at UNITDPI=7200 → 36.58mm x 25.4mm */
+/*
+ * Geometry ranges carry NO quantisation step.
+ *
+ * SANE_FIX(0.1) is 6553/65536 = 0.09999, not 0.1, so a 0.1 mm step can
+ * never land exactly on the window maximum: a frontend that reads br-x
+ * and writes it back (scanimage does, every run) got a value a hair
+ * under the edge and lost the last pixel of every line. The driver
+ * converts mm to pixels in plustek8200i_crop_rect() anyway, so the
+ * advertised step bought nothing and cost a column and a row.
+ */
+static const SANE_Range x_range = {
+    SANE_FIX(0.0),
+    SANE_FIX(PLUSTEK8200I_WINDOW_W_MM),
+    0
+};
+
+static const SANE_Range y_range = {
+    SANE_FIX(0.0),
+    SANE_FIX(PLUSTEK8200I_WINDOW_H_MM),
+    0
+};
+
+static int update_option_deps(plustek8200i_device_t *dev);
+static void release_scan_resources(plustek8200i_device_t *dev);
+
+/*
+ * Initialize SANE option descriptors for a device
+ */
+static void
+init_options(plustek8200i_device_t *dev)
+{
+    SANE_Option_Descriptor *od;
+
+    /* Option 0: Number of options */
+    od = &dev->opt[OPT_NUM_OPTS];
+    od->name = SANE_NAME_NUM_OPTIONS;
+    od->title = SANE_TITLE_NUM_OPTIONS;
+    od->desc = SANE_DESC_NUM_OPTIONS;
+    od->type = SANE_TYPE_INT;
+    od->unit = SANE_UNIT_NONE;
+    od->size = sizeof(SANE_Int);
+    od->cap = SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_NONE;
+
+    /* Group: Mode */
+    od = &dev->opt[OPT_MODE_GROUP];
+    od->name = "";
+    od->title = "Scan Mode";
+    od->desc = "";
+    od->type = SANE_TYPE_GROUP;
+    od->unit = SANE_UNIT_NONE;
+    od->size = 0;
+    od->cap = 0;
+    od->constraint_type = SANE_CONSTRAINT_NONE;
+
+    /* Option: Color Mode */
+    od = &dev->opt[OPT_MODE];
+    od->name = SANE_NAME_SCAN_MODE;
+    od->title = SANE_TITLE_SCAN_MODE;
+    od->desc = "Selects the scan mode. Color+Infrared returns two frames, "
+               "the colour image and then its infrared plane (gray); "
+               "scanimage cannot save it (it aborts on the second frame).";
+    od->type = SANE_TYPE_STRING;
+    od->unit = SANE_UNIT_NONE;
+    od->size = 32;
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_STRING_LIST;
+    od->constraint.string_list = mode_list;
+
+    /* Option: Bit Depth */
+    od = &dev->opt[OPT_BIT_DEPTH];
+    od->name = SANE_NAME_BIT_DEPTH;
+    od->title = SANE_TITLE_BIT_DEPTH;
+    od->desc = SANE_DESC_BIT_DEPTH;
+    od->type = SANE_TYPE_INT;
+    od->unit = SANE_UNIT_NONE;
+    od->size = sizeof(SANE_Int);
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_WORD_LIST;
+    od->constraint.word_list = bit_depth_list;
+
+    /* Option: Resolution */
+    od = &dev->opt[OPT_RESOLUTION];
+    od->name = SANE_NAME_SCAN_RESOLUTION;
+    od->title = SANE_TITLE_SCAN_RESOLUTION;
+    od->desc = SANE_DESC_SCAN_RESOLUTION;
+    od->type = SANE_TYPE_INT;
+    od->unit = SANE_UNIT_DPI;
+    od->size = sizeof(SANE_Int);
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_WORD_LIST;
+    od->constraint.word_list = resolution_list;
+
+    /* Group: Geometry */
+    od = &dev->opt[OPT_IR_CLEAN];
+    od->name = "ir-clean";
+    od->title = SANE_I18N("Infrared dust removal");
+    od->desc = SANE_I18N("Make a second pass with infrared illumination "
+                         "and repair dust and scratches in the colour "
+                         "image. Doubles the scan time.");
+    od->type = SANE_TYPE_BOOL;
+    od->unit = SANE_UNIT_NONE;
+    od->size = sizeof(SANE_Bool);
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_NONE;
+
+    od = &dev->opt[OPT_AUTO_WB];
+    od->name = "auto-wb";
+    od->title = SANE_I18N("Automatic white balance");
+    od->desc = SANE_I18N("Scale the colour channels so their means match. "
+                         "Off delivers the sensor's calibrated response "
+                         "unchanged, which negative conversion and colour "
+                         "profiling need: the balance otherwise varies with "
+                         "picture content and clips highlights.");
+    od->type = SANE_TYPE_BOOL;
+    od->unit = SANE_UNIT_NONE;
+    od->size = sizeof(SANE_Bool);
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT | SANE_CAP_ADVANCED;
+    od->constraint_type = SANE_CONSTRAINT_NONE;
+
+    od = &dev->opt[OPT_EXPOSURE];
+    od->name = "exposure";
+    od->title = SANE_I18N("Exposure");
+    od->desc = SANE_I18N("Light integration time as a multiple of the "
+                         "default. Raises every channel by the same factor; "
+                         "the carriage slows down to keep the geometry, so "
+                         "the scan takes proportionally longer. For dense "
+                         "negatives and dark slides.");
+    od->type = SANE_TYPE_FIXED;
+    od->unit = SANE_UNIT_NONE;
+    od->size = sizeof(SANE_Fixed);
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_RANGE;
+    od->constraint.range = &exposure_range;
+
+    od = &dev->opt[OPT_GEOMETRY_GROUP];
+    od->name = "";
+    od->title = "Geometry";
+    od->desc = "";
+    od->type = SANE_TYPE_GROUP;
+    od->unit = SANE_UNIT_NONE;
+    od->size = 0;
+    od->cap = 0;
+    od->constraint_type = SANE_CONSTRAINT_NONE;
+
+    /* Option: Top-left X */
+    od = &dev->opt[OPT_TL_X];
+    od->name = SANE_NAME_SCAN_TL_X;
+    od->title = SANE_TITLE_SCAN_TL_X;
+    od->desc = SANE_DESC_SCAN_TL_X;
+    od->type = SANE_TYPE_FIXED;
+    od->unit = SANE_UNIT_MM;
+    od->size = sizeof(SANE_Fixed);
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_RANGE;
+    od->constraint.range = &x_range;
+
+    /* Option: Top-left Y */
+    od = &dev->opt[OPT_TL_Y];
+    od->name = SANE_NAME_SCAN_TL_Y;
+    od->title = SANE_TITLE_SCAN_TL_Y;
+    od->desc = SANE_DESC_SCAN_TL_Y;
+    od->type = SANE_TYPE_FIXED;
+    od->unit = SANE_UNIT_MM;
+    od->size = sizeof(SANE_Fixed);
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_RANGE;
+    od->constraint.range = &y_range;
+
+    /* Option: Bottom-right X */
+    od = &dev->opt[OPT_BR_X];
+    od->name = SANE_NAME_SCAN_BR_X;
+    od->title = SANE_TITLE_SCAN_BR_X;
+    od->desc = SANE_DESC_SCAN_BR_X;
+    od->type = SANE_TYPE_FIXED;
+    od->unit = SANE_UNIT_MM;
+    od->size = sizeof(SANE_Fixed);
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_RANGE;
+    od->constraint.range = &x_range;
+
+    /* Option: Bottom-right Y */
+    od = &dev->opt[OPT_BR_Y];
+    od->name = SANE_NAME_SCAN_BR_Y;
+    od->title = SANE_TITLE_SCAN_BR_Y;
+    od->desc = SANE_DESC_SCAN_BR_Y;
+    od->type = SANE_TYPE_FIXED;
+    od->unit = SANE_UNIT_MM;
+    od->size = sizeof(SANE_Fixed);
+    od->cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    od->constraint_type = SANE_CONSTRAINT_RANGE;
+    od->constraint.range = &y_range;
+
+    /* Set defaults */
+    dev->opt_resolution = 3600;
+    dev->opt_bit_depth = 16;
+    dev->opt_mode = 0;       /* Color */
+    dev->opt_ir_clean = SANE_FALSE;
+    dev->opt_auto_wb = SANE_FALSE;
+    dev->opt_exposure = SANE_FIX(1.0);
+    dev->in_ir_pass = 0;
+    dev->ir_map = NULL;
+    dev->ir_map_size = 0;
+    dev->opt_tl_x = SANE_FIX(0.0);
+    dev->opt_tl_y = SANE_FIX(0.0);
+    dev->opt_br_x = SANE_FIX(PLUSTEK8200I_WINDOW_W_MM);
+    dev->opt_br_y = SANE_FIX(PLUSTEK8200I_WINDOW_H_MM);
+
+    update_option_deps(dev);
+}
+
+/*
+ * Options whose relevance depends on the selected mode.
+ *
+ * --ir-clean repairs a dye image using the infrared pass, and --auto-wb
+ * balances three colour channels: in "Infrared" mode there is no dye image
+ * and only one channel, so both are meaningless. Marking them INACTIVE --
+ * rather than silently ignoring them later -- is what lets a GUI frontend
+ * grey them out instead of offering a control that does nothing.
+ *
+ * Returns non-zero if any descriptor changed, so the caller can raise
+ * SANE_INFO_RELOAD_OPTIONS.
+ */
+static int
+update_option_deps(plustek8200i_device_t *dev)
+{
+    SANE_Word before_ir = dev->opt[OPT_IR_CLEAN].cap;
+    SANE_Word before_wb = dev->opt[OPT_AUTO_WB].cap;
+
+    if (dev->opt_mode == MODE_INFRARED) {
+        dev->opt[OPT_IR_CLEAN].cap |= SANE_CAP_INACTIVE;
+        dev->opt[OPT_AUTO_WB].cap  |= SANE_CAP_INACTIVE;
+    } else {
+        dev->opt[OPT_IR_CLEAN].cap &= ~SANE_CAP_INACTIVE;
+        dev->opt[OPT_AUTO_WB].cap  &= ~SANE_CAP_INACTIVE;
+    }
+
+    return dev->opt[OPT_IR_CLEAN].cap != before_ir
+        || dev->opt[OPT_AUTO_WB].cap  != before_wb;
+}
+
+/* USB device matching callback */
+static SANE_Status
+usb_attach_callback(SANE_String_Const devname)
+{
+    plustek8200i_device_t *dev;
+
+    DBG(DBG_info, "usb_attach_callback: found device %s\n", devname);
+
+    /* Check if already in list */
+    for (dev = first_device; dev; dev = dev->next) {
+        if (strcmp(dev->sane.name, devname) == 0)
+            return SANE_STATUS_GOOD;  /* Already added */
+    }
+
+    /* Add new device */
+    dev = calloc(1, sizeof(*dev));
+    if (!dev)
+        return SANE_STATUS_NO_MEM;
+
+    dev->sane.name = strdup(devname);
+    dev->sane.vendor = "Plustek";
+    dev->sane.model = "OpticFilm 8200i";
+    dev->sane.type = "film scanner";
+    dev->usb_fd = -1;
+
+    dev->next = first_device;
+    first_device = dev;
+    num_devices++;
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * SANE API: sane_init
+ */
+SANE_Status
+sane_init(SANE_Int *version_code, SANE_Auth_Callback authorize)
+{
+    FILE *fp;
+
+    (void)authorize;  /* Unused */
+
+    DBG_INIT();
+    DBG(DBG_info, "sane_init: Plustek 8200i backend (macOS port)\n");
+
+    if (version_code)
+        *version_code = SANE_VERSION_CODE(SANE_CURRENT_MAJOR, V_MINOR, 0);
+
+    /* Initialize USB subsystem */
+    sanei_usb_init();
+
+    /*
+     * Read the installed plustek8200i.conf. It was being shipped and
+     * never opened, so a `usb VID PID' line -- the documented way to
+     * reach a relabelled unit or a new product ID -- had no effect at
+     * all. Device names and "usb VID PID" are both understood by
+     * sanei_usb_attach_matching_devices.
+     */
+    fp = sanei_config_open(PLUSTEK8200I_CONFIG_FILE);
+    if (fp) {
+        SANE_Char line[PATH_MAX];
+
+        while (sanei_config_read(line, sizeof(line), fp)) {
+            char *p = line;
+
+            while (*p == ' ' || *p == '\t')
+                p++;
+            if (*p == '#' || *p == '\0')
+                continue;
+            if (strncmp(p, "option", 6) == 0) {
+                DBG(DBG_info, "sane_init: %s: this backend implements no "
+                    "options, ignoring \"%s\"\n",
+                    PLUSTEK8200I_CONFIG_FILE, p);
+                continue;
+            }
+            DBG(DBG_info, "sane_init: config: \"%s\"\n", p);
+            sanei_usb_attach_matching_devices(p, usb_attach_callback);
+        }
+        fclose(fp);
+    } else {
+        DBG(DBG_info, "sane_init: no %s found, probing for the built-in "
+            "device ID only\n", PLUSTEK8200I_CONFIG_FILE);
+    }
+
+    /*
+     * Probe for the ID we actually support regardless, so the scanner is
+     * found whether or not a config file is installed.
+     * usb_attach_callback de-duplicates by device name.
+     */
+    sanei_usb_find_devices(0x07b3, 0x1825, usb_attach_callback);
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * SANE API: sane_exit
+ */
+void
+sane_exit(void)
+{
+    plustek8200i_device_t *dev, *next;
+
+    DBG(DBG_info, "sane_exit\n");
+
+    for (dev = first_device; dev; dev = next) {
+        next = dev->next;
+        /* A frontend is permitted to call sane_exit without closing each
+         * handle first. Freeing the device while its fd and scan buffers
+         * are still live would leak both for the life of the process --
+         * which for saned is the life of the daemon. */
+        if (dev->usb_fd >= 0)
+            sane_close(dev);
+        free((void *)dev->sane.name);
+        free(dev);
+    }
+
+    if (device_list)
+        free(device_list);
+
+    first_device = NULL;
+    device_list = NULL;
+    num_devices = 0;
+}
+
+/*
+ * SANE API: sane_get_devices
+ */
+SANE_Status
+sane_get_devices(const SANE_Device ***device_list_ptr, SANE_Bool local_only)
+{
+    plustek8200i_device_t *dev;
+    int i;
+
+    (void)local_only;  /* Unused */
+
+    DBG(DBG_info, "sane_get_devices: %d devices\n", num_devices);
+
+    /* Build device list array */
+    if (device_list) {
+        free(device_list);
+        device_list = NULL;
+    }
+
+    device_list = malloc((num_devices + 1) * sizeof(device_list[0]));
+    if (!device_list)
+        return SANE_STATUS_NO_MEM;
+
+    i = 0;
+    for (dev = first_device; dev; dev = dev->next) {
+        DBG(DBG_info, "sane_get_devices: adding device '%s'\n", dev->sane.name);
+        device_list[i++] = &dev->sane;
+    }
+    device_list[i] = NULL;
+
+    *device_list_ptr = device_list;
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * SANE API: sane_open
+ */
+SANE_Status
+sane_open(SANE_String_Const devicename, SANE_Handle *handle)
+{
+    plustek8200i_device_t *dev;
+    SANE_Status status;
+
+    DBG(DBG_info, "sane_open: %s\n", devicename ? devicename : "(null)");
+
+    /*
+     * An empty or NULL name -- or this backend's own name, which is what a
+     * frontend linked directly against the library tends to pass -- means
+     * "the default device". Any other name must match exactly. Falling
+     * back to the first device whenever the name did not match, as this
+     * used to, means a frontend that asked for one specific scanner
+     * silently gets a different one: worse than an honest error, and
+     * undiagnosable from the frontend's side.
+     */
+    if (!devicename || devicename[0] == '\0'
+        || strcmp(devicename, STRINGIFY(BACKEND_NAME)) == 0) {
+        dev = first_device;
+    } else {
+        for (dev = first_device; dev; dev = dev->next)
+            if (strcmp(dev->sane.name, devicename) == 0)
+                break;
+    }
+
+    if (!dev) {
+        DBG(DBG_error, "sane_open: no such device '%s'\n",
+            devicename ? devicename : "(null)");
+        return SANE_STATUS_INVAL;
+    }
+
+    /*
+     * The handle IS the device struct, so a second open of the same device
+     * would hand out an alias: both handles would share one usb_fd, one
+     * option set and one set of scan buffers, and the second open would
+     * leak the first fd. Refuse instead.
+     */
+    if (dev->usb_fd >= 0) {
+        DBG(DBG_info, "sane_open: device '%s' is already open\n",
+            dev->sane.name);
+        return SANE_STATUS_DEVICE_BUSY;
+    }
+
+    DBG(DBG_info, "sane_open: opening device '%s'\n", dev->sane.name);
+
+    /* Open USB device using the device name from enumeration */
+    status = sanei_usb_open(dev->sane.name, &dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "sane_open: USB open failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    DBG(DBG_info, "sane_open: USB device opened, fd=%d\n", dev->usb_fd);
+
+    /* Configure USB endpoints
+     *
+     * Scanner endpoints (from USB descriptor):
+     *   EP 0x81: Bulk IN  (scan data read)
+     *   EP 0x02: Bulk OUT (motor table write, etc.)
+     *   EP 0x83: Interrupt IN
+     */
+    sanei_usb_set_endpoint(dev->usb_fd,
+                           USB_DIR_IN | USB_ENDPOINT_TYPE_BULK, 0x81);
+    sanei_usb_set_endpoint(dev->usb_fd,
+                           USB_DIR_OUT | USB_ENDPOINT_TYPE_BULK, 0x02);
+    DBG(DBG_info, "sane_open: endpoints configured (bulk IN=0x81, bulk OUT=0x02)\n");
+
+    /* Initialize SANE options with defaults */
+    init_options(dev);
+
+    *handle = dev;
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * SANE API: sane_close
+ */
+void
+sane_close(SANE_Handle handle)
+{
+    plustek8200i_device_t *dev = handle;
+
+    DBG(DBG_info, "sane_close\n");
+
+    if (!dev)
+        return;
+
+    /*
+     * A frontend may close in the middle of a scan, or simply exit. Stop
+     * the pass through sane_cancel -- that is the path which knows not to
+     * cut the motor's power while the carriage is homing -- and then drop
+     * every buffer the pass owns. Closing only the fd, as this used to,
+     * leaks the frame buffer, the pipeline and the IR map: at 7200 dpi
+     * that is hundreds of megabytes per open/close cycle, and in saned
+     * those cycles accumulate for the lifetime of the daemon.
+     */
+    if (dev->scanning)
+        sane_cancel(dev);
+
+    release_scan_resources(dev);
+
+    if (dev->usb_fd >= 0) {
+        sanei_usb_close(dev->usb_fd);
+        dev->usb_fd = -1;
+    }
+}
+
+/*
+ * SANE API: sane_get_option_descriptor
+ */
+const SANE_Option_Descriptor *
+sane_get_option_descriptor(SANE_Handle handle, SANE_Int option)
+{
+    plustek8200i_device_t *dev = handle;
+
+    if (option < 0 || option >= NUM_OPTIONS)
+        return NULL;
+
+    return &dev->opt[option];
+}
+
+/*
+ * SANE API: sane_control_option
+ */
+SANE_Status
+sane_control_option(SANE_Handle handle, SANE_Int option,
+                   SANE_Action action, void *value, SANE_Int *info)
+{
+    plustek8200i_device_t *dev = handle;
+
+    if (info)
+        *info = 0;
+
+    if (option < 0 || option >= NUM_OPTIONS)
+        return SANE_STATUS_INVAL;
+
+    /* Groups have no value */
+    if (dev->opt[option].type == SANE_TYPE_GROUP)
+        return SANE_STATUS_INVAL;
+
+    if (action == SANE_ACTION_GET_VALUE) {
+        switch (option) {
+        case OPT_NUM_OPTS:
+            *(SANE_Int *)value = NUM_OPTIONS;
+            return SANE_STATUS_GOOD;
+        case OPT_MODE:
+            strcpy(value, dev->opt_rgbi ? mode_list[MODE_STR_RGBI]
+                                        : mode_list[dev->opt_mode]);
+            return SANE_STATUS_GOOD;
+        case OPT_IR_CLEAN:
+            *(SANE_Bool *)value = dev->opt_ir_clean;
+            return SANE_STATUS_GOOD;
+        case OPT_AUTO_WB:
+            *(SANE_Bool *)value = dev->opt_auto_wb;
+            return SANE_STATUS_GOOD;
+        case OPT_EXPOSURE:
+            *(SANE_Fixed *)value = dev->opt_exposure;
+            return SANE_STATUS_GOOD;
+
+        case OPT_BIT_DEPTH:
+            *(SANE_Int *)value = dev->opt_bit_depth;
+            return SANE_STATUS_GOOD;
+        case OPT_RESOLUTION:
+            *(SANE_Int *)value = dev->opt_resolution;
+            return SANE_STATUS_GOOD;
+        case OPT_TL_X:
+            *(SANE_Fixed *)value = dev->opt_tl_x;
+            return SANE_STATUS_GOOD;
+        case OPT_TL_Y:
+            *(SANE_Fixed *)value = dev->opt_tl_y;
+            return SANE_STATUS_GOOD;
+        case OPT_BR_X:
+            *(SANE_Fixed *)value = dev->opt_br_x;
+            return SANE_STATUS_GOOD;
+        case OPT_BR_Y:
+            *(SANE_Fixed *)value = dev->opt_br_y;
+            return SANE_STATUS_GOOD;
+        default:
+            return SANE_STATUS_INVAL;
+        }
+    }
+
+    if (action == SANE_ACTION_SET_VALUE) {
+        SANE_Status cst;
+
+        if (dev->scanning)
+            return SANE_STATUS_DEVICE_BUSY;
+        if (!value)
+            return SANE_STATUS_INVAL;
+        if (!SANE_OPTION_IS_SETTABLE(dev->opt[option].cap))
+            return SANE_STATUS_INVAL;
+
+        /*
+         * Enforce the constraint the descriptor already advertises: clamp
+         * to the range, snap to the quantisation or word list, validate
+         * against the string list, and raise SANE_INFO_INEXACT when the
+         * value had to move. Without this the descriptors promise limits
+         * that the setter ignores, so e.g. --depth 12 or --resolution
+         * 5000 reach the geometry maths and yield a frame whose
+         * bytes_per_line no frontend can parse.
+         */
+        cst = sanei_constrain_value(&dev->opt[option], value, info);
+        if (cst != SANE_STATUS_GOOD)
+            return cst;
+
+        switch (option) {
+        case OPT_MODE:
+            dev->opt_rgbi = 0;
+            if (strcmp(value, "Color") == 0)
+                dev->opt_mode = MODE_COLOR;
+            else if (strcmp(value, mode_list[MODE_STR_RGBI]) == 0) {
+                dev->opt_mode = MODE_COLOR;
+                dev->opt_rgbi = 1;
+            }
+            else if (strcmp(value, "Gray") == 0)
+                dev->opt_mode = MODE_GRAY;
+            else if (strcmp(value, "Infrared") == 0)
+                dev->opt_mode = MODE_INFRARED;
+            else
+                return SANE_STATUS_INVAL;
+            if (info) {
+                *info |= SANE_INFO_RELOAD_PARAMS;
+                if (update_option_deps(dev))
+                    *info |= SANE_INFO_RELOAD_OPTIONS;
+            } else {
+                update_option_deps(dev);
+            }
+            return SANE_STATUS_GOOD;
+
+
+        case OPT_BIT_DEPTH:
+            dev->opt_bit_depth = *(SANE_Int *)value;
+            if (info)
+                *info |= SANE_INFO_RELOAD_PARAMS;
+            return SANE_STATUS_GOOD;
+
+        case OPT_IR_CLEAN:
+            dev->opt_ir_clean = *(SANE_Bool *)value;
+            DBG(DBG_info, "ir-clean set to %d\n", dev->opt_ir_clean);
+            return SANE_STATUS_GOOD;
+
+        case OPT_AUTO_WB:
+            dev->opt_auto_wb = *(SANE_Bool *)value;
+            return SANE_STATUS_GOOD;
+
+        case OPT_EXPOSURE: {
+            SANE_Fixed v = *(SANE_Fixed *)value;
+            if (v < exposure_range.min || v > exposure_range.max)
+                return SANE_STATUS_INVAL;
+            dev->opt_exposure = v;
+            return SANE_STATUS_GOOD;
+        }
+
+        case OPT_RESOLUTION:
+            dev->opt_resolution = *(SANE_Int *)value;
+            if (info)
+                *info |= SANE_INFO_RELOAD_PARAMS;
+            return SANE_STATUS_GOOD;
+
+        case OPT_TL_X:
+            dev->opt_tl_x = *(SANE_Fixed *)value;
+            if (info)
+                *info |= SANE_INFO_RELOAD_PARAMS;
+            return SANE_STATUS_GOOD;
+        case OPT_TL_Y:
+            dev->opt_tl_y = *(SANE_Fixed *)value;
+            if (info)
+                *info |= SANE_INFO_RELOAD_PARAMS;
+            return SANE_STATUS_GOOD;
+        case OPT_BR_X:
+            dev->opt_br_x = *(SANE_Fixed *)value;
+            if (info)
+                *info |= SANE_INFO_RELOAD_PARAMS;
+            return SANE_STATUS_GOOD;
+        case OPT_BR_Y:
+            dev->opt_br_y = *(SANE_Fixed *)value;
+            if (info)
+                *info |= SANE_INFO_RELOAD_PARAMS;
+            return SANE_STATUS_GOOD;
+
+        default:
+            return SANE_STATUS_INVAL;
+        }
+    }
+
+    return SANE_STATUS_UNSUPPORTED;
+}
+
+/*
+ * SANE API: sane_get_parameters
+ *
+ * Computes image dimensions from current scan options.
+ *
+ * Register names (see the note at the register definitions in plustek8200i.h):
+ *   Reg 0x16-0x17 DPISW[11:0]: Software DPI select
+ *   Reg 0x1E-0x1F STRPIXEL[12:0]: Scan start pixel
+ *   Reg 0x20-0x21 ENDPIXEL[12:0]: Scan end pixel
+ *   Reg 0x25-0x27 LINCNT[19:0]: Scan line count
+ *
+ * Pixel count formula:
+ *   pixels = (scan_width_mm / 25.4) * resolution
+ *   lines  = (scan_height_mm / 25.4) * resolution
+ */
+/*
+ * Requested scan area in output pixels of a full window fw x fh.
+ * Always at least one pixel, always inside the window.
+ */
+static void
+plustek8200i_crop_rect(plustek8200i_device_t *dev, int fw, int fh,
+                       int *x0, int *y0, int *x1, int *y1)
+{
+    double k = dev->opt_resolution / 25.4;
+    int a = (int)(SANE_UNFIX(dev->opt_tl_x) * k);
+    int b = (int)(SANE_UNFIX(dev->opt_tl_y) * k);
+    int e = (int)(SANE_UNFIX(dev->opt_br_x) * k + 0.5);
+    int f = (int)(SANE_UNFIX(dev->opt_br_y) * k + 0.5);
+
+    /* br at the range maximum means "to the edge", whatever the exact
+     * window size at this resolution. */
+    if (dev->opt_br_x >= SANE_FIX(PLUSTEK8200I_WINDOW_W_MM)) e = fw;
+    if (dev->opt_br_y >= SANE_FIX(PLUSTEK8200I_WINDOW_H_MM)) f = fh;
+    if (a < 0) a = 0;
+    if (b < 0) b = 0;
+    if (e > fw) e = fw;
+    if (f > fh) f = fh;
+    if (a > fw - 1) a = fw - 1;
+    if (b > fh - 1) b = fh - 1;
+    if (e <= a) e = a + 1;
+    if (f <= b) f = b + 1;
+    *x0 = a; *y0 = b; *x1 = e; *y1 = f;
+}
+
+SANE_Status
+sane_get_parameters(SANE_Handle handle, SANE_Parameters *params)
+{
+    plustek8200i_device_t *dev = handle;
+    int channels, bytes_per_sample;
+
+    DBG(DBG_info, "sane_get_parameters\n");
+
+    if (!params)
+        return SANE_STATUS_INVAL;
+
+    /* If scanning is active, return params set by sane_start (which uses
+     * the actual hardware DPISET, not opt_resolution). Recomputing here
+     * would overwrite the correct values with wrong dimensions. */
+    if (dev->scanning) {
+        *params = dev->params;
+        DBG(DBG_info, "Image (active scan): %d x %d pixels, %d bytes/line, depth=%d\n",
+            dev->params.pixels_per_line, dev->params.lines,
+            dev->params.bytes_per_line, dev->params.depth);
+        return SANE_STATUS_GOOD;
+    }
+
+    /* Estimate from the measured full window, then the crop. Exact
+     * values are set by sane_start once the scan has been made. */
+    {
+        int x0, y0, x1, y1;
+        int fw = plustek8200i_full_frame_pixels(dev->opt_resolution);
+        int fh = plustek8200i_full_frame_lines(dev->opt_resolution);
+        plustek8200i_crop_rect(dev, fw, fh, &x0, &y0, &x1, &y1);
+        dev->params.pixels_per_line = x1 - x0;
+        dev->params.lines = y1 - y0;
+    }
+
+    /* Color mode determines the delivered format. The hardware always
+     * reads three channels; Gray and Infrared are averaged afterwards. */
+    if (dev->opt_mode == MODE_COLOR) {
+        dev->params.format = SANE_FRAME_RGB;
+        channels = 3;
+    } else {
+        dev->params.format = SANE_FRAME_GRAY;
+        channels = 1;
+    }
+
+    dev->params.last_frame = dev->opt_rgbi ? SANE_FALSE : SANE_TRUE;
+    dev->params.depth = dev->opt_bit_depth;
+
+    bytes_per_sample = (dev->opt_bit_depth == 16) ? 2 : 1;
+    dev->params.bytes_per_line = dev->params.pixels_per_line * channels * bytes_per_sample;
+
+    *params = dev->params;
+
+    DBG(DBG_info, "Image: %d x %d pixels, %d bytes/line, depth=%d, %s\n",
+        dev->params.pixels_per_line, dev->params.lines,
+        dev->params.bytes_per_line, dev->params.depth,
+        dev->opt_rgbi ? mode_list[MODE_STR_RGBI] : mode_list[dev->opt_mode]);
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * SANE API: sane_start
+ */
+/*
+ * Infrared defect detection on dev->ir_map (the IR pass's output, `lines`
+ * rows of scan_pixels 16-bit samples): flat-fields it, then overwrites it
+ * with a mark map (0 = defect, 65535 = clean) and sets the interior
+ * bounds dev->ir_r0..ir_r1 / ir_c0..ir_c1. Returns 0 if repair can run.
+ * Split from the repair so a streamed scan can prepare up front and
+ * repair line by line.
+ */
+static int
+plustek8200i_ir_prepare(plustek8200i_device_t *dev, int lines)
+{
+    int px = dev->scan_pixels;
+    int y, x;
+
+    dev->ir_ready = 0;
+    dev->ir_marked = dev->ir_repaired = 0;
+    /*
+     * Defect detection, on the frame INTERIOR only.
+     *
+     * Statistics over the whole IR frame are useless: the dark
+     * border around the film is ~13% of the image and sits
+     * near zero, so any global threshold marks all of it and
+     * the run-length filter ends up doing the real work.
+     * Measured on a real frame, a global threshold marked
+     * 13-14% whatever the multiplier. Restricted to the
+     * interior the same data gives 0.7% marked and 0.09%
+     * repaired at k=5, which matches the independent defect
+     * count of ~0.1%.
+     *
+     * Median and MAD rather than mean and sd, because a few
+     * opaque specks should not move the baseline.
+     */
+    uint16_t *ir = (uint16_t *)dev->ir_map;
+    static uint32_t hist[65536];
+    int r0 = 0, r1 = lines, c0 = 0, c1 = px;
+    size_t acc, i, n;
+    double median, mad, thr;
+    uint32_t gmed;
+
+    /* Rough global median, to locate the lit area. */
+    memset(hist, 0, sizeof(hist));
+    for (i = 0; i < (size_t)px * lines; i++) hist[ir[i]]++;
+    acc = 0;
+    for (i = 0; i < 65536; i++) {
+        acc += hist[i];
+        if (acc >= (size_t)px * lines / 2) break;
+    }
+    gmed = (uint32_t)i;
+
+    /* Frame interior: rows and columns mostly above half that. */
+    {
+        uint32_t lim = gmed / 2;
+        int yy, xx, cnt;
+        for (yy = 0; yy < lines; yy++) {
+            cnt = 0;
+            for (xx = 0; xx < px; xx++)
+                if (ir[(size_t)yy * px + xx] > lim) cnt++;
+            if (cnt * 2 > px) { r0 = yy; break; }
+        }
+        for (yy = lines - 1; yy > r0; yy--) {
+            cnt = 0;
+            for (xx = 0; xx < px; xx++)
+                if (ir[(size_t)yy * px + xx] > lim) cnt++;
+            if (cnt * 2 > px) { r1 = yy + 1; break; }
+        }
+        for (xx = 0; xx < px; xx++) {
+            cnt = 0;
+            for (yy = r0; yy < r1; yy++)
+                if (ir[(size_t)yy * px + xx] > lim) cnt++;
+            if (cnt * 2 > (r1 - r0)) { c0 = xx; break; }
+        }
+        for (xx = px - 1; xx > c0; xx--) {
+            cnt = 0;
+            for (yy = r0; yy < r1; yy++)
+                if (ir[(size_t)yy * px + xx] > lim) cnt++;
+            if (cnt * 2 > (r1 - r0)) { c1 = xx + 1; break; }
+        }
+    }
+    n = (size_t)(r1 - r0) * (c1 - c0);
+    if (n < 1024) {
+        DBG(DBG_info, "IR clean: no usable frame interior; "
+            "skipping repair\n");
+        return -1;
+    }
+
+    /* Interior median, then MAD about it. */
+    memset(hist, 0, sizeof(hist));
+    for (y = r0; y < r1; y++)
+        for (x = c0; x < c1; x++) hist[ir[(size_t)y * px + x]]++;
+    acc = 0;
+    for (i = 0; i < 65536; i++) {
+        acc += hist[i];
+        if (acc >= n / 2) break;
+    }
+    median = (double)i;
+    {
+        static uint32_t dh[65536];
+        size_t j;
+        memset(dh, 0, sizeof(dh));
+        for (j = 0; j < 65536; j++) {
+            long d;
+            if (!hist[j]) continue;
+            d = (long)j - (long)median;
+            if (d < 0) d = -d;
+            if (d > 65535) d = 65535;
+            dh[d] += hist[j];
+        }
+        acc = 0;
+        for (j = 0; j < 65536; j++) {
+            acc += dh[j];
+            if (acc >= n / 2) break;
+        }
+        mad = (double)j * 1.4826;
+    }
+    if (mad < 1.0) mad = 1.0;
+    thr = median - 5.0 * mad;
+    if (thr < 0.0) thr = 0.0;
+
+    /*
+     * Flat-field before thresholding.
+     *
+     * The IR illumination falls off by ~29% towards the left
+     * edge of the line (column profile min/max 0.71 measured at
+     * 600 dpi), so one global threshold marked the dim edge
+     * columns as defects: 4.3% of the frame marked, 80% of it
+     * in the leftmost 5% of columns. Dividing by the frame's own
+     * smoothed column and row profiles removes the falloff;
+     * defects are judged against the local level instead.
+     * Profiles are box-smoothed over 1/16 of the frame so a
+     * hair or scratch cannot pull its own column's level down.
+     *
+     * The interior is also trimmed by 2 px: its outermost
+     * pixels are half-lit and read as a ring of false marks.
+     */
+    if (c1 - c0 > 64 && r1 - r0 > 64) {
+        c0 += 2; c1 -= 2; r0 += 2; r1 -= 2;
+    }
+    {
+        int nc = c1 - c0, nr = r1 - r0, j, wc, wr;
+        double *colp = calloc(nc, sizeof(double));
+        double *cols = calloc(nc, sizeof(double));
+        double *rowp = calloc(nr, sizeof(double));
+        double *rows = calloc(nr, sizeof(double));
+        double nmed, nmad;
+        size_t nn = 0;
+
+        if (!colp || !cols || !rowp || !rows) {
+            free(colp); free(cols); free(rowp); free(rows);
+            DBG(DBG_info, "IR clean: out of memory\n");
+            return -1;
+        }
+        for (x = 0; x < nc; x++) {
+            double s = 0;
+            for (y = r0; y < r1; y++) s += ir[(size_t)y * px + c0 + x];
+            colp[x] = s / nr;
+        }
+        wc = (nc / 16 > 31 ? nc / 16 : 31) | 1;
+        for (x = 0; x < nc; x++) {
+            double s = 0;
+            for (j = -wc / 2; j <= wc / 2; j++) {
+                int k = x + j;
+                if (k < 0) k = 0;
+                if (k >= nc) k = nc - 1;
+                s += colp[k];
+            }
+            cols[x] = s / wc;
+            if (cols[x] < 1.0) cols[x] = 1.0;
+        }
+        for (y = 0; y < nr; y++) {
+            double s = 0;
+            for (x = 0; x < nc; x++)
+                s += ir[(size_t)(r0 + y) * px + c0 + x] / cols[x];
+            rowp[y] = s / nc;
+        }
+        wr = (nr / 16 > 31 ? nr / 16 : 31) | 1;
+        for (y = 0; y < nr; y++) {
+            double s = 0;
+            for (j = -wr / 2; j <= wr / 2; j++) {
+                int k = y + j;
+                if (k < 0) k = 0;
+                if (k >= nr) k = nr - 1;
+                s += rowp[k];
+            }
+            rows[y] = s / wr;
+            if (rows[y] < 1e-6) rows[y] = 1e-6;
+        }
+
+        /* Median and MAD of the normalised frame, 1.0 = 32768. */
+        memset(hist, 0, sizeof(hist));
+        for (y = 0; y < nr; y++)
+            for (x = 0; x < nc; x++) {
+                double v = ir[(size_t)(r0 + y) * px + c0 + x]
+                           / (cols[x] * rows[y]) * 32768.0;
+                if (v < 0) v = 0;
+                if (v > 65535) v = 65535;
+                hist[(int)v]++;
+                nn++;
+            }
+        acc = 0;
+        for (i = 0; i < 65536; i++) {
+            acc += hist[i];
+            if (acc >= nn / 2) break;
+        }
+        nmed = (double)i;
+        {
+            static uint32_t dh2[65536];
+            size_t q;
+            memset(dh2, 0, sizeof(dh2));
+            for (q = 0; q < 65536; q++) {
+                long d;
+                if (!hist[q]) continue;
+                d = (long)q - (long)nmed;
+                if (d < 0) d = -d;
+                if (d > 65535) d = 65535;
+                dh2[d] += hist[q];
+            }
+            acc = 0;
+            for (q = 0; q < 65536; q++) {
+                acc += dh2[q];
+                if (acc >= nn / 2) break;
+            }
+            nmad = (double)q;
+        }
+        if (nmad < 1.0) nmad = 1.0;
+
+        /*
+         * k = 10 on the flat-fielded MAD. With the falloff gone
+         * the MAD is ~0.7% instead of ~3.8%, so the old k = 5
+         * would mark grain; at k = 10 the marks are specks and
+         * hairs (checked visually on the tulip frame).
+         */
+        {
+            double tf = (nmed - 10.0 * nmad) / 32768.0;
+            uint16_t *lvl = malloc((size_t)nc * nr * sizeof(uint16_t));
+            if (!lvl) {
+                free(colp); free(cols); free(rowp); free(rows);
+                return -1;
+            }
+            /* Per-pixel threshold, stored in place of the IR so
+             * the repair loop below compares against it. */
+            for (y = 0; y < nr; y++)
+                for (x = 0; x < nc; x++) {
+                    double t = cols[x] * rows[y] * tf;
+                    size_t p = (size_t)(r0 + y) * px + c0 + x;
+                    /* 1 = defective, 0 = clean */
+                    lvl[(size_t)y * nc + x] = (ir[p] < t) ? 1 : 0;
+                }
+            for (y = 0; y < nr; y++)
+                for (x = 0; x < nc; x++)
+                    ir[(size_t)(r0 + y) * px + c0 + x] =
+                        lvl[(size_t)y * nc + x] ? 0 : 65535;
+            free(lvl);
+            DBG(DBG_info, "IR clean: flat-fielded median %.4f "
+                "mad %.4f, defect depth %.1f%% below local level\n",
+                nmed / 32768.0, nmad / 32768.0,
+                100.0 * (1.0 - tf));
+        }
+        {
+            double lo = 1e30, hi = 0;
+            for (x = 0; x < nc; x++) {
+                if (cols[x] < lo) lo = cols[x];
+                if (cols[x] > hi) hi = cols[x];
+            }
+            DBG(DBG_info, "IR clean: column profile min/max %.3f\n",
+                hi > 0 ? lo / hi : 0.0);
+        }
+        free(colp); free(cols); free(rowp); free(rows);
+        thr = 32767.0;   /* ir now holds 0 = defect, 65535 = clean */
+    }
+
+    dev->ir_r0 = r0; dev->ir_r1 = r1; dev->ir_c0 = c0; dev->ir_c1 = c1;
+    dev->ir_n = n;
+    dev->ir_median = median; dev->ir_mad = mad;
+    dev->ir_ready = 1;
+    (void)thr;
+    return 0;
+}
+
+/* Repair one output row of the colour image from the mark map. */
+static void
+plustek8200i_ir_repair_row(plustek8200i_device_t *dev, int y, uint16_t *row)
+{
+    int px = dev->scan_pixels, r0 = dev->ir_r0, r1 = dev->ir_r1;
+    int c0 = dev->ir_c0, c1 = dev->ir_c1, x;
+    const uint16_t *irow;
+
+    if (!dev->ir_ready || y < r0 || y >= r1)
+        return;
+    irow = (const uint16_t *)dev->ir_map + (size_t)y * px;
+    x = c0;
+    while (x < c1) {
+        int x0, x1, c;
+        if (irow[x] >= 32767) { x++; continue; }
+        x0 = x;
+        while (x < c1 && irow[x] < 32767) x++;
+        x1 = x;                     /* [x0, x1) is defective */
+        dev->ir_marked += x1 - x0;
+        /*
+         * Wide runs are damage or shading, not a speck. Interpolating
+         * across them smears real detail -- at a looser setting this
+         * produced visible coloured streaks across the frame. Leave them.
+         */
+        if (x1 - x0 > (c1 - c0) / 32) continue;
+        for (c = 0; c < 3; c++) {
+            int lo = (x0 > c0) ? row[(x0 - 1) * 3 + c] : -1;
+            int hi = (x1 < c1) ? row[x1 * 3 + c] : -1;
+            int i2;
+            if (lo < 0 && hi < 0) continue;
+            if (lo < 0) lo = hi;
+            if (hi < 0) hi = lo;
+            for (i2 = x0; i2 < x1; i2++)
+                row[i2 * 3 + c] = (uint16_t)
+                    (lo + (hi - lo) * (i2 - x0 + 1) / (x1 - x0 + 1));
+        }
+        dev->ir_repaired += x1 - x0;
+    }
+}
+
+static void
+plustek8200i_ir_report(plustek8200i_device_t *dev)
+{
+    DBG(DBG_info, "IR clean: interior %dx%d, median %.0f mad %.0f; "
+        "%d px marked, %d repaired (%.3f%%)\n",
+        dev->ir_c1 - dev->ir_c0, dev->ir_r1 - dev->ir_r0,
+        dev->ir_median, dev->ir_mad, dev->ir_marked, dev->ir_repaired,
+        dev->ir_n ? 100.0 * dev->ir_repaired / (double)dev->ir_n : 0.0);
+}
+
+/*
+ * Line-by-line image pipeline, used to stream a scan from sane_read.
+ *
+ * The same stages, in the same order and with the same rounding, as the
+ * full-buffer post-processing at the end of start_scan: vertical area-
+ * average resample (rounded to 16 bit per resampled row), channel
+ * registration (red from row y - s, blue from row y + s, clamped at the
+ * edges), horizontal mirror, Gray/IR averaging, IR repair. Auto white
+ * balance needs the whole image and is not part of it.
+ */
+/* Raw line i: the flat buffer, or slot i mod p_ring_lines of the ring
+ * the streaming path reads into. */
+static inline const uint8_t *
+pipe_raw_line(plustek8200i_device_t *dev, int i)
+{
+    size_t slot = dev->p_ring_lines ? (size_t)(i % dev->p_ring_lines) : (size_t)i;
+    return dev->p_raw + slot * dev->p_raw_line_bytes;
+}
+
+static void
+pipe_resample_row(plustek8200i_device_t *dev, int k, uint16_t *out)
+{
+    int ncomp = dev->p_raw_line_bytes / 2, x, i;
+    double v = dev->p_vsquash;
+
+    if (v <= 1.01) {
+        memcpy(out, pipe_raw_line(dev, k), dev->p_raw_line_bytes);
+        return;
+    }
+    {
+        double y0 = k * v, y1 = (k + 1) * v, wsum = 0.0;
+        int i0 = (int)y0, i1 = (int)(y1 - 1e-9);
+        double *acc = dev->p_acc;
+
+        memset(acc, 0, ncomp * sizeof(double));
+        if (i1 >= dev->p_raw_lines) i1 = dev->p_raw_lines - 1;
+        for (i = i0; i <= i1; i++) {
+            double lo = (i > y0) ? i : y0;
+            double hi = ((i + 1) < y1) ? (i + 1) : y1;
+            double w = hi - lo;
+            const uint16_t *src;
+            if (w <= 0) continue;
+            src = (const uint16_t *)pipe_raw_line(dev, i);
+            for (x = 0; x < ncomp; x++) acc[x] += w * src[x];
+            wsum += w;
+        }
+        for (x = 0; x < ncomp; x++) {
+            double val = wsum > 0 ? acc[x] / wsum : 0.0;
+            out[x] = wsum > 0 ? ((val > 65535.0) ? 65535 : (uint16_t)(val + 0.5)) : 0;
+        }
+    }
+}
+
+/* Oldest raw line output line y still reads (for the ring). */
+static int
+pipe_raw_oldest(plustek8200i_device_t *dev, int y)
+{
+    int k = y - dev->p_shift;
+    if (k < 0) k = 0;
+    return dev->p_vsquash <= 1.01 ? k : (int)(k * dev->p_vsquash);
+}
+
+/* Raw lines that must be in p_raw before output line y can be built. */
+static int
+pipe_raw_needed(plustek8200i_device_t *dev, int y)
+{
+    int k = y + dev->p_shift, n;
+    if (k > dev->p_res_lines - 1) k = dev->p_res_lines - 1;
+    if (dev->p_vsquash <= 1.01)
+        n = k + 1;
+    else
+        n = (int)((k + 1) * dev->p_vsquash - 1e-9) + 1;
+    return n > dev->p_raw_lines ? dev->p_raw_lines : n;
+}
+
+/* Build output line y (full width, before cropping) into out:
+ * px*3 samples for Color, px for Gray/Infrared. */
+static void
+pipe_line(plustek8200i_device_t *dev, int y, uint16_t *out)
+{
+    int px = dev->scan_pixels, s = dev->p_shift, x, c;
+    int L = dev->p_res_lines;
+    uint16_t *row = dev->p_row, *tmp = dev->p_tmp;
+
+    pipe_resample_row(dev, y, row);
+    if (s > 0) {
+        int yr = y >= s ? y - s : 0, yb = y + s < L ? y + s : L - 1;
+        int px3 = (dev->p_raw_line_bytes / 2) - (dev->p_raw_line_bytes / 2) % 3;
+        pipe_resample_row(dev, yr, tmp);
+        for (x = 0; x < px3; x += 3) row[x] = tmp[x];
+        pipe_resample_row(dev, yb, tmp);
+        for (x = 2; x < px3; x += 3) row[x] = tmp[x];
+    }
+    if (!plustek8200i_use_legacy_ccd()) {
+        for (x = 0; x < px / 2; x++) {
+            int o = px - 1 - x;
+            for (c = 0; c < 3; c++) {
+                uint16_t t = row[x * 3 + c];
+                row[x * 3 + c] = row[o * 3 + c];
+                row[o * 3 + c] = t;
+            }
+        }
+    }
+    if (dev->opt_mode == MODE_COLOR) {
+        if (dev->ir_ready)
+            plustek8200i_ir_repair_row(dev, y, row);
+        memcpy(out, row, (size_t)px * 3 * 2);
+    } else if (dev->opt_mode == MODE_INFRARED) {
+        for (x = 0; x < px; x++) {
+            double v = (row[x * 3] + row[x * 3 + 1] + row[x * 3 + 2])
+                       / 3.0 * dev->ir_scale;
+            out[x] = v > 65535.0 ? 65535 : (uint16_t)(v + 0.5);
+        }
+    } else {
+        for (x = 0; x < px; x++)
+            out[x] = (uint16_t)((row[x * 3] * 299u + row[x * 3 + 1] * 587u +
+                                 row[x * 3 + 2] * 114u) / 1000u);
+    }
+}
+
+/* Set up the pipeline over a raw buffer of raw_lines lines. */
+static int
+pipe_setup(plustek8200i_device_t *dev, uint8_t *raw, int raw_lines, int raw_line_bytes)
+{
+    int rdpi = dev->opt_resolution;
+    int ncomp = raw_line_bytes / 2;
+
+    if (rdpi != 300 && rdpi != 600 && rdpi != 1200 &&
+        rdpi != 2400 && rdpi != 3600 && rdpi != 7200) rdpi = 600;
+    dev->p_raw = raw;
+    dev->p_ring_lines = 0;
+    dev->p_raw_lines = raw_lines;
+    dev->p_raw_line_bytes = raw_line_bytes;
+    dev->p_vsquash = plustek8200i_use_legacy_ccd()
+        ? 1.0 : (double)plustek8200i_target_vdpi(rdpi) / (double)rdpi;
+    dev->p_res_lines = dev->p_vsquash <= 1.01 ? raw_lines
+                       : (int)(raw_lines / dev->p_vsquash);
+    if (dev->p_res_lines < 1) dev->p_res_lines = 1;
+    dev->p_shift = dev->opt_resolution / 300;
+    if (!(dev->p_shift > 0 && dev->p_res_lines > 2 * dev->p_shift && ncomp >= 3))
+        dev->p_shift = 0;
+    free(dev->p_acc); free(dev->p_row); free(dev->p_tmp);
+    dev->p_acc = calloc(ncomp, sizeof(double));
+    dev->p_row = calloc(ncomp, sizeof(uint16_t));
+    dev->p_tmp = calloc(ncomp, sizeof(uint16_t));
+    return (dev->p_acc && dev->p_row && dev->p_tmp) ? 0 : -1;
+}
+
+static void
+pipe_free(plustek8200i_device_t *dev)
+{
+    free(dev->p_acc); free(dev->p_row); free(dev->p_tmp);
+    dev->p_acc = NULL; dev->p_row = NULL; dev->p_tmp = NULL;
+    /* p_raw is always an alias (image_buffer, or a caller's ring buffer)
+     * and is never owned here -- but it must still be dropped, or it is
+     * left dangling once that owner frees it. */
+    dev->p_raw = NULL;
+    dev->p_raw_lines = dev->p_ring_lines = 0;
+}
+
+/*
+ * Streaming. start_scan programs everything, issues the image START and
+ * returns; sane_read then pulls raw chunks from USB only as far as the
+ * next output line needs, builds that line with pipe_line, crops it and
+ * hands it out. A frontend therefore receives data -- and can show
+ * progress -- while the carriage moves, instead of nothing until the
+ * whole frame has been read and processed. Used unless the full image is
+ * needed first (--auto-wb, the --ir-clean infrared pre-pass, the raw
+ * dump and the equivalence check) or PLUSTEK8200I_STREAM=0.
+ */
+static double
+now_s(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + tv.tv_usec / 1e6;
+}
+
+static void
+stream_cleanup(plustek8200i_device_t *dev)
+{
+    pipe_free(dev);
+    free(dev->s_full);
+    free(dev->s_out);
+    dev->s_full = NULL;
+    dev->s_out = NULL;
+    free(dev->s_ir);
+    dev->s_ir = NULL;
+    free(dev->s_stage);
+    dev->s_stage = NULL;
+    free(dev->image_buffer);
+    dev->image_buffer = NULL;
+    dev->buffer_size = 0;
+    free(dev->ir_map);
+    dev->ir_map = NULL;
+    dev->ir_map_size = 0;
+    dev->ir_ready = 0;
+    dev->streaming = 0;
+}
+
+/*
+ * Release everything a scan pass allocated, whatever path it died on.
+ * stream_cleanup() covers the pipeline, the staging and ring buffers, the
+ * IR plane and the stashed IR map; check_raw belongs to the diagnostic
+ * equivalence check and is otherwise only freed on that path's success.
+ * Safe to call repeatedly and on a device that never scanned.
+ */
+static void
+release_scan_resources(plustek8200i_device_t *dev)
+{
+    stream_cleanup(dev);
+    free(dev->check_raw);
+    dev->check_raw = NULL;
+    dev->check_raw_lines = dev->check_raw_line_bytes = 0;
+    dev->scanning = SANE_FALSE;
+    dev->bytes_read = dev->bytes_total = 0;
+}
+
+static SANE_Status
+stream_begin(plustek8200i_device_t *dev)
+{
+    int px = dev->scan_pixels, x0, y0, x1, y1;
+    int comps = dev->opt_mode == MODE_COLOR ? 3 : 1;
+    /* The infrared pre-pass is kept at 16 bit whatever the depth. */
+    int bps = (dev->opt_bit_depth == 8 && !dev->in_ir_pass) ? 1 : 2;
+    int lb = dev->scan_line_bytes, ring;
+
+    if (pipe_setup(dev, NULL, dev->raw_scan_lines, lb) != 0)
+        return SANE_STATUS_NO_MEM;
+    /*
+     * Raw lines are kept in a ring, not a whole-frame buffer (482 MB at
+     * 7200 dpi). Output line y reads raw lines from pipe_raw_oldest(y)
+     * up to pipe_raw_needed(y): (2 * shift + 1) resampled rows of
+     * vsquash raw lines each, plus 2 for the partial lines at each end.
+     * Reading runs at most one USB chunk ahead of that.
+     */
+    {
+        double v = dev->p_vsquash <= 1.01 ? 1.0 : dev->p_vsquash;
+        ring = (int)((2 * dev->p_shift + 1) * v + 0.999) + 2
+               + PLUSTEK8200I_STREAM_CHUNK / lb + 2 + 16;
+        if (ring > dev->raw_scan_lines)
+            ring = dev->raw_scan_lines;
+    }
+    free(dev->image_buffer);
+    dev->image_buffer = malloc((size_t)ring * lb);
+    dev->s_stage = malloc(PLUSTEK8200I_STREAM_CHUNK);
+    if (!dev->image_buffer || !dev->s_stage) {
+        stream_cleanup(dev);
+        return SANE_STATUS_NO_MEM;
+    }
+    dev->buffer_size = (size_t)ring * lb;
+    dev->p_raw = dev->image_buffer;
+    dev->p_ring_lines = ring;
+    dev->s_bps = bps;
+    if (dev->opt_rgbi && !dev->in_ir_pass) {
+        /* The IR plane is kept as scanned; --ir-clean gets its own copy
+         * because detection overwrites the map with marks. */
+        size_t need = (size_t)px * 2 * dev->p_res_lines;
+        if (!dev->ir_map || dev->ir_map_size < need) {
+            DBG(DBG_info, "Color+Infrared: IR pass has %zu bytes, colour needs %zu\n",
+                dev->ir_map ? dev->ir_map_size : 0, need);
+            stream_cleanup(dev);
+            return SANE_STATUS_IO_ERROR;
+        }
+        dev->s_ir = (uint16_t *)dev->ir_map;
+        dev->ir_map = NULL;
+        dev->ir_map_size = 0;
+        if (dev->opt_ir_clean) {
+            dev->ir_map = malloc(need);
+            if (dev->ir_map) {
+                memcpy(dev->ir_map, dev->s_ir, need);
+                dev->ir_map_size = need;
+            }
+        }
+    }
+    if (dev->ir_map && dev->opt_mode == MODE_COLOR && dev->opt_ir_clean) {
+        if (dev->ir_map_size >= (size_t)px * 2 * dev->p_res_lines)
+            plustek8200i_ir_prepare(dev, dev->p_res_lines);
+        else
+            DBG(DBG_warning, "IR clean: map does not match the colour pass; skipped\n");
+    }
+    if (dev->in_ir_pass) {
+        x0 = 0; y0 = 0; x1 = px; y1 = dev->p_res_lines;  /* full plane */
+    } else {
+        plustek8200i_crop_rect(dev, px, dev->p_res_lines, &x0, &y0, &x1, &y1);
+    }
+    dev->s_x0 = x0; dev->s_y0 = y0; dev->s_x1 = x1; dev->s_y1 = y1;
+    dev->s_comps = comps;
+    dev->s_full = malloc((size_t)px * 3 * sizeof(uint16_t));
+    dev->s_out = malloc((size_t)(x1 - x0) * comps * 2);
+    if (!dev->s_full || !dev->s_out) {
+        stream_cleanup(dev);
+        return SANE_STATUS_NO_MEM;
+    }
+    dev->params.format = comps == 3 ? SANE_FRAME_RGB : SANE_FRAME_GRAY;
+    dev->params.last_frame = dev->opt_rgbi ? SANE_FALSE : SANE_TRUE;
+    dev->s_frame = 0;
+    dev->params.depth = dev->opt_bit_depth;
+    dev->params.pixels_per_line = x1 - x0;
+    dev->params.lines = y1 - y0;
+    dev->params.bytes_per_line = (x1 - x0) * comps * bps;
+    dev->s_raw_read = 0;
+    dev->s_raw_total = (size_t)dev->raw_scan_lines * dev->scan_line_bytes;
+    dev->s_out_y = y0;
+    dev->s_line_len = dev->s_line_pos = 0;
+    dev->s_hw_done = 0;
+    dev->s_first = 1;
+    dev->s_ir_reported = 0;
+    dev->s_t0 = now_s();
+    dev->streaming = 1;
+    dev->scanning = SANE_TRUE;
+    dev->bytes_read = 0;
+    sanei_usb_set_timeout(180000);   /* first chunk waits out the lead-in */
+    DBG(DBG_info, "Streaming: %dx%d %s from %d raw lines (squash %.3f, shift %d), "
+        "ring %d lines = %.1f MB\n",
+        x1 - x0, y1 - y0, dev->in_ir_pass ? "IR plane" : comps == 3
+        ? (dev->opt_rgbi ? "RGB (+IR frame)" : "RGB") : "gray", dev->raw_scan_lines,
+        dev->p_vsquash, dev->p_shift, ring, dev->buffer_size / 1e6);
+    return SANE_STATUS_GOOD;
+}
+
+/* Stop the scan engine once all raw data is in; the carriage returns
+ * home by itself (AGOHOME). */
+static void
+stream_hw_done(plustek8200i_device_t *dev)
+{
+    if (!dev->s_hw_done) {
+        plustek8200i_scan_stop(dev->usb_fd);
+        dev->s_hw_done = 1;
+        DBG(DBG_info, "Streaming: all %zu raw bytes read after %.1f s; carriage returns home\n",
+            dev->s_raw_total, now_s() - dev->s_t0);
+    }
+}
+
+static SANE_Status
+stream_read(plustek8200i_device_t *dev, SANE_Byte *data, SANE_Int max_length,
+            SANE_Int *length)
+{
+    SANE_Status st = SANE_STATUS_GOOD;
+    int bps = dev->s_bps;
+
+    *length = 0;
+    dev->in_read = 1;
+    while (*length < max_length) {
+        if (dev->s_line_pos < dev->s_line_len) {
+            size_t n = dev->s_line_len - dev->s_line_pos;
+            if (n > (size_t)(max_length - *length))
+                n = max_length - *length;
+            memcpy(data + *length, dev->s_out + dev->s_line_pos, n);
+            dev->s_line_pos += n;
+            *length += (SANE_Int)n;
+            continue;
+        }
+        if (dev->s_out_y >= dev->s_y1) {
+            stream_hw_done(dev);
+                if (dev->ir_ready && !dev->s_ir_reported) {
+                plustek8200i_ir_report(dev);
+                dev->s_ir_reported = 1;
+            }
+        if (*length == 0)
+                st = SANE_STATUS_EOF;
+            break;
+        }
+        if (dev->s_frame == 1) {
+            /* Infrared frame of Color+Infrared: from memory. */
+            int x, w = dev->s_x1 - dev->s_x0;
+            const uint16_t *ir = dev->s_ir + (size_t)dev->s_out_y * dev->scan_pixels
+                                 + dev->s_x0;
+            if (bps == 2)
+                memcpy(dev->s_out, ir, (size_t)w * 2);
+            else
+                for (x = 0; x < w; x++)
+                    dev->s_out[x] = (uint8_t)(ir[x] >> 8);
+            dev->s_line_len = (size_t)w * bps;
+            dev->s_line_pos = 0;
+            dev->s_out_y++;
+            continue;
+        }
+        {
+            int need = pipe_raw_needed(dev, dev->s_out_y);
+            while ((int)(dev->s_raw_read / dev->scan_line_bytes) < need
+                   && dev->s_raw_read < dev->s_raw_total) {
+                size_t got = 0;
+                if (dev->cancel_requested) {
+                    st = SANE_STATUS_CANCELLED;
+                    goto out;
+                }
+                st = plustek8200i_read_scan_chunk(dev->usb_fd, dev->s_stage,
+                         dev->s_raw_total - dev->s_raw_read, &got);
+                if (st != SANE_STATUS_GOOD) {
+                    DBG(DBG_error, "Streaming: read failed at %zu of %zu bytes\n",
+                        dev->s_raw_read, dev->s_raw_total);
+                    goto out;
+                }
+                {
+                    /* Into the ring. Never overwrite a line this output
+                     * line still reads (cannot happen with the ring
+                     * sized in stream_begin; checked anyway). */
+                    size_t lb = dev->scan_line_bytes, rb = dev->buffer_size;
+                    size_t end_line = (dev->s_raw_read + got + lb - 1) / lb;
+                    size_t pos = dev->s_raw_read % rb, n1 = rb - pos;
+                    int oldest = pipe_raw_oldest(dev, dev->s_out_y);
+                    if (end_line > (size_t)oldest + dev->p_ring_lines) {
+                        DBG(DBG_warning, "Streaming: ring of %d lines too small "
+                            "(line %zu, oldest needed %d)\n",
+                            dev->p_ring_lines, end_line, oldest);
+                        st = SANE_STATUS_IO_ERROR;
+                        goto out;
+                    }
+                    if (n1 > got)
+                        n1 = got;
+                    memcpy(dev->image_buffer + pos, dev->s_stage, n1);
+                    memcpy(dev->image_buffer, dev->s_stage + n1, got - n1);
+                }
+                if (dev->s_first) {
+                    dev->s_first = 0;
+                    sanei_usb_set_timeout(30000);
+                    DBG(DBG_info, "Streaming: first data after %.2f s\n",
+                        now_s() - dev->s_t0);
+                }
+                dev->s_raw_read += got;
+            }
+            if (dev->s_raw_read >= dev->s_raw_total)
+                stream_hw_done(dev);
+        }
+        pipe_line(dev, dev->s_out_y, dev->s_full);
+        {
+            int comps = dev->s_comps, x, n = (dev->s_x1 - dev->s_x0) * comps;
+            const uint16_t *src = dev->s_full + (size_t)dev->s_x0 * comps;
+            if (bps == 2) {
+                /* SANE transmits 16-bit samples in the HOST's native byte
+                 * order -- NOT big-endian. net.c swaps when the saned
+                 * server and the client disagree, so a backend must never
+                 * byte-swap itself. Copying the native uint16_t words out
+                 * is therefore both correct and the whole job. */
+                memcpy(dev->s_out, src, (size_t)n * 2);
+            } else {
+                for (x = 0; x < n; x++)
+                    dev->s_out[x] = (uint8_t)(src[x] >> 8);
+            }
+            dev->s_line_len = (size_t)n * bps;
+            dev->s_line_pos = 0;
+        }
+        dev->s_out_y++;
+        {
+            int done = dev->s_out_y - dev->s_y0, all = dev->s_y1 - dev->s_y0;
+            if (all >= 10 && done % (all / 10) == 0)
+                DBG(DBG_info, "Streaming: line %d/%d at %.1f s (raw %zu%%)\n",
+                    done, all, now_s() - dev->s_t0,
+                    100 * dev->s_raw_read / dev->s_raw_total);
+        }
+    }
+out:
+    dev->bytes_read += *length;
+    dev->in_read = 0;
+    if (st == SANE_STATUS_GOOD && *length == 0 && dev->s_out_y >= dev->s_y1)
+        st = SANE_STATUS_EOF;
+    if (st == SANE_STATUS_CANCELLED || (st != SANE_STATUS_GOOD && st != SANE_STATUS_EOF)) {
+        if (!dev->s_hw_done) {
+            plustek8200i_scan_stop(dev->usb_fd);
+            plustek8200i_motor_stop(dev->usb_fd);
+            dev->s_hw_done = 1;
+        }
+        stream_cleanup(dev);
+        dev->scanning = SANE_FALSE;
+        *length = 0;
+    }
+    return st;
+}
+
+/* Whether this pass streams (ring buffer) or uses the full-buffer path. */
+static int
+stream_wanted(plustek8200i_device_t *dev)
+{
+    const char *sm = getenv("PLUSTEK8200I_STREAM");
+    const char *rp = getenv("PLUSTEK8200I_RAWIMG");
+    const char *sc = getenv("PLUSTEK8200I_STREAMCHECK");
+    int base = !(sm && *sm == '0') && !plustek8200i_use_legacy_ccd()
+               && !(rp && *rp) && !(sc && *sc == '1');
+    if (dev->in_ir_pass)
+        return base;
+    if (dev->opt_rgbi)
+        return 1;
+    return base && !dev->opt_auto_wb;
+}
+
+/*
+ * The infrared pre-pass of --ir-clean / Color+Infrared, streamed: the
+ * pipeline builds the full, uncropped 16-bit IR plane line by line, so
+ * only the plane is kept, not the raw frame. Leaves it in image_buffer
+ * for sane_start to take as ir_map.
+ */
+static SANE_Status
+ir_pass_stream(plustek8200i_device_t *dev)
+{
+    SANE_Status st = stream_begin(dev);
+    size_t size, off = 0;
+    uint8_t *plane;
+
+    if (st != SANE_STATUS_GOOD)
+        return st;
+    size = (size_t)dev->params.bytes_per_line * dev->params.lines;
+    plane = malloc(size);
+    if (!plane) {
+        stream_cleanup(dev);
+        return SANE_STATUS_NO_MEM;
+    }
+    for (;;) {
+        SANE_Int len = 0, want = size - off > (1 << 24) ? (1 << 24) : (SANE_Int)(size - off);
+        st = stream_read(dev, plane + off, want, &len);
+        off += len;
+        if (st != SANE_STATUS_GOOD || off >= size)
+            break;
+    }
+    if (st == SANE_STATUS_GOOD || st == SANE_STATUS_EOF) {
+        stream_hw_done(dev);   /* no-op if already done */
+        stream_cleanup(dev);
+        if (off != size) {
+            free(plane);
+            return SANE_STATUS_IO_ERROR;
+        }
+        dev->image_buffer = plane;
+        dev->buffer_size = size;
+        return SANE_STATUS_GOOD;
+    }
+    free(plane);               /* stream_read has stopped and cleaned up */
+    return st;
+}
+
+/*
+ * Full macOS-validated init: three WriteAllReg/AFE passes, GPIO, lamp source.
+ */
+static SANE_Status
+scan_init_sequence(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    /*
+     * macOS-validated init sequence
+     *
+     * Register names (see the note at the register definitions in plustek8200i.h):
+     *   Register map — all register offsets
+     *   Motor table SDRAM mapping
+     *   AHB address allocation (SDRAM at 0x10000000)
+     *   Reg 0x0B bit 3 ENBDRAM: SDRAM power-on (rising edge)
+     *   Reg 0x0E SCANRESET: Scanner software reset
+     *   Reg 0x0F MOVE: Start motor movement
+     *
+     * Based on USB capture validation against macOS driver.
+     * Fixes:
+     * - bRequest 0x04 → 0xA0 (in write_regs and dma_setup)
+     * - Init-phase register values (not scan-time values)
+     * - Registers removed from WriteAllReg that macOS writes separately
+     * - Added post-WriteAllReg CCD timing adjustments
+     * - Added AFE initialization (8 register blocks)
+     * - Removed CMD register write (0x0D = 0x45) — macOS never does this
+     * - MOVE command written LAST (was inside WriteAllReg bulk)
+     *
+     * Sequence from macOS USB capture:
+     *  1. Write reg 0x0E = 0x00 (clear status)
+     *  2. WriteAllReg (corrected init-phase values)
+     *  3. Post-WriteAllReg (CCD timing: 0x10, 0x13, 0x0B, etc.)
+     *  4. 100ms delay (inside post-WriteAllReg)
+     *  5. Write reg 0x0A = 0x40 (inside post-WriteAllReg)
+     *  6. WriteAllAfe (8 × 6-byte blocks)
+     *  7. Read interrupt register 0x8A (clear pending interrupts)
+     *  8. Repeat steps 2-6 (macOS does WriteAllReg+WriteAllAfe twice)
+     *  9. Write reg 0x03 = 0x30 (lamp source control)
+     * 10. Write regs: 0x02=0x18, 0xAE=0x00, 0xAF=0xFF, 0x3D=0x00,
+     *     0x3E=0x11, 0x3F=0x62
+     * 11. DMA setup (0x82 cmd): addr=0x1000C000, len=512, write
+     * 12. Read reg 0x18 (DMA status)
+     * 13. DMA setup (0x82 cmd): addr=0x10010000, len=512, write
+     * 14. Bulk write motor phase table (512 bytes)
+     * 15. Read reg 0x18 (DMA status)
+     * 16. Write reg 0x0F = 0x01 (MOVE — last step!)
+     * 17. Poll reg 0x01 for completion
+     */
+    /*
+     * Let the previous scan's return home finish.
+     *
+     * The image pass runs with AGOHOME, and after it the ASIC drives the
+     * carriage back to the home sensor by itself (as SilverFast relies
+     * on). A scan started straight after another would otherwise begin
+     * while that return is under way: MOVE #1 then took 7.8 s instead of
+     * 0.4 s. Wait for home-and-idle (0x101 bit 3 set, bit 0 clear) --
+     * no motion is commanded here. If it never trips (an aborted scan can leave the
+     * carriage anywhere) carry on after 10 s; MOVE #1/#2 rehome it.
+     */
+    {
+        uint8_t st = 0;
+        int waited = 0;
+
+        while (waited < 10000) {
+            if (plustek8200i_read_reg(dev->usb_fd, 0x101, &st) != SANE_STATUS_GOOD)
+                break;
+            /* At home (bit 3) AND motor no longer enabled (bit 0):
+             * stopping on the sensor happens a moment after it trips,
+             * and starting MOVE #1 in that moment (status 0xFD instead
+             * of 0xFC) put the frame 11 rows off. */
+            if ((st & 0x09) == 0x08)
+                break;
+            usleep(20000);
+            waited += 20;
+        }
+        DBG(DBG_info, "Waited %d ms for the carriage to rest at home (status 0x%02x%s)\n",
+            waited, st, ((st & 0x09) == 0x08) ? "" : ", NOT at rest at home -- continuing");
+    }
+
+    /*
+     * Lamp drive level. SilverFast opens every session with two writes on
+     * a separate vendor path -- control OUT, bRequest 0x0C, wValue 0x8C,
+     * the address in wIndex: 0x10 = 0x0C, then 0x13 = 0x0C (usbmon capture
+     * 20261006-120458-sf-prescan-pos, t = 2.23 s). Together, and only
+     * together, they set the white lamp and the IR LED to a level that
+     * holds until power-off: after a power cycle the open light at AFE
+     * code 0 reads R/G 54.3k/>65.5k (green clips), after the two writes
+     * 40.6k/54.9k -- found by replaying the captured stream on a freshly
+     * power-cycled scanner and bisecting. Without them the lamp level
+     * depended on whether SilverFast had run since power-on, the
+     * stationary white strip saturated in the CCD at the brighter level,
+     * and the per-scan calibration had to refuse.
+     */
+    {
+        static const uint16_t addr[2] = { 0x10, 0x13 };
+        int k;
+        for (k = 0; k < 2; k++) {
+            uint8_t v = 0x0C;
+            SANE_Status ls = sanei_usb_control_msg(dev->usb_fd, 0x40, 0x0C,
+                                                   0x8C, addr[k], 1, &v);
+            if (ls != SANE_STATUS_GOOD)
+                DBG(DBG_error, "Lamp level write 0x%02x failed: %s\n",
+                    addr[k], sane_strstatus(ls));
+        }
+        DBG(DBG_info, "Lamp level set (0x8C path: 0x10 = 0x13 = 0x0C)\n");
+    }
+
+    DBG(DBG_info, "=== macOS-validated init sequence ===\n");
+    plustek8200i_regtrace_mark("macOS-validated init sequence");
+
+    /* Step 1: Clear status register */
+    DBG(DBG_info, "Step 1: Clear status register 0x0E\n");
+    status = plustek8200i_write_reg(dev->usb_fd, 0x0E, 0x00);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Failed to clear status register: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* Step 2: WriteAllReg (first pass) */
+    DBG(DBG_info, "Step 2: WriteAllReg (first pass)\n");
+    status = plustek8200i_init_macos_registers(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "WriteAllReg (first pass) failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* Step 3-5: Post-WriteAllReg CCD timing adjustments */
+    DBG(DBG_info, "Step 3-5: Post-WriteAllReg adjustments\n");
+    status = plustek8200i_post_writeallreg(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Post-WriteAllReg failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* GPIO initialization — from sane-genesys GPO table for 8200i
+     *
+     * The sane-genesys driver (its init_gpio for a related ASIC) writes these GPIO
+     * registers during boot to enable the transparency lamp hardware.
+     * Register 0x6d bit 7 (GPIO8) likely controls the XPA lamp power circuit.
+     * Order matches sane-genesys: 0x6e,0x6f first, then rest. */
+    DBG(DBG_info, "GPIO init: writing GPO registers for transparency lamp\n");
+    plustek8200i_write_reg(dev->usb_fd, 0x6e, 0x4c);  /* Extended GPIO direction */
+    plustek8200i_write_reg(dev->usb_fd, 0x6f, 0x80);  /* Extended GPIO data out (bit 7 HIGH) */
+    plustek8200i_write_reg(dev->usb_fd, 0x6b, 0x30);  /* GPIO direction */
+    plustek8200i_write_reg(dev->usb_fd, 0x6c, 0x4c);  /* GPIO output enable */
+    plustek8200i_write_reg(dev->usb_fd, 0x6d, 0x80);  /* GPIO data output (GPIO8 HIGH — lamp enable) */
+    plustek8200i_write_reg(dev->usb_fd, 0xa6, 0x00);  /* GPIO control */
+    plustek8200i_write_reg(dev->usb_fd, 0xa7, 0x07);  /* GPIO control */
+    plustek8200i_write_reg(dev->usb_fd, 0xa8, 0x20);  /* GPIO control (bit 5) */
+    plustek8200i_write_reg(dev->usb_fd, 0xa9, 0x01);  /* GPIO control */
+
+    /* Step 6: WriteAllAfe (first pass) */
+    DBG(DBG_info, "Step 6: WriteAllAfe (first pass)\n");
+    status = plustek8200i_write_afe_init(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "WriteAllAfe (first pass) failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* Step 7: Read interrupt register 0x8A to clear pending interrupts */
+    DBG(DBG_info, "Step 7: Clear pending interrupts (read reg 0x8A)\n");
+    {
+        uint8_t irq_status;
+        status = plustek8200i_read_reg(dev->usb_fd, 0x8A, &irq_status);
+        if (status == SANE_STATUS_GOOD) {
+            DBG(DBG_info, "Interrupt register 0x8A = 0x%02x (cleared)\n", irq_status);
+        }
+    }
+
+    /* Step 8: Repeat WriteAllReg + post-adjustments + WriteAllAfe (second pass) */
+    DBG(DBG_info, "Step 8: WriteAllReg (second pass)\n");
+    status = plustek8200i_init_macos_registers(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "WriteAllReg (second pass) failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    status = plustek8200i_post_writeallreg(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Post-WriteAllReg (second pass) failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    status = plustek8200i_write_afe_init(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "WriteAllAfe (second pass) failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /*
+     * ================================================================
+     * Third init pass (before MOVE #1)
+     *
+     * macOS does THREE WriteAllReg passes, not two. Between the second
+     * AFE and the third WriteAllReg, it reads two special registers:
+     *   1. Interrupt read: wValue=0x008A, wIndex=0x26FE (clear pending IRQs)
+     *   2. Status poll: wValue=0x008E, wIndex=0x0000
+     *
+     * After the third WriteAllReg, macOS does only a PARTIAL post-WriteAllReg:
+     *   - Write 0x10=0x0E (via wValue=0x008C format)
+     *   - Write 0x13=0x0E
+     *   - Write 0x0B=0x6C (individual write, confirming WriteAllReg value)
+     * Note: NO 0x0B=0x84/0x8C sequence (that's only for passes 1 and 2).
+     *
+     * Without this third pass, register 0x0B is left at 0x8C (from
+     * post_writeallreg) instead of the correct 0x6C.
+     *
+     * From macOS USB capture lines 344055-349625 (timestamp 0:38.652-0:38.668).
+     * ================================================================
+     */
+    DBG(DBG_info, "=== Third init pass ===\n");
+    plustek8200i_regtrace_mark("Third init pass");
+
+    /* Interrupt read: wValue=0x008A, wIndex=0x26FE
+     * This uses a special register read format different from read_reg.
+     * From macOS capture line 344055. */
+    {
+        uint8_t irq_val;
+        SANE_Status irq_status;
+        irq_status = sanei_usb_control_msg(dev->usb_fd,
+                                            0xC0,    /* bmRequestType: vendor IN */
+                                            0xA0,    /* bRequest */
+                                            0x008A,  /* wValue: interrupt read */
+                                            0x26FE,  /* wIndex: special format */
+                                            1,       /* wLength */
+                                            &irq_val);
+        if (irq_status == SANE_STATUS_GOOD) {
+            DBG(DBG_info, "Interrupt read (0x008A): 0x%02x\n", irq_val);
+        } else {
+            DBG(DBG_warning, "Interrupt read failed: %s (continuing)\n",
+                sane_strstatus(irq_status));
+        }
+    }
+
+    /* Status poll: wValue=0x008E, wIndex=0x0000
+     * From macOS capture line 344082. */
+    {
+        uint8_t poll_val;
+        SANE_Status poll_status;
+        poll_status = sanei_usb_control_msg(dev->usb_fd,
+                                             0xC0,    /* bmRequestType: vendor IN */
+                                             0xA0,    /* bRequest */
+                                             0x008E,  /* wValue: status poll */
+                                             0x0000,  /* wIndex: 0x0000 */
+                                             1,       /* wLength */
+                                             &poll_val);
+        if (poll_status == SANE_STATUS_GOOD) {
+            DBG(DBG_info, "Status poll (0x008E/0x0000): 0x%02x\n", poll_val);
+        } else {
+            DBG(DBG_warning, "Status poll failed: %s (continuing)\n",
+                sane_strstatus(poll_status));
+        }
+    }
+
+    /* Third WriteAllReg — same 116-pair init data as passes 1 and 2 */
+    DBG(DBG_info, "Third init WriteAllReg (116 pairs)\n");
+    status = plustek8200i_init_macos_registers(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "WriteAllReg (third pass) failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* Partial post-WriteAllReg for third pass:
+     * Only 0x10=0x0E and 0x13=0x0E (no 0x0B=0x84/0x8C cycle) */
+    plustek8200i_write_reg(dev->usb_fd, 0x10, 0x0E);
+    plustek8200i_write_reg(dev->usb_fd, 0x13, 0x0E);
+
+    /* Write 0x0B=0x6C individually (matches macOS capture line ~346000) */
+    plustek8200i_write_reg(dev->usb_fd, 0x0B, 0x6C);
+
+    /* Third AFE */
+    DBG(DBG_info, "Third init WriteAllAfe\n");
+    status = plustek8200i_write_afe_init(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "WriteAllAfe (third pass) failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* Wait for hardware to process three WriteAllReg + AFE passes.
+     * macOS has a ~450ms gap between third AFE and MOVE #1 setup.
+     * During this time the scanner hardware transitions to ready state
+     * (register 0x01 changes from 0x22 to 0xD8+). */
+    DBG(DBG_info, "Waiting 500ms for hardware init to settle...\n");
+    usleep(500000);
+
+    /* Diagnostic: read multiple registers to check hardware state */
+    {
+        uint8_t val;
+        plustek8200i_read_reg(dev->usb_fd, 0x101, &val);
+        DBG(DBG_info, "DIAG: reg 0x01 (hw) = 0x%02x (macOS expects ~0xD8)\n", val);
+        plustek8200i_read_reg(dev->usb_fd, 0x0B, &val);
+        DBG(DBG_info, "DIAG: reg 0x0B = 0x%02x (macOS expects 0x6C after 3rd pass)\n", val);
+        plustek8200i_read_reg(dev->usb_fd, 0x02, &val);
+        DBG(DBG_info, "DIAG: reg 0x02 = 0x%02x (macOS expects 0x78)\n", val);
+    }
+
+    /* Step 9: Set lamp source control */
+    DBG(DBG_info, "Step 9: Lamp source control (reg 0x03 = 0x30)\n");
+    status = plustek8200i_write_reg(dev->usb_fd, 0x03, 0x30);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Lamp source control failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * MOVE #1 -- drive the carriage to the home position and wait for it.
+ */
+static SANE_Status
+scan_move_home(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    /*
+     * ================================================================
+     * MOVE #1: Homing
+     *
+     * Uses init motor table (already loaded in WriteAllReg phase).
+     * This moves the scan head to the home position.
+     * ================================================================
+     */
+    DBG(DBG_info, "=== MOVE #1: Homing ===\n");
+    plustek8200i_regtrace_mark("MOVE #1: Homing");
+
+    /* Pre-MOVE #1: 12-byte WriteRegs (macOS capture line 354032) */
+    DBG(DBG_info, "MOVE #1: Pre-MOVE register setup (12-byte WriteRegs)\n");
+    {
+        static const uint8_t move1_regs[12] = {
+            0x02, 0x18, 0xAE, 0x00, 0xAF, 0xFF,
+            0x3D, 0x00, 0x3E, 0x11, 0x3F, 0x62
+        };
+        status = plustek8200i_write_regs(dev->usb_fd, move1_regs, sizeof(move1_regs));
+        if (status != SANE_STATUS_GOOD) {
+            DBG(DBG_error, "MOVE #1 pre-MOVE WriteRegs failed: %s\n", sane_strstatus(status));
+            return status;
+        }
+    }
+
+    /* Load init motor tables */
+    DBG(DBG_info, "MOVE #1: Loading init motor tables via DMA\n");
+    status = plustek8200i_load_motor_tables(dev->usb_fd, 0x0076);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Init motor table loading failed: %s\n", sane_strstatus(status));
+        DBG(DBG_warning, "Continuing anyway\n");
+    }
+
+    /* MOVE #1 command */
+    DBG(DBG_info, "MOVE #1: Sending MOVE command\n");
+    status = plustek8200i_write_reg(dev->usb_fd, 0x0F, 0x01);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "MOVE #1 failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* Poll for MOVE #1 completion
+     *
+     * macOS polls at ~1.7ms intervals and MOVE #1 completes in ~315ms.
+     * Match macOS timing: 2ms intervals, no minimum wait, accept when
+     * bit 0 clears. Log every 50ms to show status progression.
+     *
+     * macOS MOVE #1 status: DD → D5 → F5 → F4 (bit 3 clears early) */
+    DBG(DBG_info, "MOVE #1: Polling for completion (2ms intervals, macOS-matched)...\n");
+    {
+        uint8_t reg01;
+        int poll_elapsed = 0;
+        /*
+         * MOVE #1 must be allowed to finish. After its feed the carriage
+         * creeps until the motor is released (bit 0 clears), 0.5 s from
+         * home but 8-10 s after a previous scan. The old 10 s limit raced
+         * that: whichever side won decided where the next frame landed,
+         * 11 rows apart at 600 dpi. Waiting for the release puts every
+         * frame in the same place whatever state the carriage started in.
+         */
+        int poll_timeout = 20000;
+
+        while (poll_elapsed < poll_timeout) {
+            status = plustek8200i_read_reg(dev->usb_fd, 0x101, &reg01);
+            if (status == SANE_STATUS_GOOD) {
+                /* Log every 50ms to track status progression */
+                if (poll_elapsed % 50 == 0) {
+                    DBG(DBG_info, "MOVE #1: r01=0x%02x (%dms) bit3=%d\n",
+                        reg01, poll_elapsed, (reg01 >> 3) & 1);
+                }
+                /* Accept when bit 0 clears (no minimum wait) */
+                if ((reg01 & 0x01) == 0) {
+                    DBG(DBG_info, "MOVE #1 complete (reg 0x01 = 0x%02x, %dms)\n",
+                        reg01, poll_elapsed);
+                    break;
+                }
+            }
+            usleep(2000);  /* 2ms between polls (macOS: ~1.7ms) */
+            poll_elapsed += 2;
+        }
+
+        if (poll_elapsed >= poll_timeout) {
+            DBG(DBG_warning, "MOVE #1 timeout (reg 0x01 = 0x%02x)\n", reg01);
+            DBG(DBG_warning, "Continuing to scan phase anyway\n");
+        }
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * MOVE #2 -- the intermediate positioning step the macOS driver makes.
+ */
+static SANE_Status
+scan_move_intermediate(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    /*
+     * ================================================================
+     * MOVE #2: Intermediate positioning
+     *
+     * macOS does this MOVE between homing and the scan positioning.
+     * Uses different register configuration:
+     *   0x02=0x1C (lamp+motor power config)
+     *   Feed length = 0x42D902 (large travel distance)
+     *   0x7E/0x7F = init line period (0x2AF8)
+     *   Same init motor table
+     *
+     * Discovered from macOS capture line 362282 (timestamp 0:39.469).
+     * Without this MOVE, the hardware doesn't reach the correct state
+     * for scanning (reg 0x01 bits differ).
+     * ================================================================
+     */
+    DBG(DBG_info, "=== MOVE #2: Intermediate positioning ===\n");
+    plustek8200i_regtrace_mark("MOVE #2: Intermediate positioning");
+
+    /* 38-byte WriteRegs block — exact macOS values */
+    {
+        static const uint8_t move2_regs[38] = {
+            0x02, 0x1C, 0x3D, 0x02, 0x3E, 0xD9, 0x3F, 0x42,
+            0x7D, 0x00, 0x7E, 0x2A, 0x7F, 0xF8, 0x1C, 0x00,
+            0x8A, 0x00, 0x8B, 0x00, 0x8C, 0x00, 0x8D, 0x00,
+            0x8E, 0x00, 0x8F, 0x00, 0x90, 0x00, 0x91, 0x00,
+            0x92, 0x00, 0xAE, 0x00, 0xAF, 0xFF
+        };
+        status = plustek8200i_write_regs(dev->usb_fd, move2_regs, sizeof(move2_regs));
+        if (status != SANE_STATUS_GOOD) {
+            DBG(DBG_error, "MOVE #2 WriteRegs failed: %s\n", sane_strstatus(status));
+            return status;
+        }
+    }
+
+    /* Load init motor tables (same table as MOVE #1) */
+    DBG(DBG_info, "MOVE #2: Loading init motor tables\n");
+    status = plustek8200i_load_motor_tables(dev->usb_fd, 0x0076);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "MOVE #2 motor table load failed: %s\n", sane_strstatus(status));
+        DBG(DBG_warning, "Continuing anyway\n");
+    }
+
+    /* MOVE #2 command */
+    DBG(DBG_info, "MOVE #2: Sending MOVE command\n");
+    status = plustek8200i_write_reg(dev->usb_fd, 0x0F, 0x01);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "MOVE #2 failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* Poll for MOVE #2 completion
+     *
+     * macOS polls at ~1.7ms, MOVE #2 takes ~334ms.
+     * Status: D5 → DD → DC (bit 3 SETS during deceleration, stays set)
+     * This is critical: bit 3 must be set after MOVE #2 for MOVE #3 to work.
+     * AGOHOME (bit 2 of reg 0x02 = 0x1C) causes bit 3 to set. */
+    DBG(DBG_info, "MOVE #2: Polling for completion (2ms intervals, macOS-matched)...\n");
+    {
+        uint8_t reg01;
+        int poll_elapsed = 0;
+        int poll_timeout = 15000;  /* 15 seconds — large feed distance */
+
+        while (poll_elapsed < poll_timeout) {
+            status = plustek8200i_read_reg(dev->usb_fd, 0x101, &reg01);
+            if (status == SANE_STATUS_GOOD) {
+                /* Log every 50ms to track status progression */
+                if (poll_elapsed % 50 == 0) {
+                    DBG(DBG_info, "MOVE #2: r01=0x%02x (%dms) bit3=%d\n",
+                        reg01, poll_elapsed, (reg01 >> 3) & 1);
+                }
+                /* Accept when bit 0 clears (no minimum wait) */
+                if ((reg01 & 0x01) == 0) {
+                    DBG(DBG_info, "MOVE #2 complete (reg 0x01 = 0x%02x, %dms, bit3=%d)\n",
+                        reg01, poll_elapsed, (reg01 >> 3) & 1);
+                    break;
+                }
+            }
+            usleep(2000);  /* 2ms between polls (macOS: ~1.7ms) */
+            poll_elapsed += 2;
+        }
+
+        if (poll_elapsed >= poll_timeout) {
+            DBG(DBG_warning, "MOVE #2 timeout (reg 0x01 = 0x%02x)\n", reg01);
+            DBG(DBG_warning, "Continuing anyway\n");
+        }
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * Re-run the register/AFE init and cycle the lamp, as macOS does after MOVE #2.
+ */
+static SANE_Status
+scan_reinit_after_move2(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    /*
+     * ================================================================
+     * Post-MOVE #2: Re-initialization (third WriteAllReg pass)
+     *
+     * After MOVE #2 completes, macOS does:
+     * 1. Write reg 0x10=0x0C, 0x13=0x0C (CCD timing)
+     * 2. Full WriteAllReg with ~20 registers changed from init values
+     * 3. WriteAllAfe (same as init)
+     * 4. Lamp cycling: 0x03 = 0x00 → 0x20 → 0x30
+     *
+     * From macOS capture lines 370933-377133 (timestamp 0:39.870-0:39.884).
+     * ================================================================
+     */
+    DBG(DBG_info, "=== Post-MOVE #2: Re-initialization ===\n");
+    plustek8200i_regtrace_mark("Post-MOVE #2: Re-initialization");
+
+    /* CCD timing writes (macOS uses wValue=0x008C but effect is same) */
+    plustek8200i_write_reg(dev->usb_fd, 0x10, 0x0C);
+    plustek8200i_write_reg(dev->usb_fd, 0x13, 0x0C);
+
+    /* Third WriteAllReg pass — proper bulk write with exact macOS values
+     * (125 register pairs with 20 differences from init-phase values) */
+    DBG(DBG_info, "Third WriteAllReg pass (proper bulk write)\n");
+    status = plustek8200i_init_pass3_registers(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Third WriteAllReg failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* WriteAllAfe (same as init) */
+    DBG(DBG_info, "Third pass WriteAllAfe\n");
+    status = plustek8200i_write_afe_init(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Third pass WriteAllAfe failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* Lamp cycling sequence (macOS capture lines 376367-377133)
+     *
+     * macOS reads reg 0x01 (hw), writes 0x03=0x00, reads again,
+     * then writes 0x03=0x20, 0x03=0x30. After this, there's a ~12ms
+     * natural delay before MOVE #3 setup. During this time, reg 0x01 (hw)
+     * transitions from D8 to DC (bits 2-3 set after lamp activation).
+     */
+    DBG(DBG_info, "Lamp cycling: 0x03 = 0x00 → 0x20 → 0x30\n");
+    {
+        uint8_t val;
+        plustek8200i_read_reg(dev->usb_fd, 0x101, &val);
+        DBG(DBG_info, "Pre-lamp: reg 0x01 (hw) = 0x%02x (macOS: 0xD8)\n", val);
+        plustek8200i_write_reg(dev->usb_fd, 0x03, 0x00);
+        plustek8200i_read_reg(dev->usb_fd, 0x101, &val);
+        DBG(DBG_info, "After 0x03=0x00: reg 0x01 (hw) = 0x%02x (macOS: 0xD8)\n", val);
+        plustek8200i_write_reg(dev->usb_fd, 0x03, 0x20);
+        plustek8200i_write_reg(dev->usb_fd, 0x03, 0x30);
+
+        /* Wait ~12ms for hardware to settle after lamp activation
+         * (macOS has natural delay from host processing time).
+         * Then verify state matches macOS (0xDC expected). */
+        usleep(15000);  /* 15ms */
+        plustek8200i_read_reg(dev->usb_fd, 0x101, &val);
+        DBG(DBG_info, "Post-lamp (15ms): reg 0x01 (hw) = 0x%02x (macOS: 0xDC)\n", val);
+        plustek8200i_read_reg(dev->usb_fd, 0x101, &val);
+        DBG(DBG_info, "Post-lamp (2nd read): reg 0x01 (hw) = 0x%02x\n", val);
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * MOVE #3 -- position on the frame and wait for the motor to reach speed.
+ */
+static SANE_Status
+scan_move_to_frame(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    /*
+     * ================================================================
+     * MOVE #3: Positioning (move to scan start area)
+     *
+     * Uses scan motor table (different acceleration curve).
+     * Sets AF=0x46 (different feed distance from MOVE #1's AF=0xFF).
+     *
+     * CRITICAL: macOS ordering is WriteRegs → DMA motor table → MOVE.
+     * macOS captures lines 377644-378787 (timestamp 0:39.898-0:39.901).
+     *
+     * CRITICAL: After MOVE #3, the motor must KEEP RUNNING through the
+     * scan-phase configuration and into MOVE #4. macOS shows:
+     *   DD → FD → FC (bit 3 stays SET = motor running, 27ms total)
+     * Our previous code waited 500ms+ for motor stop (bit 3 clear),
+     * giving F4 (motor stopped) — which prevents scan from working.
+     *
+     * Fix: Poll every 2ms (matching macOS ~1.7ms), proceed when bit 0
+     * clears (FC/F4) regardless of bit 3 (motor state). No minimum wait.
+     * ================================================================
+     */
+    DBG(DBG_info, "=== MOVE #3: Positioning ===\n");
+    plustek8200i_regtrace_mark("MOVE #3: Positioning");
+
+    /* Pre-MOVE #3: 12-byte WriteRegs FIRST (macOS ordering) */
+    DBG(DBG_info, "MOVE #3: Pre-MOVE register setup\n");
+    {
+        static const uint8_t move3_regs[12] = {
+            0x02, 0x18, 0xAE, 0x00, 0xAF, 0x46,
+            0x3D, 0x00, 0x3E, 0x00, 0x3F, 0x01
+        };
+        status = plustek8200i_write_regs(dev->usb_fd, move3_regs, sizeof(move3_regs));
+        if (status != SANE_STATUS_GOOD) {
+            DBG(DBG_error, "MOVE #3 pre-MOVE WriteRegs failed: %s\n", sane_strstatus(status));
+            return status;
+        }
+    }
+
+    /* Load scan-phase motor table AFTER WriteRegs (macOS ordering)
+     *
+     * CRITICAL: Use raw DMA sequence matching macOS exactly:
+     *   DMA setup → bulk write → DMA status read
+     * macOS does NOT pre-wait before DMA setup. Our dma_write() adds
+     * an extra dma_wait_ready() before each setup that macOS doesn't do.
+     * Use the raw primitives to match macOS exactly. */
+    DBG(DBG_info, "MOVE #3: Loading scan motor table (raw DMA, no pre-wait)\n");
+    {
+        extern const uint8_t scan_motor_table[512];
+        /* Table 4: 0x1000C000 */
+        status = plustek8200i_dma_setup(dev->usb_fd, 0x1000C000, 512, true);
+        if (status == SANE_STATUS_GOOD) {
+            status = plustek8200i_bulk_write(dev->usb_fd, scan_motor_table, 512);
+        }
+        if (status == SANE_STATUS_GOOD) {
+            status = plustek8200i_dma_wait_ready(dev->usb_fd);
+        }
+        if (status != SANE_STATUS_GOOD) {
+            DBG(DBG_error, "Scan motor table 0x1000C000 failed: %s\n", sane_strstatus(status));
+        }
+
+        /* Table 5: 0x10010000 */
+        status = plustek8200i_dma_setup(dev->usb_fd, 0x10010000, 512, true);
+        if (status == SANE_STATUS_GOOD) {
+            status = plustek8200i_bulk_write(dev->usb_fd, scan_motor_table, 512);
+        }
+        if (status == SANE_STATUS_GOOD) {
+            status = plustek8200i_dma_wait_ready(dev->usb_fd);
+        }
+        if (status != SANE_STATUS_GOOD) {
+            DBG(DBG_error, "Scan motor table 0x10010000 failed: %s\n", sane_strstatus(status));
+            DBG(DBG_warning, "Continuing anyway\n");
+        }
+    }
+
+    /* MOVE #3 command */
+    DBG(DBG_info, "MOVE #3: Sending MOVE command\n");
+    status = plustek8200i_write_reg(dev->usb_fd, 0x0F, 0x01);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "MOVE #3 failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /* Poll for MOVE #3 motor at speed (NOT motor completion!)
+     *
+     * macOS shows: DD → FD → FC over ~27ms (bit 3 stays SET = motor running)
+     * We must proceed while motor is running. Check for bit 0 to clear,
+     * which indicates motor has reached operating speed.
+     * Poll every 2ms to match macOS ~1.7ms interval. */
+    DBG(DBG_info, "MOVE #3: Polling for motor at speed (2ms intervals, macOS-matched)...\n");
+    {
+        uint8_t reg01;
+        int poll_elapsed = 0;
+        int poll_timeout = 5000;  /* 5 second safety timeout */
+
+        while (poll_elapsed < poll_timeout) {
+            status = plustek8200i_read_reg(dev->usb_fd, 0x101, &reg01);
+            if (status == SANE_STATUS_GOOD) {
+                /* Log every 4ms to track status progression without flooding */
+                if (poll_elapsed % 4 == 0) {
+                    DBG(DBG_info, "MOVE #3: r01=0x%02x (%dms) bit3=%d\n",
+                        reg01, poll_elapsed, (reg01 >> 3) & 1);
+                }
+                /* Accept when bit 0 clears (motor at speed)
+                 * macOS: DD→FD→FC, we want FC-like state */
+                if ((reg01 & 0x01) == 0) {
+                    DBG(DBG_info, "MOVE #3 motor at speed (reg 0x01 = 0x%02x, %dms, bit3=%d)\n",
+                        reg01, poll_elapsed, (reg01 >> 3) & 1);
+                    break;
+                }
+            }
+            usleep(2000);  /* 2ms between polls (macOS: ~1.7ms) */
+            poll_elapsed += 2;
+        }
+
+        if (poll_elapsed >= poll_timeout) {
+            DBG(DBG_warning, "MOVE #3 timeout (reg 0x01 = 0x%02x)\n", reg01);
+            DBG(DBG_warning, "Continuing to scan phase anyway\n");
+        }
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * Switch the ASIC to its scan-phase register configuration.
+ */
+static SANE_Status
+scan_apply_scan_registers(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    /*
+     * ================================================================
+     * MOVE #4: Actual Scan (with CCD data capture)
+     *
+     * Register names (see the note at the register definitions in plustek8200i.h):
+     *   Reg 0x01 bit 0 SCAN: Enable scanning process
+     *   Reg 0x0D CLRMCNT/CLRLNCNT: Clear counters before scan
+     *   Reg 0x0F MOVE: Start motor forward/backward moving
+     *   Reg 0x25-0x27 LINCNT: Scanning line count
+     *   Reg 0x3D-0x3F FEEDL: Feed length (motor steps)
+     *   Reg 0xE0-0xF7: Image buffer addresses in SDRAM
+     *   Reg 0x40 DATAENB: Scanner enters scan mode when SCAN=1
+     *
+     * This is the first MOVE that produces scan data. It requires:
+     * 1. Complete scan-phase register reconfiguration (shading addrs,
+     *    image buffer layout, AFE calibration)
+     * 2. CMD register clears (CLRMCNT, CLRLNCNT)
+     * 3. SCAN bit enabled (reg 0x01 bit 0 = 1)
+     * 4. MOVE command
+     *
+     * In scan mode (SCAN=1), the GL128 captures CCD data as the motor
+     * moves. FEEDL controls pre-scan motor steps; LINCNT controls how
+     * many scan lines to capture. Motor speed during scan is determined
+     * by the line period registers (0x38-0x39) and motor tables 1-3.
+     * ================================================================
+     */
+    DBG(DBG_info, "=== MOVE #4: Scan (with data capture) ===\n");
+    plustek8200i_regtrace_mark("MOVE #4: Scan (with data capture)");
+
+    /* Apply scan-phase register configuration (base values from USB capture) */
+    status = plustek8200i_configure_scan_phase(dev->usb_fd);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Scan-phase configuration failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /*
+     * ================================================================
+     * CALIBRATION SCAN (macOS timestamps 39.968-40.005)
+     *
+     * macOS does a calibration scan between scan-phase config and the
+     * final scan. This is a short scan (LINCNT=1 from scan_block2) that
+     * captures CCD data for shading/dark calibration. Sequence:
+     *   1. Clear counters: 0x0D = 0x05, 0x0D = 0x07
+     *   2. Enable SCAN without DVDSET: 0x01 = 0x03
+     *   3. MOVE command: 0x0F = 0x01
+     *   4. Poll reg 0x01 for completion
+     *   5. DMA setup read 3072 bytes from 0x10000000
+     *   6. Bulk IN read (calibration data)
+     *
+     * IMPORTANT: SCAN is enabled with 0x03 (SHDAREA | SCAN), NOT 0x23.
+     * DVDSET (bit 5) enables shading correction, which requires calibration
+     * data in SDRAM. Without loading calibration data first, DVDSET causes
+     * DATAENB to remain 0 (scanner won't enter scan mode).
+     *
+     * Register names (see the note at the register definitions in plustek8200i.h):
+     *   Reg 0x0D: CLRMCNT(2), CLRDOCJM(1), CLRLNCNT(0)
+     *   Reg 0x01: SCAN(0), SHDAREA(1), DVDSET(5)
+     *   Reg 0x0F: MOVE command
+     *   Reg 0x40: DATAENB(0) — should become 1 during scan
+     * ================================================================
+     */
+    DBG(DBG_info, "=== CALIBRATION SCAN (macOS 39.968-40.005) ===\n");
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * Short calibration scan, read back over DMA.
+ */
+static SANE_Status
+scan_calibration_pass(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    plustek8200i_regtrace_mark("CALIBRATION SCAN (macOS 39.968-40.005)");
+
+    /* Step 1: Clear motor and line counters */
+    plustek8200i_write_reg(dev->usb_fd, 0x0D, 0x05);  /* CLRMCNT | CLRLNCNT */
+    plustek8200i_write_reg(dev->usb_fd, 0x0D, 0x07);  /* CLRMCNT | CLRDOCJM | CLRLNCNT */
+
+    /* Step 2: Enable SCAN without DVDSET (0x03 = SHDAREA | SCAN)
+     * macOS uses 0x03 here, NOT 0x23. DVDSET requires shading data. */
+    plustek8200i_write_reg(dev->usb_fd, 0x01, 0x03);
+
+    /* Step 3: MOVE command for calibration scan */
+    DBG(DBG_info, "CALIBRATION: Sending MOVE (SCAN=1, no DVDSET)\n");
+    plustek8200i_write_reg(dev->usb_fd, 0x0F, 0x01);
+
+    /* Step 4: Poll for calibration scan completion
+     * macOS polls for ~30ms, getting CD→ED→AD→00 */
+    {
+        uint8_t cal_r01;
+        int cal_polls = 0;
+        int cal_timeout = 5000;  /* 5 second safety timeout */
+
+        for (cal_polls = 0; cal_polls < cal_timeout; cal_polls += 2) {
+            plustek8200i_read_reg(dev->usb_fd, 0x101, &cal_r01);
+            if (cal_polls % 10 == 0) {
+                DBG(DBG_info, "CAL poll: r01=0x%02x (%dms) [MOTORENB=%d HOMESNR=%d FEEDFSH=%d BUFEMPTY=%d]\n",
+                    cal_r01, cal_polls,
+                    cal_r01 & 1, (cal_r01 >> 3) & 1,
+                    (cal_r01 >> 5) & 1, (cal_r01 >> 6) & 1);
+            }
+            /* Check DATAENB during calibration scan */
+            if (cal_polls == 4) {
+                uint8_t r40;
+                plustek8200i_read_reg(dev->usb_fd, 0x140, &r40);
+                DBG(DBG_info, "CAL DATAENB check: reg 0x40 hw=0x%02x [DATAENB=%d MOTMFLG=%d]\n",
+                    r40, r40 & 1, (r40 >> 1) & 1);
+            }
+            /* Accept when MOTORENB clears (bit 0 = 0) */
+            if ((cal_r01 & 0x01) == 0) {
+                DBG(DBG_info, "CALIBRATION complete (r01=0x%02x, %dms)\n",
+                    cal_r01, cal_polls);
+                break;
+            }
+            usleep(2000);
+        }
+        if (cal_polls >= cal_timeout) {
+            DBG(DBG_warning, "CALIBRATION timeout (r01=0x%02x)\n", cal_r01);
+        }
+    }
+
+    /* Step 5-6: DMA read calibration data (3072 bytes from 0x10000000)
+     * macOS reads 0x0C00 = 3072 bytes of CCD calibration data.
+     * For now, we just read and discard it to exercise the DMA path.
+     * TODO: Process this data for shading correction. */
+    {
+        uint8_t cal_data[3072];
+        size_t cal_len = sizeof(cal_data);
+
+        DBG(DBG_info, "CALIBRATION: Reading %zu bytes from 0x10000000\n", cal_len);
+        status = plustek8200i_dma_wait_ready(dev->usb_fd);
+        if (status == SANE_STATUS_GOOD) {
+            status = plustek8200i_dma_setup(dev->usb_fd, 0x10000000, cal_len, false);
+        }
+        if (status == SANE_STATUS_GOOD) {
+            status = plustek8200i_bulk_read(dev->usb_fd, cal_data, cal_len);
+        }
+        if (status == SANE_STATUS_GOOD) {
+            /* Check if calibration data is non-zero (confirms DATAENB worked) */
+            int nonzero = 0;
+            size_t i;
+            for (i = 0; i < cal_len && nonzero < 20; i += 2) {
+                uint16_t pixel = cal_data[i] | (cal_data[i+1] << 8);
+                if (pixel != 0) nonzero++;
+            }
+            DBG(DBG_info, "CALIBRATION: Read %zu bytes, %d non-zero pixels "
+                "(first 4: %02x%02x %02x%02x %02x%02x %02x%02x)\n",
+                cal_len, nonzero,
+                cal_data[0], cal_data[1], cal_data[2], cal_data[3],
+                cal_data[4], cal_data[5], cal_data[6], cal_data[7]);
+        } else {
+            DBG(DBG_warning, "CALIBRATION: DMA read failed: %s (continuing)\n",
+                sane_strstatus(status));
+        }
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * Load the constant-speed scan motor tables and set lamp power.
+ */
+static SANE_Status
+scan_load_scan_motor_tables(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    /* Load scan motor tables 1-3 (constant speed for scan mode)
+     *
+     * The GL128 uses tables 1-3 when FASTFED=0 (scan mode).
+     * Tables 4-5 were loaded during init for FASTFED=1 (positioning MOVEs).
+     * Without loading tables 1-3, MOVE #4 runs with empty/uninitialized
+     * motor tables, producing 0 valid words.
+     *
+     * macOS USB capture shows these writes at timestamps 0:41.889-0:41.892,
+     * between scan-phase register configuration and the scan MOVE command.
+     */
+    status = plustek8200i_load_scan_motor_table(dev->usb_fd,
+                 plustek8200i_vdpi_period(
+                     plustek8200i_target_vdpi(dev->opt_resolution)));
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Scan motor table loading failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /*
+     * MOVE #4: Scan with corrected motor/CCD synchronization
+     *
+     * Previous approach kept calibration register state unchanged, resulting
+     * in only ~400 of 1134 lines containing real scan data. Root cause:
+     * LPERIOD (0x4400=17408 from init) doesn't match DPISET (0x04B0=1200
+     * from calibration). The motor traverses the film faster than the CCD
+     * captures lines.
+     *
+     * Fix: Write LPERIOD = motor_speed * MOTORDPI / DPISET to synchronize
+     * motor speed with scan resolution. Also fix motor control registers
+     * (STEPNO, FWDSTEP, BWDSTEP) and MAXWD.
+     *
+     * Key formula:
+     *   effective_vertical_DPI = motor_speed * MOTORDPI / LPERIOD
+     *   For DPISET=LPERIOD sync: LPERIOD = motor_speed * MOTORDPI / DPISET
+     */
+    DBG(DBG_info, "MOVE #4: Scan setup with motor/CCD sync\n");
+
+    /* Lamp power control — macOS writes 0x03=0x30 before scan */
+    plustek8200i_write_reg(dev->usb_fd, 0x03, 0x30);
+
+    /*
+     * Reset GL128 scan state machine to accept new scan.
+     * After calibration scan, transition from post-scan to ready state.
+     */
+    plustek8200i_write_reg(dev->usb_fd, 0x01, 0x02);  /* Clear SCAN, keep SHDAREA */
+
+    /* Clear interrupt registers */
+    {
+        static const uint8_t clear_interrupts[] = {
+            0x8A, 0x00, 0x8B, 0x00, 0x8C, 0x00,
+            0x8D, 0x00, 0x8E, 0x00, 0x8F, 0x00,
+            0x90, 0x00, 0x91, 0x00, 0x92, 0x00,
+        };
+        status = plustek8200i_write_regs(dev->usb_fd, clear_interrupts,
+                                          sizeof(clear_interrupts));
+        if (status != SANE_STATUS_GOOD) {
+            DBG(DBG_error, "MOVE #4: clear interrupts failed\n");
+            return status;
+        }
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * Compute the scan geometry for the requested mode and program every
+ * image-pass register from it.
+ */
+static SANE_Status
+scan_program_image_pass(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    /*
+     * Compute and write scan parameters.
+     *
+     * Write LINCNT, FEEDL, MAXWD, and image buffers for the actual scan.
+     * Keep DPISET and LPERIOD at their calibration/init values.
+     *
+     * CRITICAL: MAXWD must match the actual line size. The calibration
+     * value (0x2F04C0 = 3,081,392) is for a different scan mode and
+     * causes the scan engine to write millions of bytes per line,
+     * overflowing the circular SDRAM buffer and producing repeated data.
+     *
+     * Image buffers (0xE0-0xF7) must be large enough to hold the scan
+     * data. The calibration buffers are ~4 MB total (~406 lines).
+     * For 1134 lines at 10206 bytes/line, we need ~11.6 MB.
+     */
+    {
+        /* The hardware always reads the full window; the scan-area
+         * options are applied by cropping at the end of sane_start.
+         * 36 x 24 mm is the nominal frame the geometry was tuned for --
+         * the margins added below make the delivered window larger. */
+        double width_mm = PLUSTEK8200I_FRAME_W_MM;
+        double height_mm = PLUSTEK8200I_FRAME_H_MM;
+        /*
+         * DPI and DPISET.
+         *
+         * sane-genesys sensor table maps:
+         *   900 DPI → DPISET=150, 1800 DPI → DPISET=300
+         *   3600 DPI → DPISET=600, 7200 DPI → DPISET=1200
+         *
+         * With genesys CCD registers, DPISET controls pixel subsampling.
+         * DPISET=1200 with register_dpihw=1200 → full 7200 DPI resolution.
+         *
+         * Keep DPISET=1200 for now to match current scan area calculations.
+         * The actual output DPI depends on scan_pixels / scan_width.
+         */
+        /*
+         * DPISET=1200 is the only value proven to work with the
+         * macOS CCD registers (0x52=0x08, 0x70=0x06). Other DPISET
+         * values produce near-zero signal.
+         *
+         * At DPISET=1200, the CCD outputs 1701 pixels per line
+         * (36mm at 1200 DPI). These contain ~3 repetitions of a
+         * 512-pixel readout cycle. Post-processing (circular shift +
+         * block averaging) extracts the unique 512-pixel image.
+         */
+        /*
+         * CCD configuration. The verified profile (DPISET=100 plus the
+         * Windows CCD/AFE/SCANMOD values) is now the DEFAULT: it is the
+         * only configuration that produces a usable image. The old
+         * macOS-derived values are kept reachable for A/B work with
+         *     PLUSTEK8200I_CCD_PROFILE=legacy
+         * but that path no longer has a desegmentation stage, so its
+         * output is the modulated stream raw. Check either with
+         * a USB stream decoder; the pass condition is "carrier
+         * PRESENT at the line period".
+         */
+        int use_verified = !plustek8200i_use_legacy_ccd();
+
+        /* Tell the register layer whether this is an infrared pass. */
+        plustek8200i_set_infrared(dev->opt_mode == MODE_INFRARED);
+
+        /*
+         * Horizontal geometry.
+         *
+         * At DPISET=100 the sensor emits 864 px per line, measured on
+         * the wire in both the Windows capture and ours (line period
+         * 2592 samples = 864 px x 3 channels). 864 px spans the 1.44"
+         * PAGESIZE frame, i.e. 600 dpi. DPISET and this width are a
+         * matched pair -- do not change one without re-measuring the
+         * other with usbstream.py.
+         */
+        /*
+         * Horizontal resolution follows the requested one: DPISET is
+         * dpi/6 and the line is dpi*1.44 px (i.e. 1.44 inches of frame).
+         * Both measured; see resolution_list above.
+         */
+        int req_dpi = dev->opt_resolution;
+        if (req_dpi != 300 && req_dpi != 600 && req_dpi != 1200 &&
+            req_dpi != 2400 && req_dpi != 3600 && req_dpi != 7200)
+            req_dpi = 600;
+        /*
+         * Above the default vertical sampling the motor is slowed so the
+         * extra lines genuinely exist; below it, the motor stays at the
+         * known-good speed and the surplus is downsampled away.
+         */
+        int pixel_dpi = use_verified ? req_dpi : 1200;
+        int line_dpi = 1200;    /* Geometry DPI for height */
+        int hw_dpiset = use_verified ? (req_dpi / 6) : 1200;  /* DPISET */
+        int lincnt, feedl;
+        int output_lines, raw_lines;
+        int scan_pixels, scan_line_bytes;
+        /*
+         * The sensor always clocks out three interleaved channels --
+         * there is no single-channel readout mode. Gray and Infrared
+         * are produced by averaging after the scan, so the hardware
+         * geometry is always three channels wide.
+         */
+        int channels = 3;
+        int bytes_per_sample = 2;  /* CCD always outputs 16-bit */
+        uint32_t maxwd;
+        int color_shift_g, color_shift_b;
+
+        /* Scan geometry: wide pixels (7200 DPI), same line count as before */
+        scan_pixels = (int)(width_mm * pixel_dpi / 25.4 + 0.5);
+        if (use_verified) {
+            /*
+             * The sensor emits a fixed dpi*1.44 px per line regardless of
+             * the requested width -- it always scans the full 1.44 inch
+             * frame. width_mm * dpi / 25.4 lands a few pixels short
+             * because the device scans slightly wider than our 36.0 mm
+             * figure. Use the measured hardware width so the line
+             * arithmetic and SANE parameters match the data.
+             */
+            scan_pixels = (req_dpi * 36) / 25;      /* dpi * 1.44 */
+        }
+        scan_line_bytes = scan_pixels * bytes_per_sample * channels;
+
+        /* TRIED AND REJECTED 2026-10-05: rounding scan_pixels up to even,
+         * by analogy with the vendor driver's static-scan path, which
+         * rounds its own width up to an even number of pixels.
+         * Result: scan returned 11,580,408 bytes of ZEROES (0% nonzero).
+         * The macOS rounding applies to the CCD4Channel *table value*, which
+         * is a hardware sensor width, NOT to a width derived from mm x dpi as
+         * we do here. They are different quantities; do not conflate them.
+         */
+
+        /* Output lines at 1200 DPI to preserve motor timing */
+        output_lines = (int)(height_mm * line_dpi / 25.4 + 0.5);
+        if (output_lines < 1) output_lines = 1;
+
+        /*
+         * CCD color shift.
+         *
+         * With macOS CCD registers, the R/GB interleaving is handled by
+         * desegmentation + demosaic, so no line-level color shift is needed.
+         * Color shift is only needed with genesys CCD registers (0x70=0x0A)
+         * which produce clean per-pixel RGB with physically separated color
+         * lines requiring ld_shift_g=12, ld_shift_b=24 compensation.
+         */
+        color_shift_g = 0;
+        color_shift_b = 0;
+
+        /*
+         * Lines to READ must equal the lines the device EMITS, which is
+         * LINCNT (set below), not the nominal output_lines.
+         *
+         * These used to differ by 2x in opposite directions and the two
+         * errors cancelled: LINCNT was raw_lines*2 as a "safety margin"
+         * while line_bytes was 10206 instead of the true 5184, so the
+         * byte count happened to come out right. Fixing line_bytes alone
+         * truncated the scan to 486 usable rows. Keep them consistent.
+         *
+         * The vertical sampling is about 2.2x the horizontal (the sensor
+         * emits ~1300 lines per inch against 600 px per inch across the
+         * line). That is the hardware's behaviour, not a defect --
+         * Windows produces the same 1303 rows x 864 px for this frame
+         * and SilverFast resamples. See the vertical squash in sane_read.
+         */
+        /*
+         * Lines to capture: the frame height at the vertical sampling
+         * rate, plus a margin at each end so neither edge is clipped.
+         *
+         * This used to be output_lines * 2 scaled by the vertical rate,
+         * which at 600 dpi asked for 2268 raw lines to hold a 601-row
+         * frame -- the rest was dark at the start (270 rows) and the
+         * end (66). With FEEDL now placing the frame near the top, the
+         * count can follow the frame instead of the nominal page.
+         */
+        /* Shared with sane_get_parameters() so the pre-scan line count
+         * cannot drift from the number of rows actually delivered. */
+        raw_lines = plustek8200i_raw_frame_lines(req_dpi);
+
+        DBG(DBG_info, "MOVE #4: pixel_dpi=%d line_dpi=%d (DPISET=%d), color_shift G=%d B=%d, "
+            "raw_lines=%d\n", pixel_dpi, line_dpi, hw_dpiset, color_shift_g, color_shift_b, raw_lines);
+
+        /* Store in device struct for sane_read */
+        dev->color_shift_g = color_shift_g;
+        dev->color_shift_b = color_shift_b;
+        dev->raw_scan_lines = raw_lines;
+        dev->scan_pixels = scan_pixels;
+        dev->scan_line_bytes = scan_line_bytes;
+
+        /*
+         * Hardware LINCNT: safety margin over actual lines needed.
+         *
+         * Measured: CCD produces ~51 lines/sec, USB reads ~51 lines/sec.
+         * Data rate (~0.52 MB/s at 10206 bytes/line) matches between CCD
+         * and USB, so no significant FIFO backpressure occurs.
+         *
+         * LINCNT = raw_lines should theoretically work since each LINCNT
+         * tick produces one line. Using ×4 for safety margin in case of
+         * timing variations or brief USB stalls.
+         *
+         * The scan is explicitly stopped (motor + CCD) after data read
+         * completes, so excess LINCNT ticks are harmless.
+         */
+        lincnt = raw_lines;      /* read exactly what the device emits */
+        dev->img_lincnt = lincnt;
+        if (lincnt > 0xFFFFF) lincnt = 0xFFFFF;
+
+        /* FEEDL: motor feed to scan start position (in MOTORDPI steps).
+         *
+         * The film frame is NOT at the top of the holder. From the macOS
+         * plist AREAPAGE for Positive film: y_start = 6750 at UNITDPI=7200.
+         * Converting to MOTORDPI=3600: 6750 * 3600/7200 = 3375 steps.
+         *
+         * After homing + MOVEs 1-3, motor is ~325 steps from home.
+         * FEEDL = distance to film start - motor position after positioning.
+         *
+         * Without this offset, the CCD scans the opaque film holder body
+         * (bias-level signal, no image) instead of the actual film frame.
+         */
+        {
+            /*
+             * Empirical calibration:
+             *   FEEDL=70 → scan starts at shading window (line 0 bright)
+             *   FEEDL=3050 → scan shifted ~100 lines (2.1mm)
+             *   Change: 2980 FEEDL → 2.1mm → 0.71mm per 1000 FEEDL
+             *
+             * Film frame is ~24mm below shading window.
+             * Required additional FEEDL: 24 / 0.71 * 1000 ≈ 34000
+             * Total FEEDL: ~34000
+             *
+             * Testing with 10000 first to verify scaling.
+             */
+            /*
+             * FEEDL positions the carriage before the scan begins. It is
+             * in quarter-steps at MOTORDPI, i.e. 3600 * 4 = 14400 per
+             * inch -- measured: FEEDL 10000 -> 270 lead-in rows and
+             * 13000 -> 145 at 600 dpi, so 24 steps per output row, and
+             * 24 * 600 = 14400.
+             *
+             * 10000 left the frame starting 270 rows in: 0.45 inch of
+             * dark scanned, buffered and transferred for nothing, about
+             * 30% of every scan. 15880 puts the frame start ~25 rows in,
+             * keeping a margin so the top is never clipped.
+             */
+            int base_feedl = 15380;  /* re-centred after the MOVE #1 fix */
+            if (base_feedl < 1) base_feedl = 1;
+            feedl = base_feedl;
+            dev->img_feedl = feedl;
+        }
+        if (feedl < 1) feedl = 1;
+        if (feedl > 0xFFFFF) feedl = 0xFFFFF;
+
+        DBG(DBG_info, "MOVE #4: pixel_dpi=%d (DPISET=%d), output_lines=%d, hw_LINCNT=%d (0x%05X), FEEDL=%d\n",
+            pixel_dpi, hw_dpiset, output_lines, lincnt, lincnt, feedl);
+        DBG(DBG_info, "MOVE #4: scan_pixels=%d, line_bytes=%d, channels=%d\n",
+            scan_pixels, scan_line_bytes, channels);
+
+        /*
+         * MAXWD (regs 0x35-0x37): Line data size in bytes.
+         *
+         * sane-genesys sets MAXWD = output_total_bytes_raw = line_bytes.
+         * This determines the SDRAM line stride. Previous tests with
+         * MAXWD=10206 showed "2 unique lines" but that was before the
+         * GPIO lamp enable fix — with no lamp, all lines had identical
+         * dark current so "unique line" detection was unreliable.
+         *
+         * The macOS value (0x2F04C0) causes 3MB padding per line,
+         * wrapping the 4MB SDRAM and creating diagonal stripe artifacts.
+         */
+        /*
+         * MAXWD is a buffer flow-control threshold, NOT a line stride.
+         * "Buffer full" when free space < 2*MAXWD (in 4-word units).
+         * Setting too small → CCD never captures data (all zeros).
+         * The macOS default 0x2F04C0 works correctly.
+         *
+         * sane-genesys formula: MAXWD_reg = (line_bytes * channels) >> 2
+         * but macOS init value is much larger and functional.
+         */
+        /*
+         * MAXWD is a buffer flow-control threshold, NOT a line stride.
+         * Setting too small → CCD never captures data (all zeros).
+         * The macOS default 0x2F04C0 works for all configurations.
+         */
+        maxwd = 0x2F04C0;  /* macOS default — required for data capture */
+
+        DBG(DBG_info, "MOVE #4: MAXWD=0x%06X (macOS default, line_bytes=%d)\n",
+            maxwd, scan_line_bytes);
+
+        {
+            uint8_t scan_regs[48];
+            int idx = 0;
+            unsigned exposure = (unsigned)(PLUSTEK8200I_BASE_EXPOSURE
+                                * SANE_UNFIX(dev->opt_exposure) + 0.5);
+
+            /* Exposure / line period: 0x7D-0x7F (24-bit). Scaled with the
+             * scan table so the geometry stays put; see the header. */
+            scan_regs[idx++] = 0x7D;
+            scan_regs[idx++] = (exposure >> 16) & 0xFF;
+            scan_regs[idx++] = 0x7E;
+            scan_regs[idx++] = (exposure >> 8) & 0xFF;
+            scan_regs[idx++] = 0x7F;
+            scan_regs[idx++] = exposure & 0xFF;
+            DBG(DBG_info, "MOVE #4: exposure %u (x%.2f)\n",
+                exposure, SANE_UNFIX(dev->opt_exposure));
+
+            /* LINCNT: 0x25-0x27 (20-bit) */
+            scan_regs[idx++] = REG_LINCNT_H;
+            scan_regs[idx++] = (lincnt >> 16) & 0x0F;
+            scan_regs[idx++] = REG_LINCNT_M;
+            scan_regs[idx++] = (lincnt >> 8) & 0xFF;
+            scan_regs[idx++] = REG_LINCNT_L;
+            scan_regs[idx++] = lincnt & 0xFF;
+
+            /* DPISET: 0x2C-0x2D (12-bit)
+             * From sane-genesys sensor table: 3600 DPI → DPISET=600 */
+            scan_regs[idx++] = REG_DPISET_H;
+            scan_regs[idx++] = (hw_dpiset >> 8) & 0x0F;
+            scan_regs[idx++] = REG_DPISET_L;
+            scan_regs[idx++] = hw_dpiset & 0xFF;
+
+            /* MAXWD: 0x35-0x37 (24-bit) — SDRAM line stride in bytes.
+             * MUST match actual CCD line data size. If too large, each
+             * SDRAM line has huge padding, causing diagonal stripe artifacts
+             * when reading continuous data from the FIFO. */
+            scan_regs[idx++] = 0x35;
+            scan_regs[idx++] = (maxwd >> 16) & 0xFF;
+            scan_regs[idx++] = 0x36;
+            scan_regs[idx++] = (maxwd >> 8) & 0xFF;
+            scan_regs[idx++] = 0x37;
+            scan_regs[idx++] = maxwd & 0xFF;
+
+            /* FEEDL: 0x3D-0x3F (20-bit) */
+            scan_regs[idx++] = REG_FEEDL_H;
+            scan_regs[idx++] = (feedl >> 16) & 0x0F;
+            scan_regs[idx++] = REG_FEEDL_M;
+            scan_regs[idx++] = (feedl >> 8) & 0xFF;
+            scan_regs[idx++] = REG_FEEDL_L;
+            scan_regs[idx++] = feedl & 0xFF;
+
+            status = plustek8200i_write_regs(dev->usb_fd, scan_regs, idx);
+            if (status != SANE_STATUS_GOOD) {
+                DBG(DBG_error, "MOVE #4: LINCNT/DPISET/MAXWD/FEEDL write failed\n");
+                return status;
+            }
+        }
+
+        /*
+         * Verified CCD timing/clock/segment registers. Written AFTER the
+         * block above so they win over anything set during init, and so
+         * the final state matches the Windows capture exactly.
+         */
+        if (use_verified) {
+            status = plustek8200i_apply_verified_ccd_regs(dev->usb_fd);
+            if (status != SANE_STATUS_GOOD) {
+                DBG(DBG_error, "MOVE #4: verified CCD register write failed\n");
+                return status;
+            }
+        }
+
+        /*
+         * 7200 dpi: the 10368-pixel line needs SilverFast's line timing.
+         * From its resolution ladder (as tabulated by the pyopticfilm
+         * project from SilverFast captures): LPERIOD 0x28-0x2A = 15963
+         * (11067 otherwise), dummy clock 0x2B = 0x17, pixel clocks
+         * 0xA5/0xAB = 0x01. Written after the CCD profile above, which
+         * sets 0x2A/0x2B too. Without them the first bulk read failed and
+         * the scanner dropped off the bus.
+         */
+        if (dev->opt_resolution == 7200) {
+            static const uint8_t t7200[] = {
+                0x28, (15963 >> 16) & 0xFF, 0x29, (15963 >> 8) & 0xFF,
+                0x2A, 15963 & 0xFF, 0x2B, 0x17, 0xA5, 0x01, 0xAB, 0x01,
+            };
+            plustek8200i_write_regs(dev->usb_fd, t7200, sizeof(t7200));
+        }
+
+        /*
+         * CCD sensor registers from sane-genesys sensor table
+         * (CCD_PLUSTEK_OPTICFILM_8200I).
+         *
+         * These control CCD phase clocking, ADC sampling timing,
+         * color mux selection, and exposure. With correct values,
+         * each pixel outputs clean R, G, B — no R/GB alternation
+         * or dark band artifacts. No desegmentation needed.
+         *
+         * Previous B=0 test (with macOS LPERIOD=17408) likely failed
+         * because not all registers were changed simultaneously.
+         * Now writing ALL sensor regs + LPERIOD=14000 together.
+         */
+        /*
+         * CCD sensor registers: use macOS init values (from pass3).
+         *
+         * The macOS CCD registers (0x52=0x08, 0x70=0x06) produce R/GB
+         * interleaved data which we handle via desegmentation + demosaic.
+         * This approach produces actual image content.
+         *
+         * The sane-genesys CCD registers (0x52=0x09, 0x70=0x0A) should
+         * produce clean per-pixel RGB, but currently produce green-only
+         * constant data (G=49152, R=621, B=0). Root cause unknown —
+         * possibly register corruption (ENDPIXEL/LPERIOD get overwritten)
+         * or timing incompatibility with macOS motor/DPISET configuration.
+         *
+         * Keep macOS CCD registers until genesys timing issue is resolved.
+         */
+        DBG(DBG_info, "MOVE #4: CCD profile: %s\n",
+            use_verified ? "verified (Windows-derived)" : "legacy macOS");
+
+        /*
+         * Image buffers (0xE0-0xF7): Keep calibration/init values.
+         *
+         * The SDRAM is only 4 MB (addresses 0x0000-0x3FFF in 256-byte units).
+         * The calibration buffers span 0x00A8-0x3FFB, using the full SDRAM.
+         * Larger buffer addresses wrap in SDRAM and cause overlap/corruption.
+         *
+         * The 4 MB FIFO acts as a circular buffer with GL128 backpressure:
+         * when full, the CCD is stalled until USB drains data. This limits
+         * unique data to ~400 lines at the current line rate. The solution
+         * is to increase LPERIOD (slower CCD) to match USB drain rate.
+         */
+        DBG(DBG_info, "MOVE #4: Image buffers: keeping init values (4 MB SDRAM)\n");
+
+        /*
+         * Motor control for scan movement.
+         *
+         * The scanner uses 5 slope tables in SRAM for motor acceleration:
+         *   Table 0 (SCAN):      Normal scanning movement
+         *   Table 1 (BACKTRACK): Return/backtrack
+         *   Table 2 (STOP):      Deceleration to stop
+         *   Table 3 (FAST):      Fast positioning
+         *   Table 4 (HOME):      Homing
+         *
+         * During init, only tables 3-4 are loaded (for homing moves).
+         * For actual scanning, tables 0-2 must also be loaded with the
+         * acceleration profile, and motor registers must be set to match.
+         *
+         * The macOS driver uses constant speed 7000 (0x1B58) for scan
+         * tables 0-2 during the actual scan MOVE. This is a much slower
+         * motor speed than the fast positioning tables (which end at ~294).
+         *
+         * There used to be a second loader, load_scan_motor_tables()
+         * (plural), which wrote the captured fast-positioning constant
+         * into scan slots 0-2. It was unreachable and has been deleted.
+         *
+         * Treat its old comment -- "~24x too fast ... only 50% frame
+         * coverage" -- with suspicion if you find it in history: the
+         * 50%-coverage symptom was later traced to the line-count
+         * cancellation bug (raw_lines vs LINCNT), not to the motor.
+         */
+        dev->img_table_period = (int)(plustek8200i_vdpi_period(
+                     plustek8200i_target_vdpi(dev->opt_resolution))
+                       * SANE_UNFIX(dev->opt_exposure) + 0.5);
+        status = plustek8200i_load_scan_motor_table(dev->usb_fd,
+                                                    dev->img_table_period);
+        if (status != SANE_STATUS_GOOD) {
+            DBG(DBG_error, "MOVE #4: Scan motor table loading failed\n");
+            return status;
+        }
+
+        /* Motor power and mode */
+        plustek8200i_write_reg(dev->usb_fd, REG_MTRPWR, 0x30);
+
+        /*
+         * Motor step registers (following the motor register setup of the related ASICs in sane-genesys):
+         *
+         * STEPNO (0x21): Acceleration steps in scan table.
+         *   The step multiplier comes from reg 0x9D: value = 1 << ((0x9D & 0x0F) >> 1).
+         *   With 0x9D = 0x08: step_multiplier = 1 << (8>>1) = 1 << 4 = 16.
+         *   sane-genesys: STEPNO = table_size / step_multiplier.
+         *   256 entries / 16 = 16. Previously this was 256 & 0xFF = 0 (bug).
+         *
+         * FWDSTEP (0x22): Forward re-step count = table_size/2 - 1 = 127.
+         *   Controls how many acceleration steps to replay when restarting
+         *   after a FIFO backpressure stall.
+         *
+         * BWDSTEP (0x23): Backward re-step count = same as FWDSTEP.
+         *
+         * FASTNO (0x24): Fast acceleration steps = same as STEPNO.
+         *
+         * FSHDEC (0x69): Feed-to-scan deceleration steps = same as STEPNO.
+         *
+         * FMOVNO (0x6A): Fast move number = from init (homing table).
+         * FMOVDEC (0x5F): Fast move deceleration = from init.
+         */
+        {
+            int table_entries = 256;  /* macOS motor table: 256 entries */
+            int step_multiplier = 16; /* from reg 0x9D=0x08: 1<<((8&0xF)>>1) */
+            int stepno = table_entries / step_multiplier;  /* 256/16 = 16 */
+            int restep = table_entries / 2 - 1; /* 127 */
+
+            plustek8200i_write_reg(dev->usb_fd, 0x21, stepno);   /* STEPNO */
+            plustek8200i_write_reg(dev->usb_fd, 0x22, restep);   /* FWDSTEP */
+            plustek8200i_write_reg(dev->usb_fd, 0x23, restep);   /* BWDSTEP */
+            plustek8200i_write_reg(dev->usb_fd, 0x24, stepno);   /* FASTNO */
+            plustek8200i_write_reg(dev->usb_fd, 0x69, stepno);   /* FSHDEC */
+
+            DBG(DBG_info, "MOVE #4: Motor steps: STEPNO=0x%02X FWDSTEP=0x%02X "
+                "BWDSTEP=0x%02X FASTNO=0x%02X FSHDEC=0x%02X\n",
+                stepno, restep, restep, stepno, stepno);
+        }
+
+        /*
+         * Step type selection for OpticFilm 8200i.
+         *
+         * REG 0x60 bits[7:5] = STEPSEL (scan step type):
+         *   0x00=full, 0x20=half, 0x40=quarter, 0x60=eighth
+         * REG 0x63 bits[7:5] = FSTPSEL (fast step type):
+         *   Same encoding.
+         *
+         * Quarter step matching sane-genesys motor profile (step_type=QUARTER).
+         * At quarter step, 1 micro-step = 1/14400 inch (3600 × 4).
+         * Motor speed 1450 → LPERIOD/1450 = 17408/1450 = 12 micro-steps/line.
+         * Effective DPI = 14400 / 12 = 1200 ✓
+         *
+         * Z1MOD/Z2MOD (bits[4:0] of regs 0x60-0x62 and 0x63-0x65) are
+         * phase synchronization values. Set to 0 for now.
+         */
+        /*
+         * STEPSEL = quarter step. DO NOT change this on its own.
+         *
+         * 2026-10-05: an attempt to raise the vertical resolution by
+         * switching to eighth stepping (0x60) made the motor grind and
+         * the scanner had to be power-cycled. The reasoning behind it --
+         * "finer microsteps are gentler" -- ignored that the motor slope
+         * tables loaded by plustek8200i_load_scan_motor_table() encode a
+         * speed profile matched to QUARTER stepping. Halving the step
+         * size without rebuilding those tables asks the motor for a step
+         * rate it cannot follow, and it stalls.
+         *
+         * Changing the vertical resolution means changing STEPSEL and
+         * the slope tables and LINCNT together, taken from the vendor
+         * driver's behaviour rather than swept on the hardware.
+         */
+        plustek8200i_write_reg(dev->usb_fd, 0x60, 0x40);  /* STEPSEL=quarter, Z1MOD=0 */
+        plustek8200i_write_reg(dev->usb_fd, 0x61, 0x00);  /* Z1MOD mid */
+        plustek8200i_write_reg(dev->usb_fd, 0x62, 0x00);  /* Z1MOD low */
+        plustek8200i_write_reg(dev->usb_fd, 0x63, 0x40);  /* FSTPSEL=quarter, Z2MOD=0 */
+        plustek8200i_write_reg(dev->usb_fd, 0x64, 0x00);  /* Z2MOD mid */
+        plustek8200i_write_reg(dev->usb_fd, 0x65, 0x00);  /* Z2MOD low */
+
+        /*
+         * Motor voltage reference (REG 0x80).
+         * From sane-genesys motor profile: motor_vref = 3.
+         * Bit layout: [7:6]=TABLE5, [5:4]=TABLE4, [3:2]=TABLE2, [1:0]=TABLE1
+         * All tables at vref=3: 0xFF
+         */
+        plustek8200i_write_reg(dev->usb_fd, 0x80, 0xFF);
+
+        /* Motor current control */
+        plustek8200i_write_reg(dev->usb_fd, 0x67, 0x7F);
+        plustek8200i_write_reg(dev->usb_fd, 0x68, 0x7F);
+
+        DBG(DBG_info, "MOVE #4: Motor configured: STEPSEL=quarter(0x40), VREF=0xFF, "
+            "scan tables 0-2 loaded, LINCNT=%d (×40)\n", lincnt);
+
+        /* Update SANE parameters for sane_read.
+         * Use output_lines (real lines to capture), not lincnt (inflated HW value). */
+        dev->params.pixels_per_line = scan_pixels;
+        dev->params.lines = output_lines;
+        dev->params.depth = (dev->opt_bit_depth == 8) ? 8 : 16;
+        dev->params.format = (dev->opt_mode == MODE_COLOR)
+                           ? SANE_FRAME_RGB : SANE_FRAME_GRAY;
+        dev->params.last_frame = SANE_TRUE;
+
+        if (dev->opt_bit_depth == 8) {
+            dev->params.bytes_per_line = scan_pixels * 1 * channels;
+        } else {
+            dev->params.bytes_per_line = scan_line_bytes;
+        }
+
+        /* Initial bytes_total for raw scan. Desegmentation (post-read) will
+         * update this, params.pixels_per_line, and params.bytes_per_line. */
+        dev->bytes_total = (size_t)scan_line_bytes * output_lines;
+        {
+            size_t raw_bytes_total = (size_t)scan_line_bytes * raw_lines;
+
+            /* Allocate image buffer for full raw scan. A streamed pass
+             * gets a ring of raw lines in stream_begin instead. */
+            free(dev->image_buffer);
+            dev->image_buffer = NULL;
+            dev->buffer_size = 0;
+            if (!stream_wanted(dev)) {
+                dev->image_buffer = calloc(1, raw_bytes_total);
+                if (!dev->image_buffer) {
+                    DBG(DBG_error, "MOVE #4: failed to allocate %zu bytes for image buffer\n",
+                        raw_bytes_total);
+                    return SANE_STATUS_NO_MEM;
+                }
+                dev->buffer_size = raw_bytes_total;
+                DBG(DBG_info, "MOVE #4: allocated %zu bytes for image buffer "
+                    "(%d raw lines x %d bytes/line)\n",
+                    raw_bytes_total, raw_lines, scan_line_bytes);
+            }
+        }
+
+        DBG(DBG_info, "MOVE #4: params: %dx%d, %d bytes/line, depth=%d, total=%zu\n",
+            dev->params.pixels_per_line, dev->params.lines,
+            dev->params.bytes_per_line, dev->params.depth, dev->bytes_total);
+        DBG(DBG_info, "MOVE #4: hw_lincnt=%d (2×%d), raw_lines=%d, bytes_total=%zu\n",
+            lincnt, raw_lines, raw_lines, dev->bytes_total);
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * Shading calibration, the infrared reference, and the DRYRUN stop.
+ */
+static SANE_Status
+scan_shading_and_reference(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    /* Log key register values for diagnostics */
+    {
+        uint8_t r35, r36, r37, r38, r39, r2c, r2d, r21, r22, r23, r02;
+        uint8_t r30, r31, r32, r33, r34;
+        uint8_t r52;
+        uint8_t r70, r71, r72, r73;
+        plustek8200i_read_reg(dev->usb_fd, 0x35, &r35);
+        plustek8200i_read_reg(dev->usb_fd, 0x36, &r36);
+        plustek8200i_read_reg(dev->usb_fd, 0x37, &r37);
+        plustek8200i_read_reg(dev->usb_fd, 0x38, &r38);
+        plustek8200i_read_reg(dev->usb_fd, 0x39, &r39);
+        plustek8200i_read_reg(dev->usb_fd, 0x2C, &r2c);
+        plustek8200i_read_reg(dev->usb_fd, 0x2D, &r2d);
+        plustek8200i_read_reg(dev->usb_fd, 0x21, &r21);
+        plustek8200i_read_reg(dev->usb_fd, 0x22, &r22);
+        plustek8200i_read_reg(dev->usb_fd, 0x23, &r23);
+        plustek8200i_read_reg(dev->usb_fd, 0x02, &r02);
+        plustek8200i_read_reg(dev->usb_fd, 0x30, &r30);
+        plustek8200i_read_reg(dev->usb_fd, 0x31, &r31);
+        plustek8200i_read_reg(dev->usb_fd, 0x32, &r32);
+        plustek8200i_read_reg(dev->usb_fd, 0x33, &r33);
+        plustek8200i_read_reg(dev->usb_fd, 0x34, &r34);
+        plustek8200i_read_reg(dev->usb_fd, 0x52, &r52);
+        plustek8200i_read_reg(dev->usb_fd, 0x70, &r70);
+        plustek8200i_read_reg(dev->usb_fd, 0x71, &r71);
+        plustek8200i_read_reg(dev->usb_fd, 0x72, &r72);
+        plustek8200i_read_reg(dev->usb_fd, 0x73, &r73);
+        DBG(DBG_info, "MOVE #4 verify: MAXWD=0x%02X%02X%02X LPERIOD=0x%02X%02X DPISET=0x%02X%02X\n",
+            r35, r36, r37, r38, r39, r2c, r2d);
+        DBG(DBG_info, "MOVE #4 verify: STEPNO=0x%02X FWDSTEP=0x%02X BWDSTEP=0x%02X REG02=0x%02X\n",
+            r21, r22, r23, r02);
+        DBG(DBG_info, "MOVE #4 verify: STRPIXEL=0x%02X%02X ENDPIXEL=0x%02X%02X DUMMY=0x%02X\n",
+            r30, r31, r32, r33, r34);
+        {   /* read back the whole CCD/AFE timing block we just wrote */
+            int rb;
+            char line[256]; int pos = 0;
+            for (rb = 0x51; rb <= 0x5F; rb++) {
+                uint8_t v = 0;
+                plustek8200i_read_reg(dev->usb_fd, rb, &v);
+                pos += snprintf(line + pos, sizeof(line) - pos,
+                                "%02X:%02X ", rb, v);
+            }
+            DBG(DBG_info, "MOVE #4 readback 0x51-0x5F: %s\n", line);
+        }
+        DBG(DBG_info, "MOVE #4 verify: CCD 0x52=0x%02X 0x70=0x%02X 0x71=0x%02X 0x72=0x%02X 0x73=0x%02X\n",
+            r52, r70, r71, r72, r73);
+    }
+
+    /*
+     * CCD registers: use macOS init values (no override).
+     *
+     * sane-genesys CCD registers are incompatible with our macOS-derived
+     * init sequence — they produce garbage data (R/G/B cycling pattern).
+     * The macOS CCD registers produce R/GB interleaved data which we
+     * de-interleave in post-processing. See the CCD register analysis.
+     */
+
+    /*
+     * Hardware shading: dark and white strips with the carriage at home,
+     * taken here, after every image register is in place, so the strips
+     * see exactly the image's scan mode, pixel window and DPISET. The
+     * routine restores LINCNT, FEEDL, motor mode, lamp and the scan table
+     * afterwards. Not for the infrared pass: DVDSET clips IR.
+     */
+    dev->shading_ok = 0;
+    dev->ir_scale = 1.0;
+    if (dev->opt_mode == MODE_INFRARED || plustek8200i_use_infrared()) {
+        const char *sh = getenv("PLUSTEK8200I_SHADING");
+        if (!(sh && *sh == '0'))
+            plustek8200i_ir_reference(dev->usb_fd, dev->scan_pixels,
+                dev->img_lincnt, dev->img_feedl, dev->img_table_period,
+                (int)(PLUSTEK8200I_BASE_EXPOSURE * SANE_UNFIX(dev->opt_exposure) + 0.5),
+                &dev->ir_scale);
+    }
+    dev->shading_ok = 0;
+    if (dev->opt_mode != MODE_INFRARED && !plustek8200i_use_infrared()) {
+        const char *sh = getenv("PLUSTEK8200I_SHADING");
+        if (!(sh && *sh == '0')) {
+            plustek8200i_shading_stats_t sst;
+            SANE_Status shst = plustek8200i_shading_calibrate(dev->usb_fd,
+                                   dev->scan_pixels, dev->img_lincnt,
+                                   dev->img_feedl, dev->img_table_period,
+                                   (int)(PLUSTEK8200I_BASE_EXPOSURE
+                                         * SANE_UNFIX(dev->opt_exposure) + 0.5),
+                                   1, &sst);
+            dev->shading_ok = (shst == SANE_STATUS_GOOD);
+            DBG(DBG_info, "SHADING: %s\n", dev->shading_ok
+                ? "table loaded, image pass runs with DVDSET" : "not applied");
+        }
+    }
+
+    /*
+     * Positioning feed. The image pass used to reach the frame with its own
+     * FEEDL at scan speed (9 s at 600 dpi, 29 s at 3600, 57 s at 7200).
+     * Instead, as SilverFast does, move there with a fast feed and start
+     * the image with FEEDL = 1. Feed steps are the same units as image
+     * FEEDL, but an image FEEDL of F lands where a feed of F - 520 does
+     * (measured: 2000/4000-step feeds + image FEEDL kept the frame 11 rows
+     * (300 dpi) further on; a 14860-step feed + FEEDL 1 matches FEEDL
+     * 15380 to 0.1 row at 300/600/3600/7200, repeatably).
+     * Fast ramp: SilverFast's final-feed ramp (13128 steps there); the
+     * slow ramp it uses for its 28292-step first feed took 7.7 s for this
+     * distance. Registers and our motor table are restored afterwards, so
+     * the image pass and its return home are unchanged.
+     */
+    {
+        int steps = dev->img_feedl - PLUSTEK8200I_FEED_LEAD;
+        if (steps >= 1000 && steps <= PLUSTEK8200I_FEED_MAX) {
+            extern const uint8_t scan_motor_table[512];
+            static const uint8_t feedl1[] = { 0x3D, 0x00, 0x3E, 0x00, 0x3F, 0x01 };
+            plustek8200i_feed_saved_t sv;
+            status = plustek8200i_feed_save(dev->usb_fd, &sv);
+            if (status == SANE_STATUS_GOOD)
+                status = plustek8200i_feed(dev->usb_fd, steps, 0);
+            plustek8200i_feed_restore(dev->usb_fd, &sv);
+            plustek8200i_dma_write(dev->usb_fd, 0x1000C000, scan_motor_table, 512);
+            plustek8200i_dma_write(dev->usb_fd, 0x10010000, scan_motor_table, 512);
+            if (status != SANE_STATUS_GOOD) {
+                DBG(DBG_error, "FEED: positioning feed failed: %s\n", sane_strstatus(status));
+                return status;
+            }
+            plustek8200i_write_regs(dev->usb_fd, feedl1, sizeof(feedl1));
+        }
+    }
+
+    /* Counter clear (same pattern as working calibration scan) */
+    DBG(DBG_info, "MOVE #4: Clearing counters\n");
+    plustek8200i_write_reg(dev->usb_fd, 0x0D, 0x05);  /* CLRMCNT | CLRLNCNT */
+    plustek8200i_write_reg(dev->usb_fd, 0x0D, 0x07);  /* CLRMCNT | CLRDOCJM | CLRLNCNT */
+
+    /* Enable SCAN: 0x03 = SHDAREA | SCAN, plus DVDSET (0x20) when the
+     * shading table was loaded. */
+    DBG(DBG_info, "MOVE #4: Enable SCAN (0x%02x)\n", dev->shading_ok ? 0x23 : 0x03);
+    plustek8200i_write_reg(dev->usb_fd, 0x01, dev->shading_ok ? 0x23 : 0x03);
+
+    /* MOVE command — LISTEN FOR MOTOR! */
+    {
+        /* PLUSTEK8200I_DRYRUN=1: stop here, with every image register
+         * programmed but the image pass not started (for register
+         * comparisons -- nothing moves). */
+        const char *dr = getenv("PLUSTEK8200I_DRYRUN");
+        if (dr && *dr == '1') {
+            plustek8200i_regtrace_mark("DRYRUN STOP");
+            plustek8200i_write_reg(dev->usb_fd, 0x01, 0x02);
+            free(dev->image_buffer);
+            dev->image_buffer = NULL;
+            dev->buffer_size = 0;
+            return SANE_STATUS_CANCELLED;
+        }
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * Start the image pass and deliver it: streamed, or read whole and
+ * post-processed.
+ */
+/*
+ * Average the three sensor channels down to one, for Gray and Infrared.
+ */
+static SANE_Status
+image_reduce_to_one_channel(plustek8200i_device_t *dev)
+{
+    /*
+     * Single-channel output for Gray and Infrared.
+     *
+     * The sensor has no one-channel readout, so the scan is always
+     * three channels wide and the average is taken here. For the
+     * infrared pass all three carry the same IR signal, so this is
+     * simply noise reduction; for Gray it is a luminance mix.
+     */
+    if (dev->opt_mode != MODE_COLOR) {
+        int px = dev->scan_pixels;
+        int lines = dev->raw_scan_lines;
+        int out_line = px * 2;
+        size_t total = (size_t)out_line * lines;
+        uint8_t *gbuf = malloc(total);
+        int y, x;
+
+        if (!gbuf) {
+            free(dev->image_buffer);
+            dev->image_buffer = NULL;
+            return SANE_STATUS_NO_MEM;
+        }
+        for (y = 0; y < lines; y++) {
+            uint16_t *src = (uint16_t *)(dev->image_buffer +
+                            (size_t)y * dev->scan_line_bytes);
+            uint16_t *dst = (uint16_t *)(gbuf + (size_t)y * out_line);
+            if (dev->opt_mode == MODE_INFRARED) {
+                /* mean of the three channels, normalised to the open IR
+                 * light (dev->ir_scale, see plustek8200i_ir_reference) */
+                for (x = 0; x < px; x++) {
+                    double v = (src[x * 3] + src[x * 3 + 1] + src[x * 3 + 2])
+                               / 3.0 * dev->ir_scale;
+                    dst[x] = v > 65535.0 ? 65535 : (uint16_t)(v + 0.5);
+                }
+            } else {
+                for (x = 0; x < px; x++)
+                    dst[x] = (uint16_t)((src[x * 3] * 299u +
+                                         src[x * 3 + 1] * 587u +
+                                         src[x * 3 + 2] * 114u) / 1000u);
+            }
+        }
+        free(dev->image_buffer);
+        dev->image_buffer = gbuf;
+        dev->buffer_size = total;
+        dev->scan_line_bytes = out_line;
+        dev->params.bytes_per_line = out_line;
+        dev->params.format = SANE_FRAME_GRAY;
+        dev->bytes_total = total;
+        DBG(DBG_info, "%s: averaged to 1 channel, %d bytes/line\n",
+            dev->opt_mode == MODE_INFRARED ? "Infrared" : "Gray",
+            out_line);
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * Repair the colour image from the infrared defect map.
+ */
+static void
+image_apply_ir_repair(plustek8200i_device_t *dev)
+{
+    /*
+     * Apply the infrared defect map.
+     *
+     * Film dye is transparent to IR, so a clear frame reads near
+     * uniform and anything physical -- dust, hair, scratches -- reads
+     * dark. Pixels far enough below the local IR level are marked and
+     * replaced in the colour image by interpolating horizontally
+     * across the defect, which is cheap and good enough for specks and
+     * thin scratches. Wide damage is left alone rather than smeared.
+     */
+    if (dev->ir_map && dev->opt_mode == MODE_COLOR && dev->image_buffer) {
+        int px = dev->scan_pixels;
+        int lines = dev->raw_scan_lines;
+        size_t need = (size_t)px * 2 * lines;
+        int y;
+
+        if (dev->ir_map_size < need) {
+            DBG(DBG_info, "IR clean: map is %zu bytes, need %zu -- "
+                "geometry differs, skipping repair\n",
+                dev->ir_map_size, need);
+        } else {
+            if (plustek8200i_ir_prepare(dev, lines) == 0) {
+                for (y = dev->ir_r0; y < dev->ir_r1; y++)
+                    plustek8200i_ir_repair_row(dev, y, (uint16_t *)(dev->image_buffer +
+                                               (size_t)y * dev->scan_line_bytes));
+                plustek8200i_ir_report(dev);
+            }
+        }
+        free(dev->ir_map);
+        dev->ir_map = NULL;
+        dev->ir_map_size = 0;
+    }
+}
+
+/*
+ * PLUSTEK8200I_STREAMCHECK diagnostic: rebuild the frame through the
+ * streaming pipeline and compare it with the whole-buffer result.
+ */
+static void
+image_streamcheck(plustek8200i_device_t *dev)
+{
+    if (dev->check_raw) {
+        int comps = dev->opt_mode == MODE_COLOR ? 3 : 1, y, diff = 0, maxd = 0;
+        size_t ln = (size_t)dev->scan_pixels * comps;
+        uint16_t *line = malloc(ln * 2);
+        if (line && pipe_setup(dev, dev->check_raw, dev->check_raw_lines,
+                               dev->check_raw_line_bytes) == 0) {
+            int lines = dev->p_res_lines;
+            if (dev->ir_map && dev->opt_mode == MODE_COLOR)
+                DBG(DBG_warning, "STREAMCHECK: IR repair not compared (map freed)\n");
+            dev->ir_ready = 0;
+            for (y = 0; y < lines && y < dev->raw_scan_lines; y++) {
+                const uint16_t *ref = (const uint16_t *)(dev->image_buffer +
+                                      (size_t)y * dev->scan_line_bytes);
+                size_t i;
+                pipe_line(dev, y, line);
+                for (i = 0; i < ln; i++) {
+                    int d = abs((int)line[i] - (int)ref[i]);
+                    if (d) diff++;
+                    if (d > maxd) maxd = d;
+                }
+            }
+            DBG(DBG_info, "STREAMCHECK: %d lines (full path %d), %d samples differ, "
+                "max difference %d\n", lines, dev->raw_scan_lines, diff, maxd);
+            /* Same again through a ring sized as in stream_begin, fed in
+             * USB-chunk-sized pieces as stream_read does. */
+            {
+                int lb = dev->check_raw_line_bytes, ring, rdiff = 0, rmax = 0, bad = 0;
+                double v = dev->p_vsquash <= 1.01 ? 1.0 : dev->p_vsquash;
+                size_t total = (size_t)dev->check_raw_lines * lb, rd = 0, rb;
+                uint8_t *rbuf;
+                ring = (int)((2 * dev->p_shift + 1) * v + 0.999) + 2
+                       + PLUSTEK8200I_STREAM_CHUNK / lb + 2 + 16;
+                if (ring > dev->check_raw_lines) ring = dev->check_raw_lines;
+                rb = (size_t)ring * lb;
+                rbuf = malloc(rb);
+                if (rbuf) {
+                    dev->p_raw = rbuf;
+                    dev->p_ring_lines = ring;
+                    for (y = 0; y < lines && y < dev->raw_scan_lines && !bad; y++) {
+                        const uint16_t *ref = (const uint16_t *)(dev->image_buffer +
+                                              (size_t)y * dev->scan_line_bytes);
+                        size_t i;
+                        while ((int)(rd / lb) < pipe_raw_needed(dev, y) && rd < total) {
+                            size_t got = total - rd, pos = rd % rb, n1 = rb - pos;
+                            if (got > PLUSTEK8200I_STREAM_CHUNK) got = PLUSTEK8200I_STREAM_CHUNK & ~(size_t)511;
+                            if ((rd + got + lb - 1) / lb > (size_t)pipe_raw_oldest(dev, y) + ring) {
+                                bad = 1;
+                                break;
+                            }
+                            if (n1 > got) n1 = got;
+                            memcpy(rbuf + pos, dev->check_raw + rd, n1);
+                            memcpy(rbuf, dev->check_raw + rd + n1, got - n1);
+                            rd += got;
+                        }
+                        pipe_line(dev, y, line);
+                        for (i = 0; i < ln; i++) {
+                            int d = abs((int)line[i] - (int)ref[i]);
+                            if (d) rdiff++;
+                            if (d > rmax) rmax = d;
+                        }
+                    }
+                    DBG(DBG_info, "STREAMCHECK ring: %d lines (%.1f MB vs %.1f MB), %s, "
+                        "%d samples differ, max difference %d\n", ring, rb / 1e6,
+                        total / 1e6, bad ? "OVERRUN" : "no overrun", rdiff, rmax);
+                    free(rbuf);
+                }
+            }
+        }
+        free(line);
+        pipe_free(dev);
+        free(dev->check_raw);
+        dev->check_raw = NULL;
+    }
+}
+
+/*
+ * Cut the requested rectangle out of the delivered full window.
+ */
+static void
+image_crop_to_scan_area(plustek8200i_device_t *dev)
+{
+    /*
+     * Scan area: cut the requested rectangle out of the full window.
+     * Skipped on the infrared pre-pass of --ir-clean, whose defect map
+     * must cover the whole window the colour pass delivers.
+     */
+    if (!dev->in_ir_pass && dev->image_buffer) {
+        int fw = dev->params.pixels_per_line, fh = dev->params.lines;
+        int x0, y0, x1, y1;
+
+        plustek8200i_crop_rect(dev, fw, fh, &x0, &y0, &x1, &y1);
+        if (x0 != 0 || y0 != 0 || x1 != fw || y1 != fh) {
+            /* The buffer is always 16-bit; with --depth 8 sane_read
+             * halves it on delivery. So crop by the buffer's own line
+             * length, and give the frontend the delivered one. */
+            size_t buf_line = (size_t)dev->scan_line_bytes;
+            size_t bpp = buf_line / fw;
+            size_t out_line = bpp * (x1 - x0);
+            int y;
+
+            for (y = y0; y < y1; y++)
+                memmove(dev->image_buffer + (size_t)(y - y0) * out_line,
+                        dev->image_buffer + (size_t)y * buf_line + bpp * x0,
+                        out_line);
+            dev->params.pixels_per_line = x1 - x0;
+            dev->params.lines = y1 - y0;
+            dev->params.bytes_per_line = (SANE_Int)(dev->opt_bit_depth == 8
+                                                    ? out_line / 2 : out_line);
+            dev->scan_line_bytes = (int)out_line;
+            dev->bytes_total = out_line * (size_t)(y1 - y0);
+            DBG(DBG_info, "Scan area: %dx%d window cropped to x %d..%d, y %d..%d\n",
+                fw, fh, x0, x1, y0, y1);
+        }
+    }
+}
+
+static SANE_Status
+scan_run_image_pass(plustek8200i_device_t *dev)
+{
+    SANE_Status status;
+
+    plustek8200i_regtrace_mark("IMAGE PASS START");
+    DBG(DBG_info, "MOVE #4: Sending scan MOVE command — LISTEN FOR MOTOR!\n");
+    status = plustek8200i_write_reg(dev->usb_fd, 0x0F, 0x01);
+    if (status != SANE_STATUS_GOOD) {
+        DBG(DBG_error, "Scan MOVE failed: %s\n", sane_strstatus(status));
+        return status;
+    }
+
+    /*
+     * Streaming scan data read.
+     *
+     * The GL128 uses a circular SDRAM buffer (~4MB). For scans that produce
+     * more data than the buffer can hold, we MUST read data during the scan.
+     * If we wait for scan completion, the buffer fills up and the scan engine
+     * stalls (MOTORENB stays 1 forever).
+     *
+     * Like sane-genesys: start the scan, then immediately begin reading.
+     * The USB bulk reads will naturally pace with the scan — the GL128
+     * sends data when available and NAKs when the buffer is empty, causing
+     * the bulk read to block until more data arrives.
+     */
+    {
+        size_t raw_bytes = dev->buffer_size;
+
+        if (stream_wanted(dev)) {
+            if (dev->in_ir_pass)
+                return ir_pass_stream(dev);
+            if (dev->opt_rgbi && dev->opt_auto_wb)
+                DBG(DBG_info, "Color+Infrared: --auto-wb is not applied\n");
+            return stream_begin(dev);
+        }
+
+        DBG(DBG_info, "Starting streaming scan read (%zu bytes, %d lines)...\n",
+            raw_bytes, dev->raw_scan_lines);
+
+        status = plustek8200i_read_scan_data_cancellable(dev->usb_fd,
+                                             dev->image_buffer, raw_bytes,
+                                             &dev->cancel_requested);
+        if (status == SANE_STATUS_CANCELLED) {
+            DBG(DBG_warning, "Scan cancelled during the image pass\n");
+            plustek8200i_scan_stop(dev->usb_fd);
+            plustek8200i_motor_stop(dev->usb_fd);
+            free(dev->image_buffer);
+            dev->image_buffer = NULL;
+            dev->buffer_size = 0;
+            return SANE_STATUS_CANCELLED;
+        }
+        if (status != SANE_STATUS_GOOD) {
+            DBG(DBG_error, "Scan data read failed: %s\n", sane_strstatus(status));
+            /*
+             * Continue with partial data instead of aborting.
+             * This lets us examine whatever scan data was received.
+             * The remaining buffer is zero-filled (calloc).
+             */
+            DBG(DBG_info, "Continuing with partial scan data for analysis\n");
+        }
+
+        DBG(DBG_info, "Scan data read complete. Post-processing...\n");
+        {
+            /* PLUSTEK8200I_RAWIMG=<path>: the raw buffer as read, before any
+             * post-processing (word order exactly as the ASIC sends it). */
+            const char *rp = getenv("PLUSTEK8200I_RAWIMG");
+            if (rp && *rp) {
+                FILE *rf = fopen(rp, "wb");
+                if (rf) {
+                    fwrite(dev->image_buffer, 1, dev->buffer_size, rf);
+                    fclose(rf);
+                    DBG(DBG_info, "raw image (%zu bytes, %d bytes/line) -> %s\n",
+                        dev->buffer_size, dev->scan_line_bytes, rp);
+                }
+            }
+        }
+
+        /* Read motor/scan counters for analysis */
+        {
+            uint8_t fedcnt_h, fedcnt_m, fedcnt_l;
+            uint8_t scancnt_h, scancnt_m, scancnt_l;
+            uint8_t status41;
+            plustek8200i_read_reg(dev->usb_fd, 0x48, &fedcnt_h);
+            plustek8200i_read_reg(dev->usb_fd, 0x49, &fedcnt_m);
+            plustek8200i_read_reg(dev->usb_fd, 0x4A, &fedcnt_l);
+            plustek8200i_read_reg(dev->usb_fd, 0x4B, &scancnt_h);
+            plustek8200i_read_reg(dev->usb_fd, 0x4C, &scancnt_m);
+            plustek8200i_read_reg(dev->usb_fd, 0x4D, &scancnt_l);
+            plustek8200i_read_reg(dev->usb_fd, 0x41, &status41);
+            unsigned fedcnt = ((fedcnt_h & 0x0F) << 16) | (fedcnt_m << 8) | fedcnt_l;
+            unsigned scancnt = ((scancnt_h & 0x0F) << 16) | (scancnt_m << 8) | scancnt_l;
+            DBG(DBG_info, "Post-scan counters: FEDCNT=%u (0x%05X) SCANCNT=%u (0x%05X) STATUS41=0x%02X\n",
+                fedcnt, fedcnt, scancnt, scancnt, status41);
+            /* Estimate physical distance */
+            double distance_mm = (double)fedcnt / 3600.0 * 25.4;
+            DBG(DBG_info, "Post-scan: estimated motor distance = %.1fmm (FEDCNT/3600*25.4)\n",
+                distance_mm);
+        }
+
+        /*
+         * End of the image pass: clear SCAN only, as SilverFast does
+         * (0x01 = 0x22 in our usbmon captures, then nothing for minutes).
+         * The pass was started with AGOHOME (0x02 = 0x30), so the ASIC
+         * drives the carriage back to the home sensor by itself.
+         *
+         * This used to cut the motor power as well, from when LINCNT was
+         * set x40 too high and the motor had to be stopped by hand. With
+         * LINCNT exact that only interrupted the return home, stranding
+         * the carriage; the next scan's MOVE #1 then spent ~10 s creeping
+         * it back.
+         */
+        plustek8200i_scan_stop(dev->usb_fd);
+        DBG(DBG_info, "Scan stopped after data read; carriage returns home (AGOHOME)\n");
+
+        /* PLUSTEK8200I_STREAMCHECK=1: keep the raw buffer, and after the
+         * full-buffer post-processing rebuild every line with the
+         * line-by-line pipeline and compare (see pipe_line). */
+        {
+            const char *sc = getenv("PLUSTEK8200I_STREAMCHECK");
+            free(dev->check_raw);
+            dev->check_raw = NULL;
+            if (sc && *sc == '1' && !dev->opt_auto_wb && !dev->in_ir_pass) {
+                dev->check_raw = malloc(dev->buffer_size);
+                if (dev->check_raw) {
+                    memcpy(dev->check_raw, dev->image_buffer, dev->buffer_size);
+                    dev->check_raw_lines = dev->raw_scan_lines;
+                    dev->check_raw_line_bytes = dev->scan_line_bytes;
+                }
+            }
+        }
+
+        /*
+         * Vertical resample to square pixels.
+         *
+         * The sensor samples ~2.6x more finely along the scan direction
+         * than across the line: PLUSTEK8200I_HW_LINE_DPI vertical against
+         * pixel_dpi horizontal. That is the hardware's behaviour, not a
+         * defect -- Windows produces the same shape (1303 rows x 864 px
+         * for this frame) and SilverFast resamples on output.
+         *
+         * Measured two independent ways, agreeing to 0.2%: locating the
+         * film rebate edges gave 2.605, and cross-correlating our scan
+         * against the Windows scan of the same frame gave 2.611.
+         * Re-measure if the motor configuration or LPERIOD changes.
+         *
+         * Area average, so this is a real downsample, not a line drop.
+         */
+        {
+            /*
+             * Vertical sampling is fixed by line rate against motor
+             * speed at ~PLUSTEK8200I_HW_LINE_DPI, independent of DPISET,
+             * so the squash factor tracks the requested resolution.
+             *   300 dpi -> 4.97   600 -> 2.48   1200 -> 1.24
+             */
+            int rdpi = dev->opt_resolution;
+            double vsquash;
+            if (rdpi != 300 && rdpi != 600 && rdpi != 1200 &&
+                rdpi != 2400 && rdpi != 3600 && rdpi != 7200) rdpi = 600;
+            vsquash = plustek8200i_use_legacy_ccd()
+                ? 1.0
+                : (double)plustek8200i_target_vdpi(rdpi) / (double)rdpi;
+            int src_lines = dev->raw_scan_lines;
+            int dst_lines = (int)(src_lines / vsquash);
+            /*
+             * Components per line, from the LINE WIDTH -- not from the
+             * scan mode. The buffer is always three interleaved
+             * channels here; Gray and Infrared are averaged later. A
+             * mode-derived count silently processed only a third of
+             * each line in Infrared mode and left the rest as calloc
+             * zeros.
+             */
+            int ncomp = dev->scan_line_bytes / 2;
+            int sline = dev->scan_line_bytes;
+            size_t dst_total;
+            uint8_t *dst_buf;
+            double *acc;
+            int y, x, i;
+
+            if (dst_lines < 1) dst_lines = 1;
+            if (vsquash <= 1.01) {
+                /*
+                 * No downsample needed (the motor was slowed so the
+                 * lines genuinely exist). The captured count is still
+                 * raw_lines, not the nominal output_lines the SANE
+                 * parameters were initialised with -- without this the
+                 * frame is truncated to the nominal height.
+                 */
+                dev->params.lines = dev->raw_scan_lines;
+                dev->bytes_total = (size_t)sline * dev->raw_scan_lines;
+                DBG(DBG_info, "No vertical resample (squash %.3f); "
+                    "delivering %d lines\n", vsquash, dev->raw_scan_lines);
+                goto no_resample;
+            }
+            dst_total = (size_t)sline * dst_lines;
+            dst_buf = calloc(1, dst_total);
+            acc = calloc(ncomp, sizeof(double));
+            if (!dst_buf || !acc) {
+                free(dst_buf); free(acc);
+                free(dev->image_buffer); dev->image_buffer = NULL;
+                return SANE_STATUS_NO_MEM;
+            }
+
+            for (y = 0; y < dst_lines; y++) {
+                double y0 = y * vsquash, y1 = (y + 1) * vsquash;
+                int i0 = (int)y0, i1 = (int)(y1 - 1e-9);
+                uint16_t *dst = (uint16_t *)(dst_buf +
+                                (size_t)y * sline);
+                double wsum = 0.0;
+
+                memset(acc, 0, ncomp * sizeof(double));
+                if (i1 >= src_lines) i1 = src_lines - 1;
+                for (i = i0; i <= i1; i++) {
+                    double lo = (i > y0) ? i : y0;
+                    double hi = ((i + 1) < y1) ? (i + 1) : y1;
+                    double w = hi - lo;
+                    uint16_t *src;
+                    if (w <= 0) continue;
+                    src = (uint16_t *)(dev->image_buffer +
+                          (size_t)i * sline);
+                    for (x = 0; x < ncomp; x++) acc[x] += w * src[x];
+                    wsum += w;
+                }
+                if (wsum > 0) {
+                    for (x = 0; x < ncomp; x++) {
+                        double v = acc[x] / wsum;
+                        dst[x] = (v > 65535.0) ? 65535 : (uint16_t)(v + 0.5);
+                    }
+                }
+            }
+            free(acc);
+            free(dev->image_buffer);
+            dev->image_buffer = dst_buf;
+            dev->buffer_size = dst_total;
+            dev->raw_scan_lines = dst_lines;
+            dev->params.lines = dst_lines;
+            dev->bytes_total = dst_total;
+            DBG(DBG_info, "Vertical resample: %d -> %d lines "
+                "(squash %.3f) -> square pixels\n",
+                src_lines, dst_lines, vsquash);
+        no_resample: ;
+        }
+
+        /*
+         * Channel registration.
+         *
+         * The CCD's red, green and blue lines sit 1/300 inch apart along
+         * the scan direction, and nothing compensated for it: measured on
+         * the tulip frame after the resample, red led green by exactly
+         * dpi/300 rows and blue trailed by the same (1, 2, 4, 8, 12 rows
+         * at 300 ... 3600 dpi; the build before this one shows the same).
+         * That showed as colour fringes along horizontal edges and, in the
+         * infrared pass (the mean of all three), as every speck smeared
+         * into a vertical triple. Shift red down and blue up by dpi/300
+         * rows; edge rows repeat the nearest valid one. The buffer is
+         * always three interleaved channels at this point, whatever the
+         * requested mode.
+         */
+        {
+            int s = dev->opt_resolution / 300;
+            int comps = dev->scan_line_bytes / 2;
+            int lines = dev->raw_scan_lines;
+            int px3 = comps - comps % 3;
+
+            if (s > 0 && lines > 2 * s && comps >= 3) {
+                int y, x;
+                for (y = lines - 1; y >= 0; y--) {          /* red: down */
+                    uint16_t *dst = (uint16_t *)(dev->image_buffer +
+                                    (size_t)y * dev->scan_line_bytes);
+                    uint16_t *src = (uint16_t *)(dev->image_buffer +
+                                    (size_t)(y >= s ? y - s : 0) * dev->scan_line_bytes);
+                    for (x = 0; x < px3; x += 3) dst[x] = src[x];
+                }
+                for (y = 0; y < lines; y++) {               /* blue: up */
+                    uint16_t *dst = (uint16_t *)(dev->image_buffer +
+                                    (size_t)y * dev->scan_line_bytes);
+                    uint16_t *src = (uint16_t *)(dev->image_buffer +
+                                    (size_t)(y + s < lines ? y + s : lines - 1) * dev->scan_line_bytes);
+                    for (x = 2; x < px3; x += 3) dst[x] = src[x];
+                }
+                DBG(DBG_info, "Channel registration: R +%d rows, B -%d rows\n", s, s);
+            }
+        }
+
+        /*
+         * Horizontal mirror.
+         *
+         * The sensor clocks pixels out in the opposite order to the
+         * image's left-to-right, so the raw line is reversed relative to
+         * what the frame should look like. Confirmed against the
+         * SilverFast reference at the fitted vertical scale: mirrored
+         * scores ncc +0.7696 / gradcorr +0.6454, unmirrored +0.5797 /
+         * +0.6039.
+         */
+        if (!plustek8200i_use_legacy_ccd()) {
+            /* Always three channels in the buffer here; see above. */
+            int nchan = 3;
+            int px = dev->scan_pixels;
+            int sline = dev->scan_line_bytes;
+            int y, x, c;
+
+            for (y = 0; y < dev->raw_scan_lines; y++) {
+                uint16_t *row = (uint16_t *)(dev->image_buffer +
+                                (size_t)y * sline);
+                for (x = 0; x < px / 2; x++) {
+                    int o = px - 1 - x;
+                    for (c = 0; c < nchan; c++) {
+                        uint16_t t = row[x * nchan + c];
+                        row[x * nchan + c] = row[o * nchan + c];
+                        row[o * nchan + c] = t;
+                    }
+                }
+            }
+            DBG(DBG_info, "Horizontal mirror applied (%d px)\n", px);
+        }
+
+        /*
+         * The device returns plain contiguous RGB-interleaved lines.
+         *
+         * The desegmentation + demosaic pipeline that used to live here
+         * was removed in full. It existed only to undo a modulation the
+         * old CCD configuration produced -- a suppressed line carrier
+         * with +-2-sample sidebands at 26%, which rendered as a diamond
+         * lattice. That was fixed at the source (REG06/SCANMOD, see
+         * plustek8200i_apply_verified_ccd_regs), so there is nothing
+         * left to undo and running it would corrupt good data. Gone with
+         * it: the period / phase_step / phase_base constants and the
+         * uint16 accumulator overflow they were computed into.
+         */
+        {
+            int total_lines = dev->raw_scan_lines;
+            int line_bytes = dev->scan_line_bytes;
+            int pixels = dev->scan_pixels;
+
+            DBG(DBG_info, "Readout: %dx%d, %d bytes/line, no desegmentation\n",
+                pixels, total_lines, line_bytes);
+
+            /*
+             * Color shift correction.
+             *
+             * The CCD has physically separated R, G, B filter rows.
+             * R is the reference (shift=0). G and B are offset by
+             * color_shift_g and color_shift_b lines respectively.
+             *
+             * For each output line Y:
+             *   R comes from raw line Y
+             *   G comes from raw line Y + color_shift_g
+             *   B comes from raw line Y + color_shift_b
+             */
+            if (dev->color_shift_b > 0) {
+                int out_lines = total_lines - dev->color_shift_b;
+                size_t out_total;
+                uint8_t *out_buf;
+                int y;
+
+                if (out_lines < 1) out_lines = 1;
+                out_total = (size_t)line_bytes * out_lines;
+
+                DBG(DBG_info, "Color shift: G=%d B=%d lines, %d → %d output lines\n",
+                    dev->color_shift_g, dev->color_shift_b, total_lines, out_lines);
+
+                out_buf = malloc(out_total);
+                if (!out_buf) {
+                    free(dev->image_buffer);
+                    dev->image_buffer = NULL;
+                    return SANE_STATUS_NO_MEM;
+                }
+
+                for (y = 0; y < out_lines; y++) {
+                    uint16_t *dst = (uint16_t *)(out_buf + (size_t)y * line_bytes);
+                    uint16_t *src_r = (uint16_t *)(dev->image_buffer + (size_t)y * line_bytes);
+                    uint16_t *src_g = (uint16_t *)(dev->image_buffer + (size_t)(y + dev->color_shift_g) * line_bytes);
+                    uint16_t *src_b = (uint16_t *)(dev->image_buffer + (size_t)(y + dev->color_shift_b) * line_bytes);
+                    int x;
+                    for (x = 0; x < pixels; x++) {
+                        dst[x * 3 + 0] = src_r[x * 3 + 0];  /* R from line Y */
+                        dst[x * 3 + 1] = src_g[x * 3 + 1];  /* G from line Y+shift_g */
+                        dst[x * 3 + 2] = src_b[x * 3 + 2];  /* B from line Y+shift_b */
+                    }
+                }
+
+                free(dev->image_buffer);
+                dev->image_buffer = out_buf;
+                dev->buffer_size = out_total;
+                dev->raw_scan_lines = out_lines;
+                total_lines = out_lines;
+
+                /* Update SANE parameters */
+                dev->params.lines = out_lines;
+                dev->bytes_total = out_total;
+
+                DBG(DBG_info, "Color shift complete: %dx%d\n", pixels, out_lines);
+            }
+
+            /*
+             * Per-channel white balance correction, only on request.
+             *
+             * Grey-world: every channel is scaled up to the brightest
+             * channel's mean. The gains follow picture content, so they
+             * differ frame to frame on one roll, and the result clips.
+             * Negative conversion needs a fixed response to find the
+             * film base, so the default is off.
+             */
+            if (dev->opt_auto_wb) {
+                double r_sum = 0, g_sum = 0, b_sum = 0;
+                int total_px = pixels * total_lines;
+                double r_mean, g_mean, b_mean, target;
+                double r_mul, g_mul, b_mul;
+                int i;
+
+                for (i = 0; i < total_px; i++) {
+                    uint16_t *px = (uint16_t *)(dev->image_buffer + i * 6);
+                    r_sum += px[0];
+                    g_sum += px[1];
+                    b_sum += px[2];
+                }
+                r_mean = r_sum / total_px;
+                g_mean = g_sum / total_px;
+                b_mean = b_sum / total_px;
+
+                DBG(DBG_info, "White balance: R_mean=%.0f G_mean=%.0f B_mean=%.0f\n",
+                    r_mean, g_mean, b_mean);
+
+                target = r_mean;
+                if (g_mean > target) target = g_mean;
+                if (b_mean > target) target = b_mean;
+
+                r_mul = target / r_mean;
+                g_mul = target / g_mean;
+                b_mul = target / b_mean;
+
+                DBG(DBG_info, "White balance: target=%.0f, mul R=%.4f G=%.4f B=%.4f\n",
+                    target, r_mul, g_mul, b_mul);
+
+                for (i = 0; i < total_px; i++) {
+                    uint16_t *px = (uint16_t *)(dev->image_buffer + i * 6);
+                    uint32_t r = (uint32_t)(px[0] * r_mul + 0.5);
+                    uint32_t g = (uint32_t)(px[1] * g_mul + 0.5);
+                    uint32_t b = (uint32_t)(px[2] * b_mul + 0.5);
+                    px[0] = (r > 65535) ? 65535 : (uint16_t)r;
+                    px[1] = (g > 65535) ? 65535 : (uint16_t)g;
+                    px[2] = (b > 65535) ? 65535 : (uint16_t)b;
+                }
+
+                DBG(DBG_info, "White balance applied to %d pixels\n", total_px);
+            }
+        }
+    }
+
+    status = image_reduce_to_one_channel(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    image_apply_ir_repair(dev);
+
+    image_streamcheck(dev);
+
+    image_crop_to_scan_area(dev);
+
+    /* Mark scan as active — sane_read delivers from image_buffer */
+    dev->scanning = SANE_TRUE;
+    dev->bytes_read = 0;
+
+    return SANE_STATUS_GOOD;
+}
+
+static SANE_Status
+start_scan(SANE_Handle handle)
+{
+    /*
+     * Infrared dust removal: run the IR pass FIRST, stash the defect
+     * map, then fall through to the normal colour scan and repair it
+     * at the end.
+     *
+     * This re-enters sane_start once, guarded by in_ir_pass. The scan
+     * body is 1800 lines and restructuring it into a callable unit for
+     * this would be a far larger change than the feature warrants; the
+     * two passes share FEEDL, LINCNT and DPISET, so they are already
+     * pixel-aligned (measured: dy 0, dx 0..1) and no registration is
+     * needed between them.
+     */
+    {
+        plustek8200i_device_t *d = handle;
+        if ((d->opt_ir_clean || d->opt_rgbi) && d->opt_mode == MODE_COLOR
+            && !d->in_ir_pass) {
+            SANE_Status irst;
+            int saved_mode = d->opt_mode;
+
+            free(d->ir_map);
+            d->ir_map = NULL;
+            d->ir_map_size = 0;
+
+            d->in_ir_pass = 1;
+            d->opt_mode = MODE_INFRARED;
+            DBG(DBG_info, "IR clean: infrared pass 1 of 2\n");
+            irst = start_scan(handle);
+            d->opt_mode = saved_mode;
+            d->in_ir_pass = 0;
+
+            if (irst == SANE_STATUS_GOOD && d->image_buffer) {
+                d->ir_map = d->image_buffer;
+                d->ir_map_size = d->buffer_size;
+                d->image_buffer = NULL;
+                d->buffer_size = 0;
+                d->scanning = SANE_FALSE;
+                DBG(DBG_info, "IR clean: defect map captured, %zu bytes\n",
+                    d->ir_map_size);
+            } else if (irst == SANE_STATUS_CANCELLED) {
+                return SANE_STATUS_CANCELLED;
+            } else if (d->opt_rgbi) {
+                DBG(DBG_error, "Color+Infrared: infrared pass failed (%s)\n",
+                    sane_strstatus(irst));
+                return irst == SANE_STATUS_GOOD ? SANE_STATUS_IO_ERROR : irst;
+            } else {
+                DBG(DBG_error, "IR clean: infrared pass failed (%s); "
+                    "continuing without repair\n", sane_strstatus(irst));
+            }
+        }
+    }
+
+    plustek8200i_device_t *dev = handle;
+    SANE_Status status;
+
+    DBG(DBG_info, "sane_start: Starting scan\n");
+
+    /* Make sure parameters are set */
+    if (dev->params.bytes_per_line == 0) {
+        SANE_Parameters params;
+        status = sane_get_parameters(handle, &params);
+        if (status != SANE_STATUS_GOOD)
+            return status;
+    }
+
+    /* Calculate total image size */
+    dev->bytes_total = dev->params.bytes_per_line * dev->params.lines;
+    dev->bytes_read = 0;
+
+    DBG(DBG_info, "Image size: %d lines × %d bytes/line = %zu bytes total\n",
+        dev->params.lines, dev->params.bytes_per_line, dev->bytes_total);
+
+
+    status = scan_init_sequence(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    status = scan_move_home(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    status = scan_move_intermediate(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    status = scan_reinit_after_move2(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    status = scan_move_to_frame(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    status = scan_apply_scan_registers(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    status = scan_calibration_pass(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    status = scan_load_scan_motor_tables(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    status = scan_program_image_pass(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    status = scan_shading_and_reference(dev);
+    if (status != SANE_STATUS_GOOD)
+        return status;
+
+    return scan_run_image_pass(dev);
+}
+
+/*
+ * SANE API: sane_start
+ *
+ * A frontend may call sane_cancel from another thread (or a signal
+ * handler) while this runs; cancel_requested is checked between bulk
+ * reads, after each read has completed -- aborting with a transfer
+ * outstanding is what wedges the USB link on this ASIC family.
+ */
+SANE_Status
+sane_start(SANE_Handle handle)
+{
+    plustek8200i_device_t *dev = handle;
+    SANE_Status status;
+
+    if (dev->streaming && dev->opt_rgbi && dev->s_frame == 0 && dev->s_ir
+        && dev->s_out_y >= dev->s_y1) {
+        /* Color+Infrared: the colour frame is done; hand out the IR
+         * plane as the second, last frame. */
+        int bps = dev->opt_bit_depth == 8 ? 1 : 2;
+        dev->s_frame = 1;
+        dev->s_comps = 1;
+        dev->s_out_y = dev->s_y0;
+        dev->s_line_len = dev->s_line_pos = 0;
+        dev->params.format = SANE_FRAME_GRAY;
+        dev->params.last_frame = SANE_TRUE;
+        dev->params.bytes_per_line = (dev->s_x1 - dev->s_x0) * bps;
+        dev->bytes_read = 0;
+        dev->scanning = SANE_TRUE;
+        DBG(DBG_info, "Color+Infrared: infrared frame %dx%d\n",
+            dev->s_x1 - dev->s_x0, dev->s_y1 - dev->s_y0);
+        return SANE_STATUS_GOOD;
+    }
+    if (dev->streaming)
+        stream_cleanup(dev);
+    dev->cancel_requested = 0;
+    dev->in_start = 1;
+    status = start_scan(handle);
+    dev->in_start = 0;
+    if (status == SANE_STATUS_GOOD && dev->cancel_requested) {
+        /* Cancelled during post-processing, or while a streamed image
+         * pass was being started: drop the result. */
+        if (dev->streaming) {
+            plustek8200i_scan_stop(dev->usb_fd);
+            plustek8200i_motor_stop(dev->usb_fd);
+            stream_cleanup(dev);
+        } else {
+            free(dev->image_buffer);
+            dev->image_buffer = NULL;
+            dev->buffer_size = 0;
+        }
+        dev->scanning = SANE_FALSE;
+        status = SANE_STATUS_CANCELLED;
+    }
+    if (status == SANE_STATUS_CANCELLED)
+        DBG(DBG_warning, "sane_start: cancelled\n");
+    return status;
+}
+
+/*
+ * SANE API: sane_read
+ *
+ * Delivers color-shift-corrected scan data from image_buffer.
+ * All scan data was read and processed in sane_start.
+ */
+SANE_Status
+sane_read(SANE_Handle handle, SANE_Byte *data, SANE_Int max_length, SANE_Int *length)
+{
+    plustek8200i_device_t *dev = handle;
+    size_t bytes_remaining;
+    size_t chunk_size;
+
+    /* The standard requires *length to be set on every return path,
+     * including the error ones -- net.c/saned read it unconditionally. */
+    if (!data || !length)
+        return SANE_STATUS_INVAL;
+    *length = 0;
+
+    if (!dev->scanning) {
+        DBG(DBG_info, "sane_read: not scanning\n");
+        return SANE_STATUS_CANCELLED;
+    }
+
+    if (dev->streaming)
+        return stream_read(dev, data, max_length, length);
+
+    /* Check if we've delivered all the data */
+    if (dev->bytes_read >= dev->bytes_total) {
+        DBG(DBG_info, "sane_read: EOF (delivered %zu of %zu bytes)\n",
+            dev->bytes_read, dev->bytes_total);
+        *length = 0;
+        return SANE_STATUS_EOF;
+    }
+
+    /* Calculate how much to deliver from image_buffer.
+     * For 8-bit output, we still track bytes_read in 16-bit units
+     * and convert when delivering. */
+    bytes_remaining = dev->bytes_total - dev->bytes_read;
+    chunk_size = ((size_t)max_length < bytes_remaining) ? (size_t)max_length : bytes_remaining;
+
+    /* For 8-bit mode, chunk_size is in 16-bit buffer units.
+     * We read 2 bytes from buffer for each 1 byte delivered.
+     * Limit chunk_size so the converted output fits in max_length. */
+    if (dev->opt_bit_depth == 8) {
+        size_t max_16bit = (size_t)max_length * 2;
+        if (chunk_size > max_16bit)
+            chunk_size = max_16bit;
+        if (chunk_size & 1)
+            chunk_size &= ~(size_t)1;  /* Ensure even for 16→8 conversion */
+    }
+
+    /* Copy from pre-read, color-corrected image_buffer */
+    memcpy(data, dev->image_buffer + dev->bytes_read, chunk_size);
+    dev->bytes_read += chunk_size;
+    *length = chunk_size;
+
+    /*
+     * 16-bit output needs no work: the buffer already holds native-order
+     * uint16_t samples, which is exactly what SANE transmits. Do NOT
+     * byte-swap to big-endian here -- see the note in stream_read().
+     */
+    if (dev->opt_bit_depth == 8) {
+        /*
+         * 8-bit output: keep the high byte of each 16-bit sample. Read it
+         * through a uint16_t so this is correct on either endianness (and
+         * memcpy because `data` carries no alignment guarantee).
+         */
+        size_t i;
+        size_t samples = chunk_size / 2;
+        for (i = 0; i < samples; i++) {
+            uint16_t v;
+            memcpy(&v, data + i * 2, sizeof v);
+            data[i] = (SANE_Byte)(v >> 8);
+        }
+        *length = samples;
+    }
+
+    DBG(DBG_data, "sane_read: delivered %d bytes, buffer %zu/%zu\n",
+        *length, dev->bytes_read, dev->bytes_total);
+
+    return SANE_STATUS_GOOD;
+}
+
+/*
+ * SANE API: sane_cancel
+ */
+void
+sane_cancel(SANE_Handle handle)
+{
+    plustek8200i_device_t *dev = handle;
+
+    DBG(DBG_warning, "sane_cancel\n");
+
+    if (dev->in_start || dev->in_read) {
+        /* sane_start or sane_read is running in another thread (or we
+         * are in scanimage's SIGINT handler): ask it to stop, and let it
+         * do the USB work itself once the current transfer completes. */
+        dev->cancel_requested = 1;
+        DBG(DBG_warning, "sane_cancel: cancel requested during %s\n",
+            dev->in_start ? "sane_start" : "sane_read");
+        return;
+    }
+
+    if (!dev->scanning) {
+        DBG(DBG_info, "sane_cancel: not scanning, nothing to cancel\n");
+        return;
+    }
+
+    if (dev->streaming) {
+        /* Cancelled between reads (no transfer outstanding), or the
+         * frontend's normal cancel after EOF. Only stop the hardware if
+         * the image pass had not finished. */
+        if (!dev->s_hw_done) {
+            DBG(DBG_warning, "sane_cancel: stopping the scan mid-pass\n");
+            plustek8200i_scan_stop(dev->usb_fd);
+            plustek8200i_motor_stop(dev->usb_fd);
+        }
+        stream_cleanup(dev);
+        dev->scanning = SANE_FALSE;
+        dev->bytes_read = 0;
+        dev->bytes_total = 0;
+        return;
+    }
+
+    /*
+     * The image pass finished inside sane_start (all data is in RAM), and
+     * the carriage is on its way home under AGOHOME. Leave the motor
+     * alone: cutting its power here strands the carriage mid-travel.
+     */
+
+    /* Free image buffer */
+    if (dev->image_buffer) {
+        free(dev->image_buffer);
+        dev->image_buffer = NULL;
+        dev->buffer_size = 0;
+    }
+
+    /* Mark scan as inactive */
+    dev->scanning = SANE_FALSE;
+    dev->bytes_read = 0;
+    dev->bytes_total = 0;
+
+    DBG(DBG_info, "Scan cancelled\n");
+}
+
+/*
+ * SANE API: sane_set_io_mode
+ */
+SANE_Status
+sane_set_io_mode(SANE_Handle handle, SANE_Bool non_blocking)
+{
+    plustek8200i_device_t *dev = handle;
+
+    /* Only non-blocking I/O may be refused. Blocking mode is the default
+     * every backend must support, so answering UNSUPPORTED to it makes
+     * conforming frontends give up on an otherwise fine device. */
+    if (!dev->scanning)
+        return SANE_STATUS_INVAL;
+
+    return non_blocking ? SANE_STATUS_UNSUPPORTED : SANE_STATUS_GOOD;
+}
+
+/*
+ * SANE API: sane_get_select_fd
+ */
+SANE_Status
+sane_get_select_fd(SANE_Handle handle, SANE_Int *fd)
+{
+    (void)handle;
+    (void)fd;
+
+    return SANE_STATUS_UNSUPPORTED;
+}

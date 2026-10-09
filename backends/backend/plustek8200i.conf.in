@@ -1,0 +1,27 @@
+# Configuration file for the plustek8200i backend
+#
+# This backend drives the Genesys GL128 Plustek OpticFilm 8200i,
+# USB 0x07b3/0x1825. The scanner is detected automatically and this file
+# normally needs no changes.
+#
+# The older OpticFilm 8200i reports 0x07b3/0x130d and uses a GL845; it is
+# handled by the genesys backend, not by this one.
+
+# Device detection
+# ----------------
+# The built-in ID below is always probed, whether or not it appears here.
+# Add a `usb VID PID' line to make the backend claim an additional ID --
+# useful for a relabelled unit or a new revision that is otherwise
+# identical. Values are hexadecimal.
+#
+# usb 0x07b3 0x1825
+
+# A specific device node may be named directly if automatic detection
+# fails:
+#
+# usb /dev/bus/usb/001/002
+
+# Note: this backend implements no `option' settings. Scan parameters
+# (mode, resolution, depth, infrared cleaning, exposure and the scan
+# window) are SANE options, set per scan by the frontend -- see
+# sane-plustek8200i(5). Any `option' line here is ignored and logged.
