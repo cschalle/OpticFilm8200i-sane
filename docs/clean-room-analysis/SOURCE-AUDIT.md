@@ -95,10 +95,6 @@ Examples of comments/documents not carried forward as normative facts:
   unproven internal field interpretation.
 - Scan-stop prose in `plustek8200i-scan.c` says bit 7, but the actual
   operation uses `CISSET_SCAN`, defined as `0x01`. The packet uses bit 0.
-- Diagnostic dry-run prose says that nothing moves. The stop check
-  occurs after homing, stationary scans, and the fast feed; it only
-  suppresses image-pass START. It is not included as a motion-free
-  acceptance command.
 - Obsolete comments discuss desegmentation and R/GB demosaic. The
   current verified configuration processes contiguous RGB triples.
 - A header declares `plustek8200i_set_scan_parameters`, but the active
