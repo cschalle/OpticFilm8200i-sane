@@ -1,0 +1,62 @@
+.TH "sane\-lexmark_x2600" "5" "23 Dec 2023" "@PACKAGEVERSION@" "SANE Scanner Access Now Easy"
+.IX sane\-lexmark_x2600
+.SH "NAME"
+sane\-lexmark_x2600 \- SANE backend for Lexmark X2600 Series scanners
+.SH "DESCRIPTION"
+The
+.B sane\-lexmark
+library implements a SANE (Scanner Access Now Easy) backend that
+provides access to the scanner part of Lexmark X2600 AIOs.
+.PP
+The scanners that should work with this backend are:
+.PP
+.RS
+.ft CR
+.nf
+   Vendor Model           status
+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-  \-\-\-\-\-\-\-\-\-\-\-
+  Lexmark X2670           good
+.fi
+.ft R
+.RE
+
+The options the backend supports can either be selected through
+command line options to programs like
+.BR scanimage (1)
+or through GUI elements in
+.BR xscanimage (1)
+,
+.BR xsane (1).
+or
+.BR simple-scan (1).
+.br
+If you notice any strange behavior, please report to the backend
+maintainer or to the SANE mailing list.
+
+.SH "FILES"
+.TP
+.I @LIBDIR@/libsane\-lexmark_x2600.a
+The static library implementing this backend.
+.TP
+.I @LIBDIR@/libsane\-lexmark_x2600.so
+The shared library implementing this backend (present on systems that
+support dynamic loading).
+
+.SH "ENVIRONMENT"
+.TP
+.B SANE_DEBUG_LEXMARK_X2600
+If the library was compiled with debug support enabled, this
+environment variable controls the debug level for this backend. E.g.,
+a value of 255 requests all debug output to be printed. Smaller levels
+reduce verbosity.
+
+.SH "AUTHOR"
+.TP
+The backend was originally written by Benoit Juin.
+.RI < benoit.juin@gmail.com >
+
+.SH "CREDITS"
+.TP
+Many thanks go to:
+@skelband aka Ralph Little who help me to dive in the sane-backencode and
+reviewed the sources.

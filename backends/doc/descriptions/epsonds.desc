@@ -1,0 +1,380 @@
+;
+; SANE Backend specification file for the epsonds backend
+;
+; Copyright (C) 2015 Alessandro Zummo
+; Released under GPLv2
+;
+
+:backend "epsonds"
+:version "1.0.18 (unmaintained)"
+:manpage "sane-epsonds"
+
+:devicetype :scanner
+
+:mfg "Epson"
+:url "http://www.epson.com/"
+
+:model      "DS-5500"
+:interface  "USB"
+:usbid      "0x04b8" "0x0145"
+:status     :untested
+
+:model      "DS-6500"
+:interface  "USB"
+:usbid      "0x04b8" "0x0145"
+:status     :untested
+
+:model      "DS-7500"
+:interface  "USB"
+:usbid      "0x04b8" "0x0145"
+:status     :untested
+
+:model      "DS-50000"
+:interface  "USB"
+:usbid      "0x04b8" "0x0146"
+:status     :untested
+
+:model      "DS-60000"
+:interface  "USB"
+:usbid      "0x04b8" "0x0146"
+:status     :good
+
+:model      "DS-70000"
+:interface  "USB"
+:usbid      "0x04b8" "0x0146"
+:status     :untested
+
+:model      "DS-510"
+:interface  "USB"
+:usbid      "0x04b8" "0x014c"
+:status     :good
+
+:model      "DS-560"
+:interface  "USB"
+:usbid      "0x04b8" "0x014d"
+:status     :untested
+
+:model      "DS-40"
+:interface  "USB"
+:usbid      "0x04b8" "0x0150"
+:status     :untested
+
+:model      "DS-760"
+:interface  "USB"
+:usbid      "0x04b8" "0x0152"
+:status     :untested
+
+:model      "DS-860"
+:interface  "USB"
+:usbid      "0x04b8" "0x0152"
+:status     :untested
+
+:model      "DS-520"
+:interface  "USB"
+:usbid      "0x04b8" "0x0154"
+:status     :untested
+
+:model      "PX-M7050 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x08bc"
+:status     :untested
+
+:model      "WF-8510/8590 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x08bc"
+:status     :untested
+
+:model      "PX-M7050FX Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x08cc"
+:status     :untested
+
+:model      "WF-R8590 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x08cc"
+:status     :untested
+
+:model      "DS-410"
+:interface  "USB"
+:usbid      "0x04b8" "0x0165"
+:status     :complete
+
+:model      "ES-50"
+:interface  "USB"
+:usbid      "0x04b8" "0x016c"
+:status     :complete
+
+:model      "DS-70"
+:interface  "USB"
+:usbid      "0x04b8" "0x0160"
+:status     :complete
+
+:model      "ES-55R"
+:interface  "USB"
+:usbid      "0x04b8" "0x016d"
+:status     :complete
+
+:model      "RR-60"
+:interface  "USB"
+:usbid      "0x04b8" "0x018c"
+:status     :complete
+
+:model      "ES-60W"
+:interface  "USB"
+:usbid      "0x04b8" "0x016e"
+:status     :complete
+
+:model      "DS-80W"
+:interface  "USB"
+:usbid      "0x04b8" "0x0166"
+:status     :complete
+
+:model      "ES-65WR"
+:interface  "USB"
+:usbid      "0x04b8" "0x016f"
+:status     :complete
+
+:model      "RR-70W"
+:interface  "USB"
+:usbid      "0x04b8" "0x018b"
+:status     :complete
+
+:model      "ES-60WW"
+:interface  "USB"
+:usbid      "0x04b8" "0x016e"
+:status     :complete
+
+:model      "ES-60WB"
+:interface  "USB"
+:usbid      "0x04b8" "0x016e"
+:status     :complete
+
+:model      "DS-1630"
+:interface  "USB"
+:usbid      "0x04b8" "0x015c"
+:status     :complete
+
+:model      "DS-1610"
+:interface  "USB"
+:usbid      "0x04b8" "0x015d"
+:status     :complete
+
+:model      "DS-1660W"
+:interface  "USB"
+:usbid      "0x04b8" "0x015e"
+:status     :complete
+
+:model      "DS-310"
+:interface  "USB"
+:usbid      "0x04b8" "0x0159"
+:status     :complete
+
+:model      "ES-200"
+:interface  "USB"
+:usbid      "0x04b8" "0x0159"
+:status     :complete
+
+:model      "DS-320"
+:interface  "USB"
+:usbid      "0x04b8" "0x0162"
+:status     :complete
+
+:model      "DS-360W"
+:interface  "USB"
+:usbid      "0x04b8" "0x015a"
+:status     :complete
+
+:model      "ES-300W"
+:interface  "USB"
+:usbid      "0x04b8" "0x015a"
+:status     :complete
+
+:model      "ES-300WR"
+:interface  "USB"
+:usbid      "0x04b8" "0x0177"
+:status     :complete
+
+:model      "ES-400II"
+:interface  "USB"
+:usbid      "0x04b8" "0x0181"
+:status     :complete
+
+:model      "DS-535II"
+:interface  "USB"
+:usbid      "0x04b8" "0x0183"
+:status     :complete
+
+:model      "DS-531"
+:interface  "USB"
+:usbid      "0x04b8" "0x0184"
+:status     :complete
+
+:model      "DS-530II"
+:interface  "USB"
+:usbid      "0x04b8" "0x0182"
+:status     :complete
+
+:model      "ES-500WII"
+:interface  "USB"
+:usbid      "0x04b8" "0x0185"
+:status     :complete
+
+:model      "DS-571W"
+:interface  "USB"
+:usbid      "0x04b8" "0x0188"
+:status     :complete
+
+:model      "DS-575WII"
+:interface  "USB"
+:usbid      "0x04b8" "0x0187"
+:status     :complete
+
+:model      "DS-570WII"
+:interface  "USB"
+:usbid      "0x04b8" "0x0186"
+:status     :complete
+
+:model      "ES-580W"
+:interface  "USB"
+:usbid      "0x04b8" "0x017f"
+:status     :complete
+
+:model      "RR-600W"
+:interface  "USB"
+:usbid      "0x04b8" "0x0180"
+:status     :complete
+
+:model      "DS-535"
+:interface  "USB"
+:usbid      "0x04b8" "0x0167"
+:status     :complete
+
+:model      "DS-535H"
+:interface  "USB"
+:usbid      "0x04b8" "0x017a"
+:status     :complete
+
+:model      "ES-400"
+:interface  "USB"
+:usbid      "0x04b8" "0x0156"
+:status     :complete
+
+:model      "DS-530"
+:interface  "USB"
+:usbid      "0x04b8" "0x0155"
+:status     :complete
+
+:model      "FF-680W"
+:interface  "USB"
+:usbid      "0x04b8" "0x016b"
+:status     :complete
+
+:model      "DS-570W"
+:interface  "USB"
+:usbid      "0x04b8" "0x0157"
+:status     :complete
+
+:model      "ES-500W"
+:interface  "USB"
+:usbid      "0x04b8" "0x0157"
+:status     :complete
+
+:model      "DS-575W"
+:interface  "USB"
+:usbid      "0x04b8" "0x0169"
+:status     :complete
+
+:model      "ES-500WR"
+:interface  "USB"
+:usbid      "0x04b8" "0x0176"
+:status     :complete
+
+:model      "EW-052A Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x114e"
+:status     :complete
+
+:model      "XP-2100 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x114e"
+:status     :complete
+
+:model      "ET-2700 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x1135"
+:status     :complete
+
+:model      "L4150 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x1135"
+:status     :complete
+
+:model      "ET-M2140 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x114a"
+:status     :complete
+
+:model      "M2140 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x114a"
+:status     :complete
+
+:model      "ET-M3140 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x114f"
+:status     :complete
+
+:model      "M3140 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x114f"
+:status     :complete
+
+:model      "L3150 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x1143"
+:status     :complete
+
+:model      "ET-2710 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x1143"
+:status     :complete
+
+:model      "ET-2810 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x118a"
+:status     :complete
+
+:model      "L3250 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x118a"
+:status     :complete
+
+:model      "XP-2150 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x119b"
+:status     :complete
+
+:model      "XP-2200 Series"
+:interface  "USB"
+:usbid      "0x04b8" "0x11b1"
+:status     :complete
+
+:model      "ES-C220"
+:interface  "USB"
+:usbid      "0x04b8" "0x0193"
+:status     :complete
+
+:model      "DS-C330"
+:interface  "USB"
+:usbid      "0x04b8" "0x018f"
+:status     :complete
+
+:model      "DS-C490"
+:interface  "USB"
+:usbid      "0x04b8" "0x0191"
+:status     :complete
+
+:model      "DS-1730"
+:interface  "USB"
+:usbid      "0x04b8" "0x0198"
+:status     :complete

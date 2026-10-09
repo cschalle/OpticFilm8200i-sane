@@ -1,0 +1,289 @@
+:backend "escl"
+:manpage "sane-escl"
+:url "https://support.apple.com/en-us/HT201311"
+:comment "The eSCL backend for sane supports AirScan/eSCL devices that announce themselves on mDNS as _uscan._utcp or _uscans._utcp"
+
+:devicetype :scanner
+
+:mfg "Brother"
+:url "https://www.brother.ee/support/drivers"
+
+:model "DCP-J772DW"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "DCP-L2530DW"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "HL-L2590DW"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "MFC-J453DW"
+:interface "Ethernet WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "MFC-J985DW"
+:interface "Ethernet WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "MFC-J1300DW"
+:interface "Ethernet WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:mfg "Canon"
+:url "https://www.canon-europe.com/support/"
+
+:model "IR C3520"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "PIXMA MG5765"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA G4511"
+:interface "Ethernet WiFi"
+:status :basic
+:comment "All resolutions supported."
+
+:model "PIXMA G7050"
+:interface "Ethernet WiFi"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TR4520 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "PIXMA TR4540 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "PIXMA TR4550 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "PIXMA TR4551"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "PIXMA TR7500 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "PIXMA TR8500 Series"
+:interface "Ethernet WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "PIXMA TR8520"
+:interface "Ethernet WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "PIXMA TS3100 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3150 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3151"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3152"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3300 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3350 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3351"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3352"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3450"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3451"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS3452"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS5100"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS5150"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS5350 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS5351"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS6150 Series"
+:interface "WiFi"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TS8050 Series"
+:interface "WiFi"
+:status :untested
+:comment "Testers needed!"
+
+:model "PIXMA TS8350 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "PIXMA TS9100 Series"
+:interface "WiFi"
+:status :untested
+:comment "Testers needed!"
+
+:mfg "Epson"
+:url "http://download.ebz.epson.net/dsc/search/01/search/?OSC=LX"
+
+:model "ET-2750"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed only supported."
+
+:model "ET-3750"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "ET-4750"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:model "EcoTank L3160"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "XP-4200 Series"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed only supported."
+
+:model "XP-6100"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed only supported."
+
+:mfg "HP"
+:url "https://support.hp.com/us-en/drivers/printers"
+
+:model "DeskJet 2710"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported"
+
+:model "DeskJet 2723"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "DeskJet 3760"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported."
+
+:model "LaserJet Entreprise Flow MFP M578"
+:interface "WiFi"
+:status :basic
+:comment "All resolutions supported."
+
+:model "LaserJet MFP M28w"
+:interface "WiFi"
+:status :basic
+:comment "All resolutions supported."
+
+:model "LaserJet FlowMFP M578"
+:interface "WiFi"
+:status :basic
+:comment "Issues with duplex ADF"
+
+:model "LaserJet MFP M630"
+:interface "WiFi"
+:status :basic
+:comment "Issues with duplex ADF"
+
+:model "OfficeJet 4630"
+:interface "WiFi"
+:status :untested
+:comment "Testers needed!"
+
+:model "OfficeJet Pro 8610"
+:interface "Ethernet WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."
+
+:mfg "Ricoh"
+:url "http://support.ricoh.com/bb/html/dr_ut_e/re2/"
+
+:model "SP3710S"
+:interface "WiFi"
+:status :untested
+:comment "Testers needed!"
+
+:mfg "Xerox"
+:url "https://www.support.xerox.com/"
+
+:model "VERSALINK C7220"
+:interface "WiFi"
+:status :good
+:comment "All resolutions supported, Flatbed and ADF supported."

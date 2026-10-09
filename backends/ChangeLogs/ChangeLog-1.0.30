@@ -1,0 +1,196 @@
+commit d5187355f6e0de529b562569509a1851dda7ad84
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-17 20:16:28 +0900
+
+    NEWS: Document changes for 1.0.30 release
+
+commit 1fe94e6674d0572d2408361903730f012c60fc6c
+Merge: 898ab1834864 5104b80fc8f0
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-17 16:26:00 +0900
+
+    Merge branch '279-confidential-issue' into release/1.0.30
+
+commit 5104b80fc8f0d6528b856233a52846a414ae6616
+Merge: f38c9f0d64a5 30b1831a28f2
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-14 09:36:25 +0000
+
+    Merge branch 'mitigate-epsonds-net-security-issue' into '279-confidential-issue'
+
+    epsonds: Mitigate potential network related security issues.  Re #279
+
+    See merge request paddy-hack/backends!9
+
+commit 30b1831a28f24ab2921b9f717c66d37f02bb81cc
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-11 21:07:12 +0900
+
+    epsonds: Mitigate potential network related security issues.  Re #279
+
+    This pre-empts the possibility of triggering GHSL-2020-079, GHSL-2020-080
+    and GHSL-2020-081.
+
+commit f38c9f0d64a52697562abdfbf9c9044cb1b7e897
+Merge: 3d005c2570a7 b9b0173409df
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-07 09:42:42 +0000
+
+    Merge branch 'issue09-esci2-img-buffer-size-check' into '279-confidential-issue'
+
+    epsonds: Prevent possible buffer overflow when reading image data
+
+    See merge request paddy-hack/backends!8
+
+commit b9b0173409df73e235da2aa0dae5edd21fb55967
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-04-27 18:48:29 +0900
+
+    epsonds: Prevent possible buffer overflow when reading image data
+
+    Addresses GHSL-2020-084, re #279.
+
+commit 3d005c2570a71fe93a63192d9c47ee54cb39049b
+Merge: 226d9c92899f 27ea994d23ee
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-06 04:06:49 +0000
+
+    Merge branch 'issue05-out-of-bounds-read-decode_binary' into '279-confidential-issue'
+
+    epsonds: Do not read beyond the end of the token
+
+    See merge request paddy-hack/backends!5
+
+commit 27ea994d23ee52fe1ec1249c92ebc1080a358288
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-04-30 21:15:45 +0900
+
+    epsonds: Do not read beyond the end of the token
+
+    Addresses GHSL-2020-082, re #279.
+
+commit 226d9c92899facf4b22b98c73be6ad2cd0effc4a
+Merge: 02b5d33b7a7c db9480b09ea8
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-06 04:05:59 +0000
+
+    Merge branch 'issue07-out-of-bounds-read-in-esci2_check_header' into '279-confidential-issue'
+
+    epsonds: Read only up to seven hexdigits to determine payload size
+
+    See merge request paddy-hack/backends!6
+
+commit db9480b09ea807e52029f2334769a55d4b95e45b
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-04-27 18:24:56 +0900
+
+    epsonds: Read only up to seven hexdigits to determine payload size
+
+    Addresses GHSL-2020-083, re #279.
+
+commit 02b5d33b7a7c0b72137f5b968c46a1d52a75aa63
+Merge: 4c9e4efd4a82 8682023faa27
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-06 04:04:18 +0000
+
+    Merge branch 'issue08-integer-overflow-sanei_tcp_read' into '279-confidential-issue'
+
+    sanei: Integer overflow sanei tcp read
+
+    See merge request paddy-hack/backends!7
+
+commit 8682023faa27c61156a354955c89617a3304d66f
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-04 11:54:35 +0900
+
+    sanei_tcp: Address possible integer overflow.  Re #279, issue 8
+
+commit fe08bbee6b238ea0be73af67b560ffc2c47562fd
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-04 11:48:46 +0900
+
+    epsonds: Handle error condition.  Re #279, issue 8
+
+commit 4c9e4efd4a82214719eeb1377a900e3a85c1c369
+Merge: 2b4aa45bad61 fff83e7eacd0
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-06 04:03:19 +0000
+
+    Merge branch 'issue01-null-pointer-deref-sanei_epson_net_read' into '279-confidential-issue'
+
+    epson2: Rewrite network I/O
+
+    See merge request paddy-hack/backends!3
+
+commit fff83e7eacd0f27bb2d71c42488e0fd735c15ac3
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-04-30 18:24:51 +0900
+
+    epson2: Rewrite network I/O
+
+    This addresses GHSL-2020-075 as well as all other problematic code
+    uncovered as a result of investigating that.  This includes:
+
+    - buffer overflows due to use of unchecked lengths
+    - integer overflows due to type conversions
+    - potential memory leaks
+    - checking for memory allocation failures
+
+    Re #279.
+
+commit 2b4aa45bad61d5e34996645581a606fd8795a48c
+Merge: 37b142494bf6 07e3834127f8
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-04 08:24:19 +0000
+
+    Merge branch 'issue11-read_of_uninitialized_data' into '279-confidential-issue'
+
+    magicolor: Added security mediation to device discovery
+
+    See merge request paddy-hack/backends!2
+
+commit 07e3834127f8bcd9dac02b91c17127dc41fbfb5b
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-04-30 23:21:00 -0700
+
+    magicolor: Added security mediation to device discovery
+
+    Extraction of values from the SNMP response were not checked.
+    Also fixed a bug that mistakenly matched any SNMP OIDs with the
+    first model in the model list, in function mc_get_device_from_identification().
+
+commit 37b142494bf659d8147b6f0fcb8629408717d14d
+Merge: e52a5bf71979 af0442f15cc9
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-05-04 05:28:37 +0000
+
+    Merge branch 'issue10-SIGFPE-in-mc_setup_block_mode' into '279-confidential-issue'
+
+    magicolor: Added security remediation for pixels_per_line.
+
+    See merge request paddy-hack/backends!1
+
+commit af0442f15cc966bbc3d7d9322380005ea0ee8340
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-04-26 13:04:41 -0700
+
+    magicolor: Added security remediation for pixels_per_line.
+
+    This implements a security issue reported by GitHub Security Lab.
+    The details are disclosed in GitLab issue #279.
+    The issue relates to an invalid scan parameter block being sent to
+    the backend containing 8 bytes of 0x00 which leads to pixels_per_line
+    being set to 0. Later arithmetic involves the division by this value
+    which causes a div by zero crash.
+
+commit 898ab1834864e3b813f0d0ae234f38ac05813756
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-02-06 20:56:21 +0900
+
+    Really remove libxml2 linker/loader flags from dependencies.  Re #239
+
+commit 76bf742aba32ec1ed4ae641285f8e6a0b038326d
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-02-05 21:30:11 +0900
+
+    Remove libxml2 linker/loader flags from dependencies.  Re #239

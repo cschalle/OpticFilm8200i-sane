@@ -1,0 +1,34 @@
+[tool.towncrier]
+    package = ""
+    directory = "newsfragments"
+    filename = "NEWS"
+    template = "tools/NEWS.template.jinja"
+    title_format = "\n## New with {version} (released {project_date})\n"
+    start_string = "<!--(towncrier release notes start)-->"
+    [[tool.towncrier.section]]
+        path = ""
+
+    [[tool.towncrier.type]]
+        directory = "security"
+        name = "Security fixes"
+        showcontent = false
+
+    [[tool.towncrier.type]]
+        directory = "backend"
+        name = "Backends"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "frontend"
+        name = "Frontends"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "removal"
+        name = "Deprecations and removals"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "misc"
+        name = "Miscellaneous"
+        showcontent = true

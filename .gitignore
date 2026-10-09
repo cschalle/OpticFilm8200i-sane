@@ -1,0 +1,95 @@
+# Compiled object files
+*.o
+*.so
+*.so.*
+*.a
+
+# Compiled binaries
+*.exe
+*.out
+
+# Build artifacts (but keep source files)
+/build/
+*.rpm
+*.o
+libsane-*.so*
+*.a
+
+# Editor/IDE files
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# Python cache (from analysis scripts)
+__pycache__/
+*.pyc
+*.pyo
+
+# Test output
+*.pnm
+*.ppm
+*.pgm
+*.pbm
+test_*.pnm
+scan_*.pnm
+
+# Large data files (but keep calibration data)
+capturefile.tdc
+*.tpdc
+tests/
+docs/*
+!docs/clean-room/
+!docs/clean-room-analysis/
+
+# Session notes and status documents (root-level)
+SESSION_*.md
+SESSION_COMPLETE_*.md
+SESSION_SUMMARY_*.md
+START_HERE*.md
+BREAKTHROUGH_*.md
+CRITICAL_BUG_*.md
+CRITICAL_FINDING_*.md
+IMPLEMENTATION_SUMMARY.md
+MACOS_MOTOR_CONTROL_COMPLETE.md
+MACOS_MOTOR_SEQUENCE.md
+MOTOR_TABLES_READY.md
+PROJECT_STATUS.md
+SCAN_OPERATION_READY.md
+TOOLING_BREAKTHROUGH.md
+WRITEALLREG_IMPLEMENTATION.md
+
+# Local tool settings
+.claude/
+backends/.claude/
+
+# Raw scan dumps (regenerable via PLUSTEK8200I_DUMP_RAW; ~12 MB each)
+rawdumps/*.bin
+rawdumps/*.bin.meta
+
+# Reconstruction renders (regenerable via tools/recon/score_models.py).
+# The first correct scan is kept as a milestone artifact.
+rawdumps/recon/*
+!rawdumps/recon/first-correct-scan.png
+
+# Scratch notes
+continue
+note.txt
+
+# Superseded material kept only for local reference: the pre-port driver
+# attempt, old experiments and their docs. CLAUDE.md's source hierarchy
+# rules out working from any of it.
+archive/
+
+# Private working notes
+CLAUDE.md

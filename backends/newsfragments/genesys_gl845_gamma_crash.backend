@@ -1,0 +1,1 @@
+Fixed crash when loading gamma tables on Plustek 8200i and other gl845 scanners.

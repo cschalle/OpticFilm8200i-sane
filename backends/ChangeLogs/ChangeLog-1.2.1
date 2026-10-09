@@ -1,0 +1,3317 @@
+commit b9fbe0b82eff0217c0303b2a7f556483929f3ffc
+Author: Ralph Little <skelband@gmail.com>
+Date:   2023-02-04 16:16:54 -0800
+
+    scanimage: handle backends that provide options with null attributes
+
+    HPAIO backend in some instances provides options that have NULL name.
+    It might be that it is using SETTABLE flag to disable options rather
+    than removing them from the options list. Or it might just be a
+    backend bug.
+
+commit e3c1c0e000d894fcf07bb5aef81cb0fe6a10ab16
+Author: Ralph Little <skelband@gmail.com>
+Date:   2023-02-04 09:40:07 -0800
+
+    doc: Updates to en_GB translations.
+
+    Not much to add, just confirming new messages.
+
+commit 6b588b0d9312117f98e0e6a95cd7aa9974d7151b
+Merge: 573ca4b45359 6220b21429f5
+Author: Ralph Little <skelband@gmail.com>
+Date:   2023-02-01 17:19:56 +0000
+
+    Merge branch 'uk_update2' into 'master'
+
+    Update Ukrainian translation
+
+    See merge request sane-project/backends!779
+
+commit 6220b21429f51d2f0b5eeab8582c0022031505b2
+Author: Yuri Chornoivan <yurchor@ukr.net>
+Date:   2023-02-01 18:53:17 +0200
+
+    Update Ukrainian translation
+
+commit 573ca4b45359ee408dab71adaccde69ca2ff35d6
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2023-01-27 18:09:57 -0500
+
+    update canon_dr.desc for #552
+
+    Several canon scanners can operate as a mass storage device, holding
+    the windows software. They have a different USB PID in that case.
+
+commit 7ee6327d3c08584af7c42f8134246a21979897ee
+Merge: 4033ea23b692 370547fc6006
+Author: Ralph Little <skelband@gmail.com>
+Date:   2023-01-07 07:48:17 +0000
+
+    Merge branch '634-llvm-15-on-freebsd-support-for-sane-backends-1-1-1' into 'master'
+
+    Resolve "LLVM 15 on FreeBSD support for sane-backends 1.1.1"
+
+    Closes #634
+
+    See merge request sane-project/backends!777
+
+commit 370547fc6006bdc4fe59b53f22c09c86d7e88d13
+Author: Ralph Little <skelband@gmail.com>
+Date:   2023-01-06 23:36:43 -0800
+
+    scanimage, jpegtopdf: fixes for FreeBSD header definitions.
+
+commit 4033ea23b6929265ccbee65bc26c7c654077cfc6
+Merge: 7e85f737d090 109a82f0feb7
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2023-01-06 13:57:39 +0000
+
+    Merge branch 'escl-add-espon-L3160' into 'master'
+
+    escl: add Epson EcoTank L3160 support.
+
+    Closes #632
+
+    See merge request sane-project/backends!776
+
+commit 109a82f0feb7d8b0b3bc609fbec72dfe405b8e23
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2023-01-06 14:42:11 +0100
+
+    escl: add Epson EcoTank L3160 support.
+
+commit 7e85f737d090ed01ea82fbb938fb96e291b6f5e8
+Merge: fea8ad2b993b e840ad7fa3af
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-12-28 18:11:42 +0000
+
+    Merge branch 'master' into 'master'
+
+    Update Russian translation
+
+    See merge request sane-project/backends!775
+
+commit e840ad7fa3afaf087d0d3c97bf22d13d3c32bbcf
+Author: Mariya Shikunova <mariia@basealt.ru>
+Date:   2022-12-28 08:50:11 +0300
+
+    update translation
+
+commit fea8ad2b993bc28a647834e41f37b1d0ec79e8ac
+Merge: f9fe6d0ced3e 6352b00d6c74
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-12-21 17:37:30 +0000
+
+    Merge branch 'mg5700_buttons' into 'master'
+
+    pixma: MG5700 button-controlled scan
+
+    See merge request sane-project/backends!774
+
+commit 6352b00d6c7411d263e08e5f4e3798b8a2a7939c
+Author: András Wacha <awacha@gmail.com>
+Date:   2022-12-21 17:12:42 +0100
+
+    Made scan buttons work for Canon Pixma MG5700
+
+commit f9fe6d0ced3e62872ba53633654ee166f76b3e0f
+Merge: 15e1d83b9d8a 506f539edaff
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-12-04 00:54:15 +0000
+
+    Merge branch 'it-translation' into 'master'
+
+    Update 2 IT translations
+
+    See merge request sane-project/backends!772
+
+commit 506f539edaff8202bb7032b2b598d4c7db011023
+Author: Giovanni Cappellotto <potomak84@gmail.com>
+Date:   2022-12-03 16:23:38 -0500
+
+    Update 2 IT translations
+
+    "Brightness" is "Luminosità", I'm 99.9% sure.
+
+    "Quality calibration" should be translated as "Calibrazione della
+    qualità" instead of "Qualità della calibrazione" because the subject is
+    "quality".
+
+commit 15e1d83b9d8a9b87dbdd1693f8f94cb20fbb6deb
+Merge: ba1b68e6e9f0 b3b44f1188f9
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-11-30 18:19:16 +0000
+
+    Merge branch 'no_embedded_ldflags' into 'master'
+
+    sane-backends.pc.in: Don't embed LDFLAGS into libs.private
+
+    See merge request sane-project/backends!768
+
+commit b3b44f1188f902a959a7b8d71cf70eef8abb63da
+Author: Zdenek Dohnal <zdohnal@redhat.com>
+Date:   2022-11-30 15:31:19 +0100
+
+    sane-backends.pc.in: Drop ldflags from the file
+
+    The ldflags variable is no longer used in the file because it embedded
+    LDFLAGS from build environment and LibGPhoto2 LDFLAGS, where the former
+    contains flags from the environment and can cause problems, and the
+    latter is empty.
+
+    With the state above, we can drop ldflags from pkgconfig file
+    completely.
+
+commit ba1b68e6e9f04ba25c7f6d6f03617dc9ab460a7a
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-18 21:14:28 -0500
+
+    canon_dr backend v64
+
+    - add complete support for imprinters on X10C (#585)
+
+    The vast majority of the work here was originally done in !706 by
+    Charles Quarra. I had some merge conflicts, and it was easier to
+    pull all his work into a patch and apply it myself.
+
+    The only changes I made were minor updates to comments, and adding
+    an imprinter group option. Sorry for the loss of attribution, and
+    thanks Charles!
+
+commit bab852c5bbf49ad1904f530795937588b243f117
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-18 19:23:10 -0500
+
+    canon_dr backend v63
+
+    - minor tweaks to support for reading the total and roller counters
+
+commit b9e11b11493d57220def869fd9e7c5a5545dd70b
+Merge: 9144eada4483 933b53608dca
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-18 23:40:02 +0000
+
+    Merge branch 'canon-dr-x10c-counters' into 'master'
+
+    Adds support for total and roller counters
+
+    See merge request sane-project/backends!738
+
+commit 933b53608dcaec5ffac09ea9caa1cb334d960cfb
+Author: Charles Quarra <charlesjquarra@gmail.com>
+Date:   2022-11-18 23:40:01 +0000
+
+    Adds support for total and roller counters
+
+commit 9144eada4483e4550d1242d6137f23c849f0aafc
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-18 14:19:23 -0500
+
+    add fujitsu ScanSnap iX1400, fixes #555
+
+commit 87e9be4be5d31feb5f3f46c4eb1c7a832a1b31a8
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-17 21:24:45 -0500
+
+    add ScanSnap iX1300 to fujitsu desc and conf
+
+commit 190fa52619994f378bf8aee6bc232fbd9ebf439d
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-17 20:52:29 -0500
+
+    epjitsu backend v33
+
+    - S1300i: fix color plane offset at 225 and 330 dpi (fixes #538)
+
+commit 6acd5366cbbfa298d2becf341b1ca3d32ab73f84
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-15 22:01:19 -0500
+
+    epjitsu backend v32
+
+    - fix hanging scan when using source = ADF Back (fixes #601)
+    - minor improvements to .desc and manpage
+
+commit eb52b437627c77361d4ed30fc0995459a6b80907
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-15 19:36:53 -0500
+
+    fujitsu documentation updates
+
+    - minor tweaks to text of manpage
+    - update the desc file status of some unsupported scanners
+
+commit fa29906201639e2bca683118fc8fcff81aaa736f
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-15 18:26:20 -0500
+
+    fujitsu backend v139
+
+    - move updated window_gamma logic to set_window
+    - use internal gamma table if possible (fixes #618)
+
+commit 7547ee04e162f29227499fb83cf3720e5d14e31b
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-09 23:34:19 -0500
+
+    more fujitsu desc and conf for fi-8xxx
+
+commit 642160ef978899ecb701d2c9d174573a0794b5e4
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-11-09 20:44:14 -0500
+
+    fujitsu desc and conf updates
+
+    - add fi-81xx scanners
+    - clean up desc file comments
+
+commit 436c507adec64eb742a63a7f5d875568ee6a2d90
+Merge: b2a5a41be951 388d75715fa0
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-10-22 01:44:52 +0000
+
+    Merge branch '616-bug-in-current-release-libsane-for-ubuntu-22-04-1-with-samsung-scx-4828-fn' into 'master'
+
+    Resolve "BUG in current release libsane for Ubuntu 22.04.1 with Samsung SCX-4828 FN"
+
+    Closes #616
+
+    See merge request sane-project/backends!760
+
+commit 388d75715fa0869090ed25b245cea7104f1f33f1
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-10-21 18:32:30 -0700
+
+    xerox_mfp: Added 4x28 to JPEG blacklist.
+
+    User reports the common JPEG problem with his Samsung SCX-4828 FN.
+    Machine announces itself as "Samsung SCX-4x28 Series"
+
+commit b2a5a41be951bcb7c49180afda07143c6bec56b1
+Merge: 6b99447f5b12 6740b47bca42
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-10-06 19:37:58 +0000
+
+    Merge branch 'ir1022a' into 'master'
+
+    pixma: add support for imageRUNNER 1018/1022/1023
+
+    See merge request sane-project/backends!759
+
+commit 6740b47bca426bb9521f29bd787b516e9e60ff40
+Author: Michał Kopeć <michal.kopec@3mdeb.com>
+Date:   2022-10-06 10:43:31 +0200
+
+    pixma: add support for imageRUNNER 1018/1022/1023
+
+    Add support for Canon imageRUNNER 1018/1022/1023 models, which all share the
+    same USB PID. Add it as a copy of MF6500.
+
+    Tested with an iR1022A model. Flatbed and ADF both work correctly.
+
+    Signed-off-by: Michał Kopeć <michal.kopec@3mdeb.com>
+
+commit 6b99447f5b12758ff015b5c360a6dcbcf9b0a72d
+Merge: 9afa6f6e74dd edfc90450ee0
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-10-04 05:29:20 +0000
+
+    Merge branch '597-failed-to-build-from-source-with-gcc-12' into 'master'
+
+    Resolve "Failed to build from source with GCC-12"
+
+    Closes #597
+
+    See merge request sane-project/backends!757
+
+commit edfc90450ee06149537fadb3095ba4b215c5c4fa
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-10-02 18:14:25 -0700
+
+    genesys: corrections to include file order.
+
+    minigtest.h has items that require the definitions in tests_printers.h.
+    Pre-GCC-12, this didn't seem to matter but GCC12 seems to have a
+    problem with this and requires the template definitions to have already
+    appeared.
+
+commit 9afa6f6e74dd64da0a3f9c51ebd2c96bd25fe777
+Merge: 1da0970a7efc ac11086cec34
+Author: Pim van Tend <pimvantend@yahoo.com>
+Date:   2022-10-03 12:25:00 +0000
+
+    Merge branch 'lide70_corrections' into 'master'
+
+    canon_lide70: Some small corrections.
+
+    See merge request sane-project/backends!758
+
+commit ac11086cec349e26baf5476a1d67e699beb6e18d
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-10-02 18:27:45 -0700
+
+    canon_lide70: Some small corrections.
+
+commit 1da0970a7efc4bb052c1c439293b6abbf31bd169
+Merge: b5e7e78312a1 0d7543ec659f
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-09-21 17:23:46 +0000
+
+    Merge branch 'sane_canon_show_modelname' into 'master'
+
+    [canon] Use the common model name instead of string from the device
+
+    See merge request sane-project/backends!756
+
+commit 0d7543ec659fc5f8f2750a8d8cc47e6cf939f029
+Author: Zdenek Dohnal <zdohnal@redhat.com>
+Date:   2022-09-21 17:57:35 +0200
+
+    backend/canon.c: Use the common model name instead internal string
+
+commit b5e7e78312a1b218273c89a8a22a381dfb957c2c
+Merge: 4873304efe2d e0c25d5a674a
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-09-09 16:41:57 +0000
+
+    Merge branch 'ambir_externals' into 'master'
+
+    doc_external: Added external driver entry for Ambir ImageScan Pro 820ix
+
+    See merge request sane-project/backends!755
+
+commit e0c25d5a674a8a6151cc2ffa9650edc26af6171c
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2022-09-09 09:29:54 -0700
+
+    doc_external: Added external driver entry for Ambir ImageScan Pro 820ix
+
+    Also corrected a prior error in the Kyocera external file.
+
+commit 4873304efe2d2a4e64fb502e50709811ed0b9836
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-09-06 21:18:31 -0400
+
+    fujitsu.desc: Remove trailing whitespace
+
+commit 84675354484361ba582c47ee42f7c420f64a0ce6
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2022-06-01 20:06:59 -0400
+
+    fujitsu backend 138
+
+    - update FCPA Inc to PFU America Inc
+    - note support for fi-7300NX (#594)
+
+commit 693572d616edad74c6a57e74e508e2614cfa86d8
+Merge: 9330bfdd830b 807d13de6db7
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-09-02 16:18:37 +0000
+
+    Merge branch 'desc_fix' into 'master'
+
+    sane-canon: update broken link in desc file.
+
+    See merge request sane-project/backends!752
+
+commit 807d13de6db72df5f5e175f1a3838c3b35e790b4
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2022-09-02 09:06:55 -0700
+
+    sane-canon: update broken link in desc file.
+
+commit 9330bfdd830b40d920c45af9c6b81245ac84e5fb
+Merge: 1d2253e21f8d 16eed3e5267e
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-08-25 18:49:35 +0000
+
+    Merge branch 'kyocera_external' into 'master'
+
+    doc: Added external report of Kyocera SANE driver.
+
+    See merge request sane-project/backends!749
+
+commit 16eed3e5267e9c38ea4b10da48746222edc3ed29
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-08-25 18:49:35 +0000
+
+    doc: Added external report of Kyocera SANE driver.
+
+commit 1d2253e21f8def1de356c0fa91fda17ba0074da3
+Merge: f1413cbc163b cbffffbd7b2f
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-08-23 04:08:22 +0000
+
+    Merge branch 'new_epsonds' into 'master'
+
+    epsonds: Added new model XP-2200 series.
+
+    See merge request sane-project/backends!748
+
+commit cbffffbd7b2f314fbfa593a6da10febf279313cb
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-08-22 20:55:59 -0700
+
+    epsonds: Added new model XP-2200 series.
+
+    Patch supplied by Nakamura Iwao from Epson Japan.
+
+commit f1413cbc163b76807e98b6f91ab42d6b506a694c
+Merge: ba463b896681 7ec4074fbd75
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-08-16 17:28:50 +0000
+
+    Merge branch 'pixma-adding-models' into 'master'
+
+    pixma: add 2 models
+
+    See merge request sane-project/backends!745
+
+commit 7ec4074fbd7500f295777615a7cf8c33bf3a96a8
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2022-08-16 11:20:02 +0200
+
+    pixma: add 2 models
+
+commit ba463b89668176921704ac31ee63cbf9406e6f05
+Merge: 8cd1488e3cd9 32a86107cdb4
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-08-16 09:43:03 +0000
+
+    Merge branch 'canon_pixma-adding-models' into 'master'
+
+    scangearmp2: add 2 models
+
+    See merge request sane-project/backends!746
+
+commit 32a86107cdb4e63743c6377bdf9b221f99fe4080
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2022-08-16 11:31:59 +0200
+
+    scangearmp2: add 2 models
+
+commit 8cd1488e3cd9b46cc372ee8752133c232d2f7c07
+Merge: b51a2e9cf272 23c72909310d
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-08-05 15:51:49 +0000
+
+    Merge branch 'escl-fix-version' into 'master'
+
+    escl: get the eSCL version in the xml
+
+    See merge request sane-project/backends!744
+
+commit 23c72909310ddd287afd42e4acf86d95a35efd4a
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2022-08-05 17:40:20 +0200
+
+    Get the eSCL version in the xml
+
+commit b51a2e9cf2720280c2e60c9a20adccf7a37c532a
+Merge: 97a0c90fd1e0 a417cb8edf34
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-07-24 17:41:16 +0000
+
+    Merge branch 'pixma_support' into 'master'
+
+    pixma: user reports that their TS6420a (TS6400 family) works with USB
+
+    See merge request sane-project/backends!743
+
+commit a417cb8edf3458f2320bb866d25c76f870074c44
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-07-24 10:28:51 -0700
+
+    pixma: user reports that their TS6420a (TS6400 family) works with USB
+
+commit 97a0c90fd1e00cd98220bcdde7ffc1f6ba61129c
+Merge: 409c23a7454b c0e966b21e92
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-07-22 16:23:56 +0000
+
+    Merge branch 'umax_pp_tool_build' into 'master'
+
+    configure: corrected issue in Makefile.am and removed noinst build of umax_pp tool
+
+    See merge request sane-project/backends!741
+
+commit c0e966b21e92e1a48087061f053aa26265064c55
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-07-22 09:10:46 -0700
+
+    configure: corrected issue in Makefile.am and removed noinst build of umax_pp tool
+
+    Currently, there is no way to disable the build of the umax_pp low level
+    sources because the tool umax_pp is *always* built. Some platforms
+    cannot build the umax_pp low level code so this causes problems.
+
+commit 409c23a7454bb35112ef1eb6773adf95871ee8e6
+Merge: 948c1c5a40dc 12f91442c0e8
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-07-15 04:09:23 +0000
+
+    Merge branch 'upstream_avision_AD345F_basic' into 'master'
+
+    avision: add AD345F support as "basic"
+
+    See merge request sane-project/backends!740
+
+commit 12f91442c0e823a536678088d27881e092159dfc
+Author: Nikolai Kostrigin <nickel@altlinux.org>
+Date:   2022-06-27 13:32:57 +0300
+
+    avision: add AD345F support as "basic"
+
+    Tested with Avision AD345F model number DL-1802B.
+    Flatbed and ADF duplex scanning available.
+
+    Known limitation: ADF scanning is only capable to scan one sheet
+    at a time via automatic feeder. Providing 2+ sheets breaks backend
+    and scanner needs to be rebooted.
+
+    Signed-off-by: Nikolai Kostrigin <nickel@altlinux.org>
+    Tested-by: Mikhail Chernonog <snowmix@altlinux.org>
+
+commit 948c1c5a40dc887a77eb675fbaa40224adc0fc6d
+Merge: 3f45d4d19e54 a698f003fee4
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-07-05 06:36:44 +0000
+
+    Merge branch 'escl-fix-segfault' into 'master'
+
+    Escl: fix segfault
+
+    See merge request sane-project/backends!739
+
+commit a698f003fee4a7a56a207b65fed371f7c6a3aae9
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-07-05 06:36:44 +0000
+
+    Escl: fix segfault
+
+commit 3f45d4d19e5447e32f4e707f6610b1bcc8f60d58
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-06-19 16:02:18 -0700
+
+    test: fix type issue. proper type for usleep() is useconds_t.
+
+commit 1e68bfc7fe5899e591cb1479126a84eaa58a3ebb
+Merge: adcbf249f948 6ad2b593fef7
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-06-17 17:56:39 +0000
+
+    Merge branch 'changelogs' into 'master'
+
+    ChangeLogs: Fix formatting issues, apply to 1.0.27 and 1.0.28, and add missing releases
+
+    See merge request sane-project/backends!736
+
+commit 6ad2b593fef74cc7d1d3672b9fb0212a1b599ec0
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-05-14 17:47:08 -0400
+
+    ChangeLogs: Reformat 1.0.27 and 1.0.28, and add missing releases
+
+    Apply formatting changes to the existing ChangeLogs for the 1.0.27 and
+    1.0.28 releases. (This includes re-ordering some entries so that merge
+    requests always appear together.) Manual formatting changes to entries
+    in these ChangeLogs have been preserved.
+
+    Add missing ChangeLogs for later releases.
+
+commit 7ca518027b14fb67603cf51548027256c8b1fad6
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-05-14 17:35:43 -0400
+
+    tools: Determine starting commit when generating a new ChangeLog file
+
+    This was still hard-coded to 1.0.28. Detect this automatically instead
+    by finding the most recent release tag.
+
+commit 7467a9da22cb5b16ccdd79c9bee2e1682ee09aa8
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-05-14 17:35:43 -0400
+
+    tools: Use topological commit ordering when generating ChangeLog files
+
+    This means that commits from the same merge request will always appear
+    together in the ChangeLog, instead of appearing shuffled together with
+    other commits that were authored around the same time.
+
+commit 4dbfa03ec462f0fb8b06aae6357ccb022b3cb5eb
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-05-14 17:35:43 -0400
+
+    tools: Fix inconsistent formatting when generating ChangeLog files
+
+    Use 12-digit short hashes (which appear in merge commits). The number
+    of digits required to unambiguously identify a commit increases as the
+    Git repository grows. The ChangeLog for the 1.0.27 release has 7-digit
+    short hashes, which are no longer meaningful: 9 digits are needed now.
+    Forcing 12 digits to display here is the solution in the Linux kernel.
+
+    Do not "decorate" the log with branch or tag names. It is understood
+    that each file starts at a specific release tag (e.g. 1.0.27) and ends
+    at the next tag (1.0.28), or at HEAD for development snapshots. Topic
+    branch names, or the refs "master" and "HEAD", do not need labeling.
+
+commit adcbf249f94891a4b3376304a99b3e10bd251929
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-06-01 20:48:55 -0700
+
+    avision: fix whitespace tool check problem
+
+commit ba2c1f92f15b91c5e59ae108799af74f7c9fdfbf
+Merge: 1d259c749a0f 999a52f69130
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-06-01 20:34:20 +0000
+
+    Merge branch 'test-high-res' into 'master'
+
+    Test backend - scanning high resolution images
+
+    See merge request sane-project/backends!737
+
+commit 999a52f69130f57d34acd086a4d16db1a7da05ba
+Author: Christian Theis <gentoo@theis-family.net>
+Date:   2022-06-01 18:04:29 +0100
+
+    discussed amendments
+
+commit 1aead16faf57a092b5cf69627827339fdbcb5d3f
+Author: Christian Theis <gentoo@theis-family.net>
+Date:   2022-05-29 20:52:51 +0100
+
+    enable test backend to scan high res images
+
+commit 39f9083debcdc750a02d94cf0c46df15bf9f7c8b
+Author: Christian Theis <gentoo@theis-family.net>
+Date:   2022-05-21 17:28:21 +0100
+
+    compile avision with -Wconversion -Wtype-limits
+
+commit 1d259c749a0f1ff433e111af4dcd8979f647780f
+Merge: 8daae197a0be 108716c840ec
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-05-13 20:58:05 +0000
+
+    Merge branch 'ci-bump-versions' into 'master'
+
+    CI: Bump to Ubuntu 22.04 LTS and Fedora 36
+
+    See merge request sane-project/backends!735
+
+commit 108716c840eccf2f37604f211b489d5371bf6c50
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-05-12 21:51:28 -0400
+
+    CI: Bump to Ubuntu 22.04 LTS and Fedora 36
+
+commit 8daae197a0be4532a211001d8303284f427df1cb
+Merge: 6b30245844bd df048b16f00c
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-05-11 13:42:52 +0000
+
+    Merge branch 'escl-fix-version-xml-job' into 'master'
+
+    escl: fix version job.
+
+    See merge request sane-project/backends!734
+
+commit df048b16f00cc73bc0a6333772a1b5717c1f39f4
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2022-05-11 15:23:34 +0200
+
+    escl: fix version job.
+
+commit 6b30245844bdedd748b0cfde5593b314357ddfe7
+Merge: 6acddfe7f0dc 7431b65974fe
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-05-11 13:18:18 +0000
+
+    Merge branch 'escl-set-option-if-necessary' into 'master'
+
+    Escl: set option if necessary
+
+    See merge request sane-project/backends!733
+
+commit 7431b65974fe9214905d300e1a83d1f9c4a474dc
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-05-11 13:18:17 +0000
+
+    Escl: set option if necessary
+
+commit 6acddfe7f0dcbda7cb1311343fbda5297dffebf2
+Merge: f68b57378d6b 024ae3b5fad8
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-05-11 09:59:20 +0000
+
+    Merge branch 'escl-normalize-spec' into 'master'
+
+    Escl: normalize spec
+
+    See merge request sane-project/backends!731
+
+commit 024ae3b5fad8d41a6d836b125141adc01f222741
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-05-11 09:59:20 +0000
+
+    Escl: normalize spec
+
+commit f68b57378d6bfc5d0e47153fd80d16eb1b3c971d
+Merge: f012ae84e5a1 aa032f458d9b
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-05-11 06:59:40 +0000
+
+    Merge branch 'escl-delete-obselete-tag' into 'master'
+
+    escl : Remove obselete tag.
+
+    See merge request sane-project/backends!730
+
+commit aa032f458d9bf6a30209ff8cca7d36c475f9a480
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2022-05-11 08:28:35 +0200
+
+    escl : Remove obselete tag.
+
+commit f012ae84e5a148666599f64792617dbc6df4cabb
+Merge: b8722a14ed97 1d502a288ac2
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-05-08 17:41:51 +0000
+
+    Merge branch 'fix-scanjet-8250' into 'master'
+
+    set correct minimum dpi for AV_ASIC_C6 on avision
+
+    See merge request sane-project/backends!728
+
+commit 1d502a288ac272a55c7db436efaf09c70327b486
+Author: Christian Theis <gentoo@theis-family.net>
+Date:   2022-05-08 15:08:16 +0100
+
+    set correct minimum dpi for AV_ASIC_C6 on avision
+
+commit b8722a14ed97b0db4b24fba6444885ae8987edbd
+Merge: a45e79bce6a7 f85e2fb9c252
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-05-01 22:02:55 +0000
+
+    Merge branch '149-fix-mkstemp-error-handling' into 'master'
+
+    Resolve "Fix `mkstemp` error handling"
+
+    Closes #149
+
+    See merge request sane-project/backends!725
+
+commit f85e2fb9c252cd70e7630366e1886ba367c739ae
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-05-01 22:02:55 +0000
+
+    Resolve "Fix `mkstemp` error handling"
+
+commit a45e79bce6a7d44fc87641bfed4436f7abb614cb
+Merge: e0aad8e814b4 a13cc4c1ff8f
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-05-01 21:56:52 +0000
+
+    Merge branch 'clang-warnings' into 'master'
+
+    Fix Clang warnings
+
+    See merge request sane-project/backends!727
+
+commit a13cc4c1ff8fc18365727d86042c963273dd6150
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-26 07:22:51 -0400
+
+    CI: Do not allow build job failures for Fedora 35
+
+    The CI build jobs targeting Fedora 35 pass (without compiler warnings).
+    Enforce this going forward.
+
+commit 9e1819c3f7c1fc23675af9affcb657a642fe283b
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-26 02:12:25 -0400
+
+    configure: Use PKG_CHECK_MODULES to detect Net-SNMP
+
+    The output of "net-snmp-config --cflags" can contain optimization flags.
+    These might not be applicable to the current compiler, causing warnings.
+
+    Use PKG_CHECK_MODULES to check for Net-SNMP and obtain the compiler and
+    linker flags instead, in the same way as for libcurl or poppler-glib.
+
+commit 4b15f35e75179fa44f08733f27e47147e82556a3
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-26 01:18:01 -0400
+
+    mustek: Remove unused array variables
+
+    Introduce a CDB_SIZE() macro similar to that found in sanei/sanei_scsi.c.
+    This avoids warnings from Clang about unused variables.
+
+commit e0aad8e814b4576f1597e4095b92a9fc9551a178
+Merge: ac42d6e684c9 76aa009316f0
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-25 14:17:15 +0000
+
+    Merge branch 'backend-built-sources' into 'master'
+
+    backend/Makefile: Fix handling of built sources
+
+    See merge request sane-project/backends!726
+
+commit 76aa009316f09e66c4fda98fd39fd672c4d07a3e
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-24 23:02:04 -0400
+
+    backend/Makefile: Include dll-preload.h in sources
+
+commit adac4f23e672ce7a2d6e601024bda190a12e0df5
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-24 22:52:55 -0400
+
+    backend/Makefile: Improve rules for pixma/pixma_sane_options.{c,h}
+
+    Ensure these files are updated after pixma/pixma.c is changed. Do not
+    remove them during "make clean" or "make distclean", because they are
+    part of the source distribution (generated with "make dist"). Display
+    the relative paths in the build output.
+
+commit 28b5aa7deec6f3d7f98c8ddd2c64d75cb6d71930
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-24 20:12:23 -0400
+
+    Revert "backend/Makefile: Remove unneeded references to $(srcdir)"
+
+    This breaks "make dist" when run locally in the CI container.
+
+commit ac42d6e684c90c94812d01f7104afed7fb9cb749
+Merge: e0e9a614be92 a1fbbae636c6
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-24 17:10:18 +0000
+
+    Merge branch 'sp30' into 'master'
+
+    Fujitsu / PFU SP30
+
+    See merge request sane-project/backends!716
+
+commit a1fbbae636c698363c2eb9333475061cc7adcfd1
+Author: Aaron Jackson <aaron@aaronsplace.co.uk>
+Date:   2022-04-14 22:25:29 +0100
+
+    Update fujitsu description to include SP30 as good
+
+commit 140100bb232cacc8f96f64ec144cb957cd4127d0
+Author: Aaron Jackson <aaron@aaronsplace.co.uk>
+Date:   2022-04-14 22:13:20 +0100
+
+    Fujitsu / PFU SP30
+
+    Tested and working against the Fujitsu driver.
+
+commit e0e9a614be923cebcc2403185b89a2d0cd8ce411
+Merge: 5f27cc71c8b4 8bbcdf8de353
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-24 17:08:20 +0000
+
+    Merge branch 'avision-fixes' into 'master'
+
+    avision: Fix issues found by code inspection
+
+    See merge request sane-project/backends!710
+
+commit 8bbcdf8de35316b9318cc464b0bf5e74a64d9cb0
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-27 16:51:30 -0400
+
+    avision: Invert conditional for software scaling
+
+    Place the alternative calls to fwrite() near each other in the code,
+    for better readability.
+
+commit c7a33643f3243d8ed58f8eabfb317e58547d203c
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-27 16:51:30 -0400
+
+    avision: Fix line numbers in debug message for software scaling
+
+    Print line numbers that are relative to the entire output, rather than
+    the current stripe.
+
+commit 1277612c5b937d57e2f956d68a5be8ad1c59e5ac
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-27 16:51:30 -0400
+
+    avision: Cancel scanning before closing device
+
+commit bd6ad2e092789c3fa5e07d8088a103e6d51e543c
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-27 16:51:30 -0400
+
+    avision: Correctly handle failure to open file
+
+commit 5f27cc71c8b4fd4204af314a1e83b05721160e77
+Merge: dd822eda010d b217e7b00274
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-24 17:02:54 +0000
+
+    Merge branch '584-avision-reading-unexpected-length-is-not-handled-correctly' into 'master'
+
+    Resolve "avision: Reading unexpected length is not handled correctly"
+
+    Closes #584
+
+    See merge request sane-project/backends!724
+
+commit b217e7b002743f96f7edfef6aed8eb8b77e51e7a
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-24 09:49:51 -0700
+
+    avision: enhance return size checks to generate an appropriate error code.
+
+    Some of the status code checks also check that the returned data is
+    of the expected size. However, if they are not, it is possible to
+    return SANE_STATUS_GOOD in error. We should generate an appropriate
+    error code other than SANE_STATUS_GOOD for this case.
+
+commit dd822eda010d44565808f71e3c20a30347069b0c
+Merge: 137a8f88c7c8 ff4114a79572
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-22 17:51:06 +0000
+
+    Merge branch 'thread-kvs40xx' into 'master'
+
+    kvs40xx: Return NULL from read_data()
+
+    See merge request sane-project/backends!722
+
+commit ff4114a79572ce56af05cf8e853508ad9a102673
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    kvs40xx: Return NULL from read_data()
+
+    Functions called by pthread_create() have the return type (void *).
+    However, the return statements in read_data() use a value of type
+    SANE_Status rather than a pointer, which causes a compiler warning.
+
+    This return value is never actually used, so return NULL instead.
+
+commit 137a8f88c7c83dffb70040cc4b26e94dcfff4378
+Merge: 31cefeb65919 12560890a6e2
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-22 17:48:42 +0000
+
+    Merge branch 'poll-header' into 'master'
+
+    Fix header file used for poll()
+
+    See merge request sane-project/backends!723
+
+commit 12560890a6e298091bd63b8093a35604416eb92a
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-21 23:37:33 -0400
+
+    Fix header file used for poll()
+
+    POSIX specifies the header to include is <poll.h>, not <sys/poll.h>.
+    This results in a compiler warning with musl libc (on Alpine Linux).
+
+commit 31cefeb65919ed85b4a4e081aeb668e03be47977
+Merge: 99dba99442f1 0286b132b7e5
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-21 14:24:31 +0000
+
+    Merge branch 'ci-debian-11' into 'master'
+
+    CI: Do not allow build job failures for Debian 11
+
+    See merge request sane-project/backends!721
+
+commit 0286b132b7e5367efbf94bf313105c6a941f8e5f
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-21 00:57:24 -0400
+
+    CI: Do not allow build job failures for Debian 11
+
+    With the changes in commit a519a3529aad30524125b103b9362d30af694733,
+    the CI build jobs targeting Debian 11 pass (without compiler warnings).
+    Enforce this going forward.
+
+commit 944bb49e56c1e0d5768f14cfacb2e04310ee3642
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-21 00:48:22 -0400
+
+    CI: Use Debian stable again to build docs and run "make distcheck"
+
+    This reverts commit b458cb14c6c7e92818d5ed2aae925c7686a63393, now that
+    the CI build jobs targeting Debian 11 pass (without compiler warnings).
+
+commit 99dba99442f1a3f42014d18e57fd3c24ed05d713
+Merge: cc0d729e1f1d 172e16136910
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-21 04:52:28 +0000
+
+    Merge branch 'lockpath-group-check' into 'master'
+
+    configure: Remove --with-group option for device locking
+
+    See merge request sane-project/backends!713
+
+commit 172e161369102e5e6013f576ac5c6c62920235ca
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-06 23:56:29 -0400
+
+    configure: Remove --with-group option for device locking
+
+    This option is not used anywhere in the code or the build system, except
+    that ./configure will not build device locking support if this is set to
+    a non-existent group. (It chooses uucp by default.)
+
+    However, that check does not actually work. It attempts to run the chgrp
+    command on a temporary file; but since ./configure is run without root
+    privileges, that always fails unless the user running ./configure is a
+    member of the group.
+
+    Remove both the option and the broken check. It is assumed that device
+    locking support was typically disabled in builds because of this issue,
+    and it will now be restored except where --disable-locking is specified.
+
+commit cc0d729e1f1d952114c40e3911e5dfb145b545e7
+Merge: 71152f017118 356f1c9b2725
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-21 04:40:26 +0000
+
+    Merge branch 'pixma-add-TS3400' into 'master'
+
+    pixma:Add TS3400.
+
+    See merge request sane-project/backends!704
+
+commit 356f1c9b272593d9bec9f0cc576f181f9ab278a3
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2022-03-09 09:02:41 +0100
+
+    pixma:Add TS3400.
+
+commit 71152f017118401f9b6806cdc77463aa8e314eb4
+Merge: 33f0751670a8 03bfd4232c7b
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-21 01:23:44 +0000
+
+    Merge branch 'make-silent-rules-output' into 'master'
+
+    Utilize Automake macros for silent rules output
+
+    See merge request sane-project/backends!718
+
+commit 03bfd4232c7bf7a9951a20a38d256a02581cff90
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-17 20:16:19 -0400
+
+    Makefile: Utilize Automake macros for silent rules output
+
+    Building with --enable-silent-rules makes it easier to identify errors
+    or warnings in the build output. Automake provides macros for custom
+    rules to use, so that they will print a similar message to rules which
+    run the compiler or linker:
+
+    ...
+      CC       libpieusb_la-pieusb.lo
+      CCLD     libpieusb.la
+      CCLD     libsane-pieusb.la
+      CC       libsane_pixma_la-pixma-s.lo
+      GEN      pixma/pixma_sane_options.h
+      GEN      pixma/pixma_sane_options.c
+      CC       pixma/libpixma_la-pixma.lo
+    ...
+
+    This does not change the current output if silent rules are disabled.
+
+commit 939d62f83642b5ff2016549918b570299681c13d
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-17 20:14:15 -0400
+
+    backend/Makefile: Remove unneeded references to $(srcdir)
+
+    Adjust these rules to use relative pathnames, like the other rules.
+
+commit 33f0751670a822798db41d466e2ebbbd919f08ef
+Merge: f1e3a410370c b458cb14c6c7
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-21 01:22:50 +0000
+
+    Merge branch 'ci-bump-versions' into 'master'
+
+    CI: Bump all distributions to stable versions
+
+    See merge request sane-project/backends!705
+
+commit b458cb14c6c7e92818d5ed2aae925c7686a63393
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-27 19:57:08 -0400
+
+    CI: Continue using Debian 10 to build docs and run "make distcheck"
+
+    While outstanding issues that cause compiler warnings are being fixed,
+    continue using Debian 10 (oldstable) rather than Debian 11 (stable) to
+    build HTML documentation and run "make distcheck".
+
+commit 60209994a1cb3101f912f194df5fdcb420f57dc9
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-19 19:10:40 -0400
+
+    CI: Temporarily allow build job failures
+
+    Specify -Werror in both CFLAGS and CXXFLAGS for all build jobs.
+
+    For the updated build targets, temporarily allow the build job to fail
+    while outstanding issues that cause compiler warnings are being fixed.
+
+commit 6a14383e8461f932ad96d416fc5d1d6486bf752c
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-19 19:06:18 -0400
+
+    CI: Bump all distributions to stable versions
+
+    Use Alpine 3.15.0; Debian 10.11 and 11.2; Fedora 35; and Ubuntu 20.04.
+
+commit f1e3a410370ca0a62f0a117413ac649c4d17266c
+Merge: f71b32c63287 a519a3529aad
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-21 01:22:09 +0000
+
+    Merge branch 'mustek-usb2-status' into 'master'
+
+    mustek_usb2: Replace STATUS type with SANE_Status
+
+    See merge request sane-project/backends!720
+
+commit a519a3529aad30524125b103b9362d30af694733
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-02 21:16:47 -0500
+
+    mustek_usb2: Replace STATUS type with SANE_Status
+
+    In some cases, a return value with type SANE_Status was assigned to a
+    variable with type STATUS. It is easiest to remove the redundant type
+    here.
+
+commit f71b32c63287220fe743c8011bb815e3484dc267
+Merge: 602b4f8d3dad b2c2b748581c
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-04-19 12:11:24 +0000
+
+    Merge branch 'escl-pdf-mmap' into 'master'
+
+    escl: convert get_PDF_data() to use GMappedFile and GBytes
+
+    See merge request sane-project/backends!719
+
+commit b2c2b748581c6649fde770458eed89e3ac529691
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-04-19 12:11:24 +0000
+
+    escl: convert get_PDF_data() to use GMappedFile and GBytes
+
+commit 602b4f8d3dad3c6f35a63ec5735d38715515e57d
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-15 11:50:56 -0700
+
+    genesys: add full button support for the Canon 5600F
+
+    This model spreads their GPIO buttons lines over 3 different registers:
+    0x6c, 0xa6 and 0x6d
+
+commit 785a935e9e8ece9beff08659611fd38732677f66
+Merge: ea8d0eb91e45 877871443dc6
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-04-14 13:50:58 +0000
+
+    Merge branch 'FixEsclTiffSupport' into 'master'
+
+    Fix inversed logic in escl_tiff.c:get_TIFF_data
+
+    See merge request sane-project/backends!715
+
+commit 877871443dc6258bfecbcacb7f7cd91896fd9952
+Author: Raphael Isemann <teemperor@gmail.com>
+Date:   2022-04-14 07:15:39 +0200
+
+    Fix inversed logic in escl_tiff.c:get_TIFF_data
+
+    malloc returns NULL on error, but this code errors out on the non-NULL pointer
+    indicating success (which essentially makes this function always fail).
+
+    Signed-off-by: Raphael Isemann <teemperor@gmail.com>
+
+commit ea8d0eb91e4564c71a30f417c161440cfd795852
+Merge: 804e936a65c4 b3a04eae1a13
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-13 18:24:57 +0000
+
+    Merge branch 'genesys_8400f_sensors' into 'master'
+
+    Genesys 8400f sensors
+
+    See merge request sane-project/backends!712
+
+commit b3a04eae1a131ad86836a67cf06d1587017a3dde
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-06 10:13:02 -0700
+
+    genesys: added special PDF function definitions for Canon 4400f
+
+commit 54766358b50197bf818fa3bec4c9e18fb0c9004b
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-03 17:37:49 -0700
+
+    genesys: corrections for 4400f buttons.
+
+    Additional special PDF buttons not yet included.
+    We need a strategy to deal with them.
+
+commit ab7b3a38e28c2b03c30d8e0115c2fb585f38adf8
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-04-03 14:47:51 -0700
+
+    genesys: added button definitions for Canoscan 8400F.
+
+commit 804e936a65c44d48009625fed55a7b4c31727922
+Merge: 586ff11af54d b5d5b01886fa
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-04-09 15:49:47 +0000
+
+    Merge branch 'escl-fix-type-ip' into 'master'
+
+    escl: Fix ipv6 detection.
+
+    See merge request sane-project/backends!714
+
+commit b5d5b01886fa60ac4538e548e9fad8437bfe5144
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-04-09 17:31:36 +0200
+
+    escl: Fix ipv6 detection.
+
+commit 586ff11af54dac860d5bbb7f4e013a6f709351c1
+Merge: 49dfefe8c093 baa26ffd9555
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-29 05:45:03 +0000
+
+    Merge branch 'pixma-sa-size' into 'master'
+
+    pixma: fix broadcast_sa size calculation
+
+    Closes #426
+
+    See merge request sane-project/backends!572
+
+commit baa26ffd955559b544da006c2c17c8602397f0b1
+Author: Timo Teräs <timo.teras@iki.fi>
+Date:   2021-01-15 16:49:21 +0200
+
+    pixma: fix broadcast_sa size calculation
+
+    The sa_size was incorrectly used on the destination buffer which
+    likely contains wrong address family.
+
+    Fixes #426
+
+commit 49dfefe8c093e70de69868f522d96c497789fe4a
+Merge: c1c77436f424 732fc8cad715
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-27 22:44:16 +0000
+
+    Merge branch 'portable-filenames' into 'master'
+
+    Rename doc/*/template.desc. for Windows compatibility
+
+    See merge request sane-project/backends!711
+
+commit 732fc8cad71523e24a12d20ced8808d128649baa
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-27 17:11:56 -0400
+
+    Rename doc/*/template.desc. for Windows compatibility
+
+    Windows does not allow filenames ending in a period ("."), preventing
+    this git repository from even being checked out on a Windows system.
+
+    Drop the trailing period in these two filenames. Both files will still
+    be skipped during the build, since they are not included in DESC_FILES
+    or DESC_EXT_FILES in doc/Makefile.am.
+
+commit c1c77436f4245983ff0d06c1c28f94715dd26bd6
+Merge: e87bd848dfbd 3513af029e51
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-25 03:49:57 +0000
+
+    Merge branch '578-remove-linux-kernel-driver-for-plustek_pp-backend' into 'master'
+
+    Resolve "Remove Linux kernel driver for plustek_pp backend"
+
+    Closes #578
+
+    See merge request sane-project/backends!708
+
+commit 3513af029e512a08ea0a4dd7700ea173079222ec
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2022-03-23 13:26:53 -0700
+
+    plustek-pp: Removed module build files from dist make rules.
+
+commit 27a7c4518e8a2d7e31fcc2e35474a428862936b0
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2022-03-23 13:15:27 -0700
+
+    plustek-pp: removed conditionally compiled code for Linux driver.
+
+    Mainly consists of removing code for #ifdef __KERNEL__
+    In order to keep it really clear what code has been removed, I have
+    not corrected any formatting issues.
+
+commit 3635176eb9c926ae71ed2ebced00e01d545a40ea
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-15 18:57:51 -0700
+
+    plustek_pp: Removed references to the kernel driver from doc.
+
+commit e87bd848dfbd038c8795df6172d4e63a9bdafc0d
+Merge: 6054620c6999 aba8c30c9275
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-03-21 20:41:50 +0000
+
+    Merge branch 'merge-release-1.1.x' into 'master'
+
+    Merge release-1.1.x branch to master.
+
+    See merge request sane-project/backends!709
+
+commit aba8c30c92759d7479bd0e87a60be4adb932437b
+Merge: 6054620c6999 b68172cbd205
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-03-21 22:26:33 +0200
+
+    Merge branch 'release-1.1.x' into merge-release-1.1.x
+
+commit b68172cbd205aff56d91766b3bc8d46222e7669f
+Merge: 332edc8b7ce6 1a8a86bade20
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-28 20:57:55 +0000
+
+    Merge branch 'release-1.1.x-genesys-gl845-crash' into 'release-1.1.x'
+
+    [Release 1.1.x] genesys: GL845 has vector size 257 as well
+
+    See merge request sane-project/backends!689
+
+commit 1a8a86bade20ed66ce7d68a9c8ca4de83dc7d56e
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-28 22:28:04 +0200
+
+    genesys: Simplify gamma buffer setup
+
+    This also makes sure that we never access the source gamma tables out of
+    bounds which was possible previously.
+
+commit fb41d3ca04410c7901e54067068f27e6292412f4
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-28 22:19:06 +0200
+
+    genesys: Simplify interface of generate_gamma_buffer()
+
+commit aeb60735c177657ef6a4ba93a1d185c204c07506
+Author: Zdenek Dohnal <zdohnal@redhat.com>
+Date:   2022-01-20 10:55:07 +0100
+
+    genesys: GL845 has vector size 257 as well
+
+    Fixes https://bugzilla.redhat.com/show_bug.cgi?id=2042316
+
+commit 6054620c6999920b74562c268c7f6d09f9ec9fe5
+Merge: ad08e768be88 2cf41870b9a0
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-19 16:20:34 +0000
+
+    Merge branch '583-samsung-scx-4824fn-support' into 'master'
+
+    Resolve "Samsung SCX-4824FN Support"
+
+    Closes #583
+
+    See merge request sane-project/backends!707
+
+commit 2cf41870b9a0ce42af2db396f0246bf5c464401c
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-14 16:35:19 -0700
+
+    xerox_mfp: added fix for Samsung SCX-4824FN and friends for broken JPEg support
+
+commit ad08e768be8842e134cb8334fa0f841a692ba3c8
+Merge: 95e2498fe995 9cd0b1809c6e
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-19 16:19:54 +0000
+
+    Merge branch 'resolve-compiler-warnings' into 'master'
+
+    Resolve compiler warnings (including fixes for actual bugs)
+
+    See merge request sane-project/backends!701
+
+commit 9cd0b1809c6eec83b4e5cd88dd39db1cdaddb492
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    lexmark_low: Adjust calculation of bytes available in read buffer
+
+    GCC warns that an unsigned value is passed to abs(), which may not be
+    intended. To resolve this warning, adjust the code so abs() is not used
+    and the behavior is more explicit.
+
+commit 2efdd5a3340379c49f4914ec22f1397bb2f4d61a
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    plustek: Adjust gain calculation to avoid calling labs()
+
+    labs() has a signed parameter. However the argument to it here was the
+    difference between two unsigned values, which itself remains unsigned.
+    GCC warned that using this in labs() might not have the intended result.
+
+    By definition though, dwInc >= m_dwIdealGain >= dwDec, so labs() is not
+    even needed in this expression.
+
+commit 5576d03afdba9360db5f215e52216ac226c739c5
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    genesys: Fix forward declaration for type UsbDeviceEntry
+
+    This did not match the definition, causing a compiler warning.
+
+commit 6048724f22106f39d8be0cd750c4e8a64349676c
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    coolscan2, coolscan3: Fix initialization of enum members in struct
+
+    GCC warns when setting an enum member to 0 without an explicit cast.
+    Use the corresponding value in the enum type instead.
+
+commit 47fd7538bc325cb2af90aa5dd034d44ff9bad16a
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Remove set but unused variables which cause compiler warnings
+
+commit a82a312d8541b92b0c34403b8723c9caaec89ab7
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Remove unused functions which cause compiler warnings
+
+commit 0d032cd982ca8ee01df44584bba82a5d89d9788d
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Remove useless conditionals which cause compiler warnings
+
+    These always evaluate to true in the context of the surrounding code.
+
+commit b3d105cba5c7f95052827a81b52ac92841865ae9
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Use snprintf() instead of strncpy() for space-padded strings
+
+    The output from the SCSI inquiry command uses fixed-length space-padded
+    strings, which are copied into null-terminated strings before use.
+
+    This is currently done using strncpy(), with the count parameter set to
+    the string's fixed length. Because a null terminator is not encountered
+    in the input, strncpy() does not write one in the output, and GCC warns
+    about potential string truncation. A null terminator is added manually,
+    but this is error prone (as shown by the fix for the microtek backend).
+
+    Use snprintf() instead, which guarantees a null-terminated result and
+    resolves the warnings from GCC.
+
+commit 6a16e78788967a8f4508ddd46540958274520cc4
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Use strdup()/strndup() instead of direct allocation and string copy
+
+    Otherwise, GCC warns about possible string truncation. This simplifies
+    the code here as well.
+
+commit 3c3a247d256d6bc2f90150a2ff234e7ce0d6d5ae
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Replace deprecated uint32 with uint32_t
+
+commit db573b74ed24c04f557eaba0ecc79aa7c9f20e2a
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Fix format specifiers to match arguments' data types
+
+commit 1a933bba7ee24fd39eb36c793d9f5450074010e8
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Cast pointer arguments if needed when using "%p" format specifier
+
+    Pointer arguments must have type (void *) when printed with the format
+    specifier "%p".
+
+commit f3162bafa837d43d0e987c060523b1566e7be0a7
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Replace variable self-assignments to avoid Clang warnings
+
+    These were intended to suppress GCC warnings about unused variables.
+    However, this leads to different warnings from Clang instead.
+
+    Use another approach that suppresses warnings from both compilers.
+
+commit 6be83f469b3572b9bcaf79d4f67ec217a8102cc8
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Resolve compiler warnings about misleading indentation
+
+    This change is targeted at specific lines of code reported by GCC or
+    Clang as potentially causing unintended behavior.
+
+commit 6cc15e2b813e5d0cad54e76a39186f07182f8788
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Adjust conditional expressions to resolve compiler warnings
+
+commit 2955089cd9782f3b79f488590be633b85c2590e7
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    Fix conditional expressions with unintended behavior
+
+commit 1458d23c4229a9d9fa46f93a3859d501ec7aa149
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    umax: Fix unintended string concatenation in array definition
+
+    This causes the wrong error message to be used in the log.
+
+commit bfa69c26e666e25e8f019a20665c9045ecc3e5e4
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    snapscan: Fix debug logging in sense_handler()
+
+    Remove an extraneous log message.
+
+    Ensure that a separate log message is only printed when the preceding
+    if-statement is true (and its string argument has actually been set).
+
+    Both issues were identified from GCC warnings about indentation.
+
+commit 23addf5590718d605db4a56632789611dc903920
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    sm3840: Fix argument types for variadic function
+
+    Values of type unsigned char are automatically promoted to a larger
+    integer type, so they cannot be used as variadic function arguments.
+
+commit 4cf3b09e49d07d520ddce2ca2f60cdad94d8b1eb
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    rts8822, rts8891: Replace abs() with fabs() where needed
+
+    abs() has an integer parameter and returns an integer value. Floating-
+    point values should be passed to fabs() instead.
+
+    In particular, this affected calculations for gain and offset, where a
+    value with floating-point precision is clearly expected.
+
+commit e859ea4d895e2afb76bd1742c954485da7f840f7
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    pieusb: Add missing calls to sanei_pieusb_convert_status()
+
+    Fix cases where values of type PIEUSB_Status were used or returned when
+    the expected type was SANE_Status.
+
+commit f8785fb6a81453ce8eb7cb9172d2a155ec4d7f76
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    mustek_pp: Handle status argument correctly in pa4s2_init()
+
+    Currently the pointer itself is overwritten, when it is intended that
+    the pointer be derefenced first.
+
+commit f651d6f098caf6ad7f42cc002a802f3a34be6ce1
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    microtek: Fix null termination of string, and adjust buffer lengths
+
+    The Product Revision Level field in the SCSI inquiry data has a fixed
+    length of 4 bytes. When copying it as a null-terminated string, place
+    the null terminator in the correct position; currently the string has
+    an extra character that is never initialized in memory.
+
+    Reduce the length of each string buffer, so it does not extend beyond
+    the null terminator.
+
+commit 95e2498fe995f1f5e98b18bc00f6d3a3ef612025
+Merge: 7cdd2ad268a1 0c70fd560cf3
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-14 00:25:02 +0000
+
+    Merge branch 'canon_pp-weights-file' into 'master'
+
+    canon_pp: Avoid buffer overflow if pathname exceeds PATH_MAX
+
+    See merge request sane-project/backends!702
+
+commit 0c70fd560cf351fb2460a0d9ab0883acb6f098de
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-08 19:00:00 -0500
+
+    canon_pp: Avoid buffer overflow if pathname exceeds PATH_MAX
+
+    If the weights file pathname is longer than PATH_MAX, it may be written
+    past the end of the buffer on the stack; or it may be truncated when it
+    is written to allocated memory (such that it is not null-terminated).
+
+    Adjust the code to fix both issues. Dynamically allocate memory for the
+    actual length of the pathname so that it is not constrained by PATH_MAX.
+
+commit 7cdd2ad268a149ca2d42c0ecf8c78aec36104923
+Merge: 2d49a2af6500 41866df6e1b0
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-10 01:31:01 +0000
+
+    Merge branch '580-canoscan-lide-220-aborts-before-end-of-4800dpi-colour-scan' into 'master'
+
+    Resolve "Canoscan LiDE 220 aborts before end of 4800dpi colour scan"
+
+    Closes #580
+
+    See merge request sane-project/backends!697
+
+commit 41866df6e1b0eb633d0a40b7e2bd13cc49ad4275
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-27 18:55:26 -0800
+
+    genesys: fix for computation of total file size exceeding unsigned
+
+    Large scans that exceed 32-bits need cast to allow 64-bit size.
+
+commit 2d49a2af6500a8a55be9dece632f41ddda9ac3ba
+Merge: 84e907f87c95 e5ff5d06e5ec
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-10 01:29:59 +0000
+
+    Merge branch 'pixma-fix-max-resolution' into 'master'
+
+    pixma:Fix max resolution
+
+    See merge request sane-project/backends!703
+
+commit e5ff5d06e5ec278ffc41ffbb41bd071efb4d54a4
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-03-10 01:29:59 +0000
+
+    pixma:Fix max resolution
+
+commit 84e907f87c95634f7376e1984afc5f69235f5a2e
+Merge: 9cd8f475eb0c e1a319e72946
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-03-09 03:51:08 +0000
+
+    Merge branch 'resolve-sane-desc-warnings' into 'master'
+
+    descriptions: Resolve multiple warnings from sane-desc
+
+    See merge request sane-project/backends!698
+
+commit e1a319e7294614075b50119727cbd7bbb67c714e
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-03-02 21:16:33 -0500
+
+    descriptions: Resolve multiple warnings from sane-desc
+
+    Fix the USB VID/PID in device descriptions to use lowercase hex digits.
+    Remove an extraneous description, having no name or USB VID, from the
+    epsonds file. Remove an extraneous interface in the description for the
+    Brother MFC-J1300DW.
+
+    Additionally, fix mispellings of "Flatbed" and "WiFi".
+
+commit 9cd8f475eb0c0a780cd6f80d54c0b13329b0af0c
+Merge: 4091619e07a0 84a39145e4d3
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-03-08 08:59:43 +0000
+
+    Merge branch 'escl-add-canon-ts-3400-series' into 'master'
+
+    escl: Add canon TS-3400 series
+
+    See merge request sane-project/backends!700
+
+commit 84a39145e4d38bf69f7510922b5e34c672d37cfd
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2022-03-08 08:59:43 +0000
+
+    escl: Add canon TS-3400 series
+
+commit 4091619e07a014de2621d1caa7de4d00de761eba
+Merge: aa153e52c85c 9512d05fe65d
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-25 02:31:18 +0000
+
+    Merge branch '577-add-plustek' into 'master'
+
+    Resolve "Issues making on osx"
+
+    Closes #577
+
+    See merge request sane-project/backends!696
+
+commit 9512d05fe65db493f195875f675ea7114b0b41b4
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-22 16:22:23 -0800
+
+    genesys: added conf entry for Plustek OpticFilm 7600i
+
+    User reports scanner works fine, but entry missing from config.
+
+commit aa153e52c85c458b022e4e79e2877b9897651c01
+Merge: f6594ed040af 047fa8498f1a
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-22 17:37:48 +0000
+
+    Merge branch '577-issues-making-on-osx' into 'master'
+
+    Resolve "Issues making on osx"
+
+    Closes #577
+
+    See merge request sane-project/backends!694
+
+commit 047fa8498f1a343778951693c4a281a05f8a30dc
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-22 17:37:48 +0000
+
+    Resolve "Issues making on osx"
+
+commit f6594ed040af8155e6682001ce61ac5d720e8756
+Merge: 312edd6d5f89 a0ca5a4fc4ec
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-21 22:13:28 +0000
+
+    Merge branch '573-hp5590-read-only-values-aren-t-accessible-via-cli-options-unrecognized-option' into 'master'
+
+    Resolve "[hp5590] Read only values aren't accessible via CLI options (unrecognized option)"
+
+    Closes #573
+
+    See merge request sane-project/backends!693
+
+commit a0ca5a4fc4ec3e6874eda96e5d2d65fc9a2e6fa7
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-21 22:13:28 +0000
+
+    Resolve "[hp5590] Read only values aren't accessible via CLI options (unrecognized option)"
+
+commit 312edd6d5f89ac627a6d8cd935d1e9952f215751
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-19 14:25:13 -0800
+
+    doc: Added Plustek OpticSlim 550 description, unsupported as yet
+
+commit b701c499c9ce56c6bbea14b2fac2feea37f2410f
+Merge: 3c3e898c5e0e 9daadb8512b4
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-17 16:48:23 +0000
+
+    Merge branch 'sane-find-scanner-output' into 'master'
+
+    sane-find-scanner: Improve output for possible USB scanners
+
+    Closes #575
+
+    See merge request sane-project/backends!691
+
+commit 9daadb8512b41731a586f04414f60b7ac281c7cf
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-02-17 09:16:30 -0500
+
+    sane-find-scanner: Improve output for possible USB scanners
+
+    Closes #575
+
+commit 3c3e898c5e0e6c58cc2de092f29a2726ec4c88e2
+Merge: e1f1273d23ff ba07a8a7f53e
+Author: Ralph Little <skelband@gmail.com>
+Date:   2022-02-07 20:58:45 +0000
+
+    Merge branch 'fix-install-exec-target' into 'master'
+
+    backend/Makefile: Fix installation of backend libraries
+
+    See merge request sane-project/backends!690
+
+commit ba07a8a7f53ec7b2e7ddb030bb37df2099a09de5
+Author: David Ward <david.ward@gatech.edu>
+Date:   2022-02-06 23:02:01 -0500
+
+    backend/Makefile: Fix installation of backend libraries
+
+    When using Automake variables like sanelib* to install files in a custom
+    directory, the files are assumed to be platform-independent, unless these
+    variables contain "exec" in the name. This affects whether the files are
+    installed during "make install-data" or "make install-exec". It does not
+    matter whether a suffix like _DATA or _LTLIBRARIES is added to this name.
+
+    The packaging scripts for Debian call those Makefile targets separately
+    and are affected by this behavior. Since the backend libraries themselves
+    are platform-dependent files, rename these variables to execsanelib*.
+
+commit e1f1273d23ff179678f1b4960092518ab0833506
+Merge: e3b5a9686fd2 2f17613dbb5e
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-28 20:54:52 +0000
+
+    Merge branch 'genesys_gl845_crash' into 'master'
+
+    genesys: GL845 has vector size 257 as well
+
+    See merge request sane-project/backends!688
+
+commit 2f17613dbb5e538adc12417e3132845e92c65e96
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-28 22:28:04 +0200
+
+    genesys: Simplify gamma buffer setup
+
+    This also makes sure that we never access the source gamma tables out of
+    bounds which was possible previously.
+
+commit 188cf636271fe02a1555a59925af13b34e3a409f
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-28 22:19:06 +0200
+
+    genesys: Simplify interface of generate_gamma_buffer()
+
+commit d8ebd5a4d70ea727f1abdc8171f79230a26db9fa
+Author: Zdenek Dohnal <zdohnal@redhat.com>
+Date:   2022-01-20 10:55:07 +0100
+
+    genesys: GL845 has vector size 257 as well
+
+    Fixes https://bugzilla.redhat.com/show_bug.cgi?id=2042316
+
+commit e3b5a9686fd224e843ef1aedefd2d6e9c7a38fe7
+Merge: 156337e5cd31 c46f00620997
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-28 20:02:25 +0000
+
+    Merge branch 'release-notes-1.1.1' into 'master'
+
+    NEWS: Release notes for 1.1.1
+
+    See merge request sane-project/backends!687
+
+commit c46f00620997401eece36f238ee8fb0f1fc69dc6
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-18 22:40:39 +0200
+
+    NEWS: Release notes for 1.1.1
+
+    (cherry picked from commit a00a5f2f2cb63871aed5a6952353221f3ccfbd5b)
+
+commit 156337e5cd31e7b4c3dcce76507a0cba21990072
+Merge: b09575f6be67 5529eb73d757
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-19 15:47:01 +0000
+
+    Merge branch 'fix-distcheck' into 'master'
+
+    testsuite: Allow any 1.x.y version when comparing sane-desc results
+
+    See merge request sane-project/backends!686
+
+commit 5529eb73d75767c4c761d92e6d04d6900032c31a
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-19 17:29:59 +0200
+
+    testsuite: Allow any 1.x.y version when comparing sane-desc results
+
+commit b09575f6be67b06f4c57a4c8455e39cff6ff72e7
+Merge: 3f955dd532e9 0ac693c2c74f
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-18 20:28:06 +0000
+
+    Merge branch 'releasing-procedure' into 'master'
+
+    Update releasing procedure
+
+    See merge request sane-project/backends!682
+
+commit 0ac693c2c74facb9cbd7b89365779f9889cd20c5
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-18 22:12:19 +0200
+
+    doc: Update the releasing documentation
+
+commit e3b847e981c9f70fd7951dd2fc861946d2fa8800
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-18 22:12:18 +0200
+
+    newsfragments: Document the misc news fragment type
+
+commit 3e1de72bcbbc808a100ae9090b2d9c7f069dbfd0
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2022-01-18 22:12:17 +0200
+
+    Setup release notes build using towncrier
+
+commit 3f955dd532e98c4795cc43fb13e86aa83591346d
+Merge: 64bfc68a398b 1a66f8c55325
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:56 +0000
+
+    Merge branch 'make-jpeg-compression-optional' into 'master'
+
+    xerox_mfp: make JPEG compression user-configurable
+
+    See merge request sane-project/backends!615
+
+commit 1a66f8c553251ef46eec06029b97bfd3bbe5e184
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 20:35:03 +0200
+
+    Add newsfragment
+
+commit a336f5ed2f8eb7994db2ea9d55d6b6b8dda67ece
+Author: Andrew Sayers <andrew-sane-project@pileofstuff.org>
+Date:   2021-03-30 12:07:24 +0100
+
+    xerox_mfp: make JPEG compression user-configurable
+
+    JPEG compression improves scan time, and some scanners require it
+    for high DPI values.  But it loses some data, and we already support
+    toggling it at compile-time.
+
+    Add an advanced option so users can decide at scan-time.
+
+commit 64bfc68a398b713c48eb138aaaaf25016fa870c4
+Merge: 8c5ea25efab9 cf7dde3c4b43
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:37:30 +0000
+
+    Merge branch 'genesys-remove-gpl-exception' into 'master'
+
+    genesys: Remove several accidental edits
+
+    See merge request sane-project/backends!680
+
+commit cf7dde3c4b4356029a91d985c56a5c8a9d174e76
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 20:20:40 +0200
+
+    genesys: Remove several accidental edits
+
+    Fixes 59506f866d3ac4c2fc2bdadf66865e38f8e86ac4.
+
+commit 8c5ea25efab98771b023fdf3f9017ac1342e91dc
+Merge: 23fb2a213944 59506f866d3a
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 17:32:07 +0000
+
+    Merge branch 'genesys-remove-gpl-exception' into 'master'
+
+    genesys: Remove exception for the GPL license
+
+    See merge request sane-project/backends!677
+
+commit 59506f866d3ac4c2fc2bdadf66865e38f8e86ac4
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 19:16:54 +0200
+
+    genesys: Remove exception for the GPL license
+
+    Several files already don't have the exception that allows uses of the
+    code that are additional to the GPL license. I'm no longer comfortable
+    granting this exception for my subsequent contributions, thus the
+    exception has been removed.
+
+commit 23fb2a213944c9788db420e99866052c88cc1f5e
+Merge: 5591ce7c1b79 fec5e8917feb
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 17:22:36 +0000
+
+    Merge branch 'release-notes' into 'master'
+
+    Add release notes for all notable changes since 1.0.32
+
+    See merge request sane-project/backends!676
+
+commit fec5e8917feb04167b5d497dce20415bba3e74ba
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:21 +0200
+
+    newsfragments: Add release note for MR !622
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/622
+
+commit a27f807608a3a98ea7816357a2a1810c2d5cbc31
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:20 +0200
+
+    newsfragments: Add release note for MR !621
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/621
+
+commit 2f7da02d943df3bda9b0c43e66263102f150d0b4
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:19 +0200
+
+    newsfragments: Add release note for MR !620
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/620
+
+commit 6832c5f3999972f93a7081ff61f66e0fb44a5f42
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:18 +0200
+
+    newsfragments: Add release note for MR !619
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/619
+
+commit 27598c788905b9c824752293e9fd4e040e86f192
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:17 +0200
+
+    newsfragments: Add release note for MR !618
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/618
+
+commit 451761272ec87906c3c35783e0c21fe10c3842fb
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:16 +0200
+
+    newsfragments: Add release note for MR !617
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/617
+
+commit 86e138bea47f87d09e4736a2944938b58a0fbb61
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:15 +0200
+
+    newsfragments: Add release note for MR !613
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/613
+
+commit ebee3c297090de74776ae1f23970bcdb32614ed9
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:14 +0200
+
+    newsfragments: Add release note for MR !612
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/612
+
+commit bdb4aa1585576dd4e398b62a179129f6fbc83818
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:13 +0200
+
+    newsfragments: Add release note for MR !609
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/609
+
+commit b06e024be75f2374528e3e2af6fe8d76184b34c0
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:12 +0200
+
+    newsfragments: Add release note for MR !607
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/607
+
+commit 0feacf6f581f2100bc695ab1f2d169e0809ca39d
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:11 +0200
+
+    newsfragments: Add release note for MR !605
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/605
+
+commit 6773f79086b7887a59b24f683760a521d39e3c70
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:10 +0200
+
+    newsfragments: Add release note for MR !604
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/604
+
+commit 2f31fea9d351ed99d8e0a7bf700261926a7e88c7
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:09 +0200
+
+    newsfragments: Add release note for MR !675
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/675
+
+commit 9887b162d90f3763fcfa9954c4636804d56c9a1d
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:08 +0200
+
+    newsfragments: Add release note for MR !673
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/673
+
+commit 85b6cd3320e2371ff92a7bb42f6bafde8fcdc0bb
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:07 +0200
+
+    newsfragments: Add release note for MR !671
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/671
+
+commit 77baf258b6305666409c54f9e051afe4fb1ac1b2
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:06 +0200
+
+    newsfragments: Add release note for MR !669
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/669
+
+commit 3b91ab76e6438cec380c4bf2d946347e0909f403
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:05 +0200
+
+    newsfragments: Add release note for MR !667
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/667
+
+commit 87778eef50c8d07ac94ad995e65309b8eb0611d3
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:04 +0200
+
+    newsfragments: Add release note for MR !666
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/666
+
+commit 58007470e033d2a79ad78dfa349d18b2a3aed8a1
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:03 +0200
+
+    newsfragments: Add release note for MR !665
+
+commit 5b1b01204798857e12779d0c4c028b3db0292828
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:02 +0200
+
+    newsfragments: Add release note for MR !663
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/663
+
+commit cb6a7d0a90ce1c41b59bcc817daf911a6b2c8206
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:01 +0200
+
+    newsfragments: Add release note for MR !659
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/659
+
+commit 5695b15dfcdbf502ffd9a3cd6af853d4100dc6bb
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:51:00 +0200
+
+    newsfragments: Add release note for MR !658
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/658
+
+commit 3dfaea18bb7661dd464fe7289919a47112981ea5
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:59 +0200
+
+    newsfragments: Add release note for MR !657
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/657
+
+commit 2dff4aa09ac8bf6508097da198d5a59229304cf7
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:58 +0200
+
+    newsfragments: Add release note for MR !654
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/654
+
+commit 034fa489b650fa2f5789c9adc34b7e04276e4c2b
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:57 +0200
+
+    newsfragments: Add release note for MR !651
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/651
+
+commit 33b6e0ae479af7c0918bf0686c6d0935f4fc8c68
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:56 +0200
+
+    newsfragments: Add release note for MR !650
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/650
+
+commit bed836adad66684c3bd949d38815d29b70fdede6
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:55 +0200
+
+    newsfragments: Add release note for MR !550
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/550
+
+commit 39d1f6a80ad4ad04b9229ea698e0fc3ed067c13d
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:54 +0200
+
+    newsfragments: Add release note for MR !647
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/647
+
+commit dc3146a31c12a8a3d1bb3bc616ab478c3d1e0360
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:53 +0200
+
+    newsfragments: Add release note for MR !645
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/645
+
+commit 7cbb3ae1d4a2c3fc5b16ece9006b13f531af1e92
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:52 +0200
+
+    newsfragments: Add release note for MR !643
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/643
+
+commit e9b3e39536c4d85131c18723a3d6ffd8ab516d9b
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:51 +0200
+
+    newsfragments: Add release note for MR !642
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/642
+
+commit 520a0df0f78cd6196e1600f83c17a8f8218f5fa2
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:50 +0200
+
+    newsfragments: Add release note for MR !641
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/641
+
+commit d666430f7576f0ad69400daacbf3634cf662b2da
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:49 +0200
+
+    newsfragments: Add release note for MR !640
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/640
+
+commit 94933f881dfabe79de68abbc8ca0a5147b38b1eb
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:48 +0200
+
+    newsfragments: Add release note for MR !639
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/639
+
+commit 7e2d4efd55ee7f7947d9a38b7c6dd2657ce2da36
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:47 +0200
+
+    newsfragments: Add release notes for MR !638
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/638
+
+commit 7c215610c4e293f7b5b9b8ffd93f62d1b96fe26d
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:46 +0200
+
+    newsfragments: Add release note for MR !635
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/635
+
+commit d9e722af63a71eb7e89f44a8a622cf9b5e285397
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:45 +0200
+
+    newsfragments: Add release note for MR !634
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/634
+
+commit cc88c73ac9c2e0f69b31b15c973675c5f63814a8
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:44 +0200
+
+    newsfragments: Add release note for MR !633
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/633
+
+commit 35de63ca99b34574779ce88df71d7f89d8b23541
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:43 +0200
+
+    newsfragments: Add release note for MR !629
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/629
+
+commit 5b143760f38ee0f3c584882bc07e02851c4d8ad8
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:42 +0200
+
+    newsfragments: Add release note for MR !627
+
+    Full link: https://gitlab.com/sane-project/backends/-/merge_requests/627
+
+commit c94a3319165512c766179dc8a7e0419e0e33f6bf
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:41 +0200
+
+    newsfragments: Add release note for MR !628
+
+    https://gitlab.com/sane-project/backends/-/merge_requests/628
+
+commit 141964f6529a880db27d92d0e413ffaa2c209358
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:40 +0200
+
+    NEWS: Move unreleased release notes to newsfragments directory
+
+commit 0b31b2c1ed6fee5beb41ee725f467e276ec80401
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-30 18:50:39 +0200
+
+    newsfragments: Document how to provide release notes
+
+commit 5591ce7c1b7979f18a6e6b1445c0be66152527f1
+Merge: 4d2a6eb5137b eca148dbf446
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-28 01:29:03 +0000
+
+    Merge branch 'genesys-remove-gl847-unsupported-resolutions' into 'master'
+
+    genesys: Remove unsupported resolutions on LiDE 100 and 200
+
+    Closes #383
+
+    See merge request sane-project/backends!675
+
+commit eca148dbf44611b357bd01b4672b83737c114a28
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-28 02:49:59 +0200
+
+    genesys: Remove unsupported 75 and 100 dpi resolutions on LiDE 200
+
+commit c86564a3e39c5407c770dca48ce37dee3c142b3c
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-28 02:49:58 +0200
+
+    genesys: Remove unsupported 75 and 100 dpi resolutions on LiDE 100
+
+commit f5d5928346e3a49914a6cd8cdd00d3e6f4556282
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-28 02:49:57 +0200
+
+    genesys: Log the target motor speed in case it can't be acquired
+
+commit 4d2a6eb5137bff1c8b0b221c7866801492d1a214
+Merge: f4552acf8d62 75ac76f87a78
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 21:08:39 +0000
+
+    Merge branch 'genesys-gl841-fixes' into 'master'
+
+    genesys: Various fixes for GL841 scanners
+
+    Closes #357
+
+    See merge request sane-project/backends!673
+
+commit 75ac76f87a78b4662ea37313e250d96e284aab86
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:18 +0200
+
+    genesys: Remove unneeded per-scanner register setup
+
+    These register values are overwritten later.
+
+commit f06e507de738cf5bf6e4ec5eb1abc3015c4315d6
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:17 +0200
+
+    genesys: Fixed offset calibration on certain gl841 devices
+
+commit 334e4bd8d123a13e8cb8283b9f430d10da83de47
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:16 +0200
+
+    genesys: Use consistent initial exposure for led calibration on gl841
+
+commit af175f6d4c10e52bc2b1e07b156c4bd5e8ac04e0
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:15 +0200
+
+    genesys: Fix inconsistent exposure values in led calib in testing mode
+
+commit 3e9431d079c320a81a3e1a3d3b4925317d03aafc
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:14 +0200
+
+    genesys: Ensure sensor exposure is up-to-date when scanning on gl841
+
+commit c11a0e7ab6889d5ba1cf89592bf901aa8304de19
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:13 +0200
+
+    genesys: Reuse gl124 led calibration acceptability criteria for gl841
+
+commit d19ccd2fad4efc2785a57e172f17749db57011e7
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:12 +0200
+
+    genesys: Remove no longer used led calibration fallback code on gl841
+
+    This was used only on scanners which did not have calibration target
+    intensity value. All gl841 scanners now have such setting, so the code
+    can be removed.
+
+commit e540778cfaad9d5936baea6bf841db8be30d21b1
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:11 +0200
+
+    genesys: Specify target white level for all gl841 devices
+
+commit c1f731a7e099ec303ec0e1f667f77d973e2534bd
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:10 +0200
+
+    genesys: Remove duplicate register write during led calibration on gl841
+
+commit f1910ae58cdeb948189e5cd878ff5378a7134fdd
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:09 +0200
+
+    genesys: Reset registers after move during led calibration on gl841
+
+commit 86fe51e224daadf80577d887127c51611a53223d
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:08 +0200
+
+    genesys: Remove erroneous register write on LiDE 80
+
+commit 0f341bf5a0e3bc3dd2951b0dc74dd808ccc57879
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:07 +0200
+
+    genesys: Clean up exposure calibration on gl841
+
+commit 4ee36a2e31edd9ffc059306233d70f3f91ab86b8
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:06 +0200
+
+    genesys: Use more robust gain calibration on gl841
+
+commit bbc15435258e479cf9a5178fa79a05eecea7deab
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:05 +0200
+
+    genesys: Remove duplicate register writes in gl841 calibration
+
+commit 675497fcd818b2dcc716ce052bb90913091f8bc2
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:04 +0200
+
+    genesys: Use host-side gray instead of device-side true-gray on gl841
+
+    True gray mode is not handled correctly by devices: they have bugs that
+    lead to incorrect LED color being emitted (e.g. dark red) and thus this
+    feature is completely unusable. At least LiDE 35/40/50, LiDE 60 and LiDE
+    80 are affected.
+
+    Simpy disabling true-gray unfortunately leads to even worse outcome
+    because the scanner then simply proceeds to perform a color scan.
+
+    To work around these problems we do a normal color scan and then produce
+    gray output based on the color data. This will satisfy the use cases
+    when correct gray is needed. In cases when it is sufficient to construct
+    gray from a single color channel, the color filter setting could be
+    used.
+
+commit 7bbb6d8fdb8358f14be8e331c4b8a15b2b552855
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:03 +0200
+
+    genesys: Implement host-side gray support
+
+commit 2f030f04e296cf4e7fae49387c8bc989b7731df8
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:02 +0200
+
+    genesys: Implement image pipeline for merging color channels to gray
+
+commit ad842841862f7090e9062bc98b999e9f7389b786
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:01 +0200
+
+    genesys: Rename ImagePipelineNodeMergeMono{Lines -> LinesToColor}
+
+commit bd4f00912218fceab4818a9fe66f584af8740cf8
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:21:00 +0200
+
+    genesys: Remove true_gray variable by deriving its value directly
+
+commit 1e7502504842471498e825c8ff65b231e646d511
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:20:59 +0200
+
+    genesys: Fix incorrect scan exposure setup on gl841
+
+    When sensor exposure values are significantly different from each other
+    the total scan exposure will be too low leading to the device becoming
+    confused and significantly
+
+commit 601705fa3ae0c9a84f6e906fa50f1810cabbef6f
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:20:58 +0200
+
+    genesys: Inline gl841_get_led_exposure()
+
+commit 6c0fafac7985c829b4be39d15fa166ac0e65bb65
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:20:57 +0200
+
+    genesys: Remove broken two-table feeding support from gl841
+
+    At least on LiDE 50 two-table feeding caused unexplained motor spin-up
+    failures on certain motor exposures. Various register modifications
+    showed that there's high likelihood on device-side bug. Even the
+    official drivers don't use proper two-table feeding.
+
+commit e27d991fdfc61fad704508b98cd021d882810a8b
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:20:56 +0200
+
+    genesys: Remove unused two-table feeding support from gl847
+
+commit d4dc13f5275beaf4d93f26fd46d712b9c976566c
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:20:55 +0200
+
+    genesys: Remove unused two-table feeding support from gl846
+
+commit 137a2d676f0be466e1c707053a0c275fc172658c
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 22:20:54 +0200
+
+    genesys: Remove unused two-table feeding support from gl124
+
+commit f4552acf8d623e1ff6f7ffe3448d589bf8992c45
+Merge: 8d028fe39883 584f16e2ee25
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-27 14:49:08 +0000
+
+    Merge branch 'pixma_new_models' into 'master'
+
+    pixma: add 2021 models.
+
+    See merge request sane-project/backends!671
+
+commit 584f16e2ee25456718d6344e654008d64d992aef
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-12-26 15:49:21 +0100
+
+    pixma: add 2021 models.
+
+    Fix white space
+
+    Fix build
+
+    Add descriptions
+
+    Reduces the length of the line
+
+commit 8d028fe398831c6b94ec4627387850cd1dfc82d6
+Merge: 53c1be6ae8a1 020030080c09
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-12-27 13:43:20 +0000
+
+    Merge branch 'scangearmp2_add_2021_modeles' into 'master'
+
+    Scangearmp2: add 2021 models
+
+    See merge request sane-project/backends!672
+
+commit 020030080c090803dca2c4922e2a219eaff988c5
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-12-27 14:23:37 +0100
+
+    Scangearmp2 add 2021 models
+
+commit 53c1be6ae8a1cec2c94ec6d259d72e279200b2a2
+Merge: 7bc998340739 b668e92047d0
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-26 14:53:11 +0000
+
+    Merge branch 'genesys-cleanup' into 'master'
+
+    genesys: Miscellaneous cleanups
+
+    See merge request sane-project/backends!670
+
+commit b668e92047d03a93fb056d2b82065ba2785a4221
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-26 16:09:17 +0200
+
+    genesys: Use {uint,int}{8,16,32,64} from std namespace
+
+    This is not strictly necessary as all known C++ compilers also inject
+    these types to the global namespace. However this is not guaranteed by
+    the C++ standard and accordingly some code completion tools don't
+    support this without additional configuration.
+
+commit 7c76892b9809b28b2ace8d852b0817919679ba66
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-26 16:09:16 +0200
+
+    genesys: Remove empty file
+
+commit 3752d11c34f7d03ce808a5338f93ecb76395ca61
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-26 16:09:15 +0200
+
+    genesys: Wrap very long lines
+
+commit 7bc998340739618e1f3a9181a2789d4a7f922081
+Merge: fcda028e4ac8 80f6d2117047
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-26 13:15:18 +0000
+
+    Merge branch 'genesys-fix-contrast-brightness' into 'master'
+
+    genesys: Enable gamma setting when contrast or brightness is adjusted
+
+    Closes #271
+
+    See merge request sane-project/backends!669
+
+commit 80f6d211704703dae299599af62fd4c93908e854
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-26 14:53:15 +0200
+
+    genesys: Enable gamma setting when contrast or brightness is adjusted
+
+    Brightness and contrast adjustments are handled via gamma tables and
+    thus gamma functionality is required for these settings to have any
+    effect.
+
+    Previously if the device has a sensor with identity gamma
+    (gamma = {1, 1, 1}), then gamma tables were turned off, consequently
+    brightness and contrast settings had no effect.
+
+    The underlying issue was identified by Gunnar Hjalmarsson
+    <gunnarhj@ubuntu.com> and STK.
+
+commit bf4614b76e9c54e204d65c5e42fd1ac8cdfbfaf4
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-26 14:53:14 +0200
+
+    genesys: Store contrast and brightness adjustments in session params
+
+commit fcda028e4ac861249a68b19e59bb3bb991eeacbb
+Merge: 4b4cc5d019ef ea0e57a05e72
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-25 01:57:10 +0000
+
+    Merge branch 'genesys-lide-gray' into 'master'
+
+    genesys: Improve gray scan quality on LiDE 220
+
+    Closes #52 and #106
+
+    See merge request sane-project/backends!667
+
+commit ea0e57a05e728a2d8efe38494cfd9a6ae0591b3f
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-25 03:06:29 +0200
+
+    genesys: Improve gray scan quality on LiDE 110
+
+    The fix has been suggested by Matthew Petroff <matthew@mpetroff.net>
+
+commit 8ceb1dde8da201e6cccd4cc64d2247993b6b2cc8
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-25 03:06:28 +0200
+
+    genesys: Improve gray scan quality on LiDE 120
+
+    The fix has been suggested by Matthew Petroff <matthew@mpetroff.net>
+
+commit 711a3c5c143fdf6b5b05a874c0a522b7796af874
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-25 03:06:27 +0200
+
+    genesys: Improve gray scan quality on LiDE 210
+
+    The fix has been suggested by Matthew Petroff <matthew@mpetroff.net>
+
+commit 723eaa5917c197cad2c4621f5d2a3f83451c0ecc
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-25 03:06:26 +0200
+
+    genesys: Improve gray scan quality on LiDE 220
+
+    The fix has been suggested by Matthew Petroff <matthew@mpetroff.net>
+
+commit bd0f15f5855b01c698f3a2da623ebc759401ed66
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-25 03:06:25 +0200
+
+    genesys: Move gl124 0x0c reg definition to sensor tables
+
+commit 4b4cc5d019efecc7b94865aed39b16824539ad79
+Merge: 98869ebedffc 0a22da26c42f
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-12-23 09:03:08 +0000
+
+    Merge branch 'escl-add-new-models' into 'master'
+
+    escl:Added of 3 tested models
+
+    Closes #540
+
+    See merge request sane-project/backends!666
+
+commit 0a22da26c42ffb2fe2ba57ac1d494e6723fe7cd9
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2021-12-23 09:02:08 +0100
+
+    escl:Added of 3 tested models
+
+    Rename model
+
+commit 98869ebedffcecacd3540a981c23f10a9e7a1943
+Merge: 7394329b6904 d77743b2433b
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-12-17 12:13:07 +0000
+
+    Merge branch 'fix-old-tls-connections' into 'master'
+
+    Fix old tls connections
+
+    See merge request sane-project/backends!663
+
+commit d77743b2433b67a1b28a9a6b1af1a1a27b32d52b
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2021-12-13 18:28:45 +0100
+
+    Search for the TLS version used by the device, then force the TLS version if necessary.
+
+    Check constant curl_ssl
+
+    Fix build
+
+commit 7394329b6904fb7c461cdc994b60fcb2212b716b
+Merge: c8f42d6bd5bd 4752a9c3791f
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-12-16 11:09:33 +0000
+
+    Merge branch 'escl-ipv6' into 'master'
+
+    Escl ipv6
+
+    See merge request sane-project/backends!565
+
+commit 4752a9c3791f27e80801398e92b5bfcadecfd574
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2020-12-29 12:37:38 +0100
+
+    added support for ipv6.
+
+    Fixes a possible memory overflow.
+
+commit c8f42d6bd5bd1bf2bc4cc9ec25f868ca8762f8c0
+Merge: b72ac67a7025 b49deae017ea
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-16 11:08:40 +0000
+
+    Merge branch 'devel/avision' into 'master'
+
+    Added support for Avision FB2280E
+
+    See merge request sane-project/backends!657
+
+commit b49deae017ea893f0ffbca44fa1c26b54ee4fb11
+Author: Paul Wolneykien <manowar@altlinux.org>
+Date:   2021-11-19 14:05:56 +0300
+
+    avision: Added support for Avision FB2280E
+
+    It seems to be the same as FB2080E.
+
+    Signed-off-by: Paul Wolneykien <manowar@altlinux.org>
+
+commit b72ac67a70251049ef2c682ee9d819368529cf18
+Merge: dd0599ca5244 b8df4a0cf6d6
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-16 10:56:23 +0000
+
+    Merge branch 'R40' into 'master'
+
+    canon_dr: Add basic support for Canon R40 scanner
+
+    See merge request sane-project/backends!665
+
+commit b8df4a0cf6d6511e6a019ce490e7742af1414f0e
+Author: genkn <8407030-genkn@users.noreply.gitlab.com>
+Date:   2021-03-15 08:11:13 +0100
+
+    canon_dr: Add basic support for Canon R40 scanner
+
+    Initial support for Canon R40 SSM scanner with Letter-size ADF.
+    Hardware provides: gray/color, simplex/duplex, full-width, 300/600dpi
+    horizontal, with front mirrored horizontally.
+
+commit dd0599ca5244f35aa54b1e72d8b6dd8be85ee35c
+Merge: bfa3e39de254 40f4885ab857
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-16 10:15:41 +0000
+
+    Merge branch 'fix-dev_acquire' into 'master'
+
+    xerox_mfp: return correct value in dev_acquire()
+
+    See merge request sane-project/backends!614
+
+commit 40f4885ab8570cfe7dee965fb0e6d32e3933733d
+Author: Andrew Sayers <andrew-sane-project@pileofstuff.org>
+Date:   2021-03-30 12:16:08 +0100
+
+    xerox_mfp: return correct value in dev_acquire()
+
+    dev_acquire() is expected to return 1 on success and 0 on failure.
+    Fix the cases where it returned non-zero on error.
+
+commit bfa3e39de254ccf7db170b62cb0dc3bf055f6327
+Merge: db6e4fd77fa0 75801bffd301
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-12-16 05:00:36 +0000
+
+    Merge branch 'scanjet_g4010' into 'master'
+
+    Updated button support for HP Scanjet G4010
+
+    See merge request sane-project/backends!622
+
+commit 75801bffd30105511e76a74ef6db8714ba1b3c7f
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-15 23:51:51 +0200
+
+    genesys: Address wrong indentation warning
+
+    This is separate commit because the previous commit introducing this
+    warning is completely unrelated and would not benefit from this change
+    being included.
+
+commit 8347191b5fd597bd2b34e74cc57b2d9849b653f8
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-12-07 22:16:13 -0800
+
+    genesys: Added transparency button option
+
+    This is introduced primarily for the ScanJet G4010 which has "Scan Film"
+    buttons.
+
+commit fa414e46b1c724721eabef690fa622c2c3d0478a
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-05-05 12:37:11 -0700
+
+    genesys: updated button support for HP Scanjet G4010
+
+commit db6e4fd77fa0f959c5dd0622b94023e4c117e5d8
+Merge: 7b19eb21159c 9ed68732920f
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-15 22:21:53 +0000
+
+    Merge branch 'xerox_workcentre_3025' into 'master'
+
+    Add Xerox WorkCentre 3025
+
+    See merge request sane-project/backends!654
+
+commit 9ed68732920fdcc3486e9d7093804afb980fa195
+Author: Andrii Pravorskyi <pravorskyi@meta.ua>
+Date:   2021-10-26 03:42:37 +0300
+
+    xerox_mfp: Add Xerox WorkCentre 3025
+
+commit 7b19eb21159cfe61aa55fbbc086936e440a45446
+Merge: dc32df1001d9 0a038376a6ff
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-15 22:17:12 +0000
+
+    Merge branch 'pixma-mf56x0' into 'master'
+
+    pixma: move MF56x0 to MP730 backend
+
+    See merge request sane-project/backends!628
+
+commit 0a038376a6ffae955de95796989dafa50a327fed
+Author: Konstantin Tcepliaev <f355@f355.org>
+Date:   2021-05-15 16:03:48 +0000
+
+    pixma: move MF56x0 to MP730 backend
+
+commit dc32df1001d985130b25b5833a62533a4706e925
+Merge: 9ad2aa54b902 1db13a713f28
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-15 22:12:13 +0000
+
+    Merge branch 'ps-devel-fix-gcc-4-8-compile-001' into 'master'
+
+    genesys: fix gcc-4.8 compile
+
+    See merge request sane-project/backends!609
+
+commit 1db13a713f281c66d3eaebab06a33d735ea9c20e
+Author: Peter Seiderer <ps.report@gmx.net>
+Date:   2021-03-15 20:53:55 +0100
+
+    genesys: fix gcc-4.8 compile
+
+    Fixes:
+
+      genesys/utilities.h:229:23: error: invalid initialization of non-const reference of type 'std::basic_ios<char>&' from an rvalue of type '<brace-enclosed initializer list>'
+               stream_{stream}
+                             ^
+      genesys/image_pipeline.cpp:715:19: error: invalid initialization of non-const reference of type 'genesys::ImagePipelineNode&' from an rvalue of type '<brace-enclosed initializer list>'
+           source_{source}
+                         ^
+
+    Signed-off-by: Peter Seiderer <ps.report@gmx.net>
+
+commit 9ad2aa54b902379289fae7686a60cfee5c1d4521
+Merge: 2e77ac40520d d32e6c411530
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-15 21:39:12 +0000
+
+    Merge branch '519-imageRUNNER1133A-support' into 'master'
+
+    Added support for imageRUNNER1133A
+
+    See merge request sane-project/backends!658
+
+commit d32e6c411530bf2579539d3dc3f77c4537b09d2f
+Author: Mikhail Remnev <mikhail.remnev@desy.de>
+Date:   2021-11-27 17:59:43 +0700
+
+    Added iclass_device for imageRUNNER1133A
+
+commit 2e77ac40520d3e5297e2a63d85edb8455e75b10e
+Merge: 7f06490c931e 8090d3844b15
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-15 20:55:28 +0000
+
+    Merge branch 'add-sanei-directio' into 'master'
+
+    Factoring of umax_pp_low functions concerning sys/io.h
+
+    See merge request sane-project/backends!521
+
+commit 8090d3844b1555cbf51a3ec7d3c6dce8028bd492
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:37:03 +0200
+
+    tools: Reuse sanei_directio
+
+commit c7575b36791694f835433bec70ed42d38ab0c8a3
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:37:02 +0200
+
+    plustek-pp: Reuse sanei_directio for inb/outb
+
+commit 8a2a81a83c4ce4007fd59bfd373dad48e1f3093c
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:37:01 +0200
+
+    sanei: Remove no longer used code from sanei_backend.h
+
+commit ab11e428940e02f46f95734cff839b0ad4bcba10
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:37:00 +0200
+
+    sanei: Reuse sanei_directio in sanei_pio
+
+commit 7d75dbad0c915500785144fa717bdbe6fdbdde33
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:36:59 +0200
+
+    sanei: Remove BEOS support from sanei_pio
+
+commit 3e8885f937ffeda9f340970c953f7fc463bad093
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:36:58 +0200
+
+    sanei: Reuse sanei_directio in sanei_pa4s2
+
+commit abbc93df1aefa8c33d80fed2141244fda6ee8e0c
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:36:57 +0200
+
+    qcam: Reuse sanei_directio
+
+commit 79e470cf9a77a4256a4b365724b11722695f3aef
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:36:56 +0200
+
+    sanei: Reuse sanei_directio in sanei_ab306
+
+commit db83d554957086a64a968e0f03f228ea8707920f
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:36:55 +0200
+
+    sanei: Reuse sanei_directio in sanei_pp
+
+commit 7b5386ff6eb0a651cec293ceaae8f2f727afafe1
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:36:54 +0200
+
+    Factoring of umax_pp_low functions concerning sys/io.h to sanei lib
+
+commit 374521c4b6d7dfd2a0b53207372792dd4d447b4e
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-12-15 22:36:53 +0200
+
+    p5_device: Rename inb/out/INB to prevent name clashes
+
+commit 7f06490c931e7bc35578334905a29d8c255c31ed
+Merge: 96277ac05277 ed51223cfb9d
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-13 21:47:00 +0000
+
+    Merge branch 'makefile-no-long-lines' into 'master'
+
+    backend/Makefile: Reduce excessive line lengths
+
+    See merge request sane-project/backends!664
+
+commit ed51223cfb9d1bfac30bd21fc5f567e335875d58
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-13 22:38:49 +0200
+
+    backend/Makefile: Reduce excessive line lengths
+
+commit 96277ac0527713a12e93c4eae14b70b0ec039a1c
+Merge: b183f6a05588 d829ff835afd
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2021-12-08 14:53:34 +0000
+
+    Merge branch 'epjitsu-cleanup' into 'master'
+
+    A few cleanups & fixes to the epjitsu backend
+
+    See merge request sane-project/backends!662
+
+commit d829ff835afd196265c49c5c5b2e86e31035ac2f
+Author: Peter Marschall <peter@adpm.de>
+Date:   2014-09-21 14:45:49 +0200
+
+    epjitsu: read page_width pixels from scanner
+
+    This commit fixes a regression introduced in 1.0.25 for ADF scanners:
+    the scanning page-width was always set to a fixed value,
+    ignoring the page-width provided by the frontend.
+
+    This commit restores the behaviour that allows changing the page-width.
+
+    Signed-off-by: Peter Marschall <peter@adpm.de>
+
+commit 79e76258cb52929e715474b861db145df179364f
+Author: Peter Marschall <peter@adpm.de>
+Date:   2014-05-24 13:33:24 +0200
+
+    epjitsu: enforce range.max >= range.min in option descriptors
+
+    In the option descriptor definitions of tl_x, tl_y, br_x & br_y
+    make sure the the maximal value of the range is not smaller than
+    the minimal value.
+
+    Signed-off-by: Peter Marschall <peter@adpm.de>
+
+commit 1dab1f01210c4ddc1201d61fc4b8a32339f5ad34
+Author: Peter Marschall <peter@adpm.de>
+Date:   2014-03-16 14:17:22 +0100
+
+    epjitsu: fix start & finish DBG() calls in coarsecal*()
+
+    Adapt levels for start & finish logging to match the documentation
+    and the other functions.
+
+    Signed-off-by: Peter Marschall <peter@adpm.de>
+
+commit 16cdaf16e5ef238ddb933f5e51aca868b2fc74a0
+Author: Peter Marschall <peter@adpm.de>
+Date:   2014-03-16 13:26:35 +0100
+
+    epjitsu: instrument finecal_send_cal() & finecal_get_line() with DBG() calls
+
+    No functional changes, but allow for easier debugging.
+
+    Signed-off-by: Peter Marschall <peter@adpm.de>
+
+commit 36b59bd2c1d8835de36af7f98b812fd28c1a72ac
+Author: Peter Marschall <peter@adpm.de>
+Date:   2014-03-04 12:09:17 +0100
+
+    epjitsu: introduce & use MAX() & MIN()
+
+    This change simplifies some expressions, and hence
+    allows for easier understanding of the intention.
+
+    Signed-off-by: Peter Marschall <peter@adpm.de>
+
+commit b183f6a055884cfbf4a62ff840b038da180c6fa3
+Merge: 952976c6a605 bb941829822c
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2021-12-08 08:48:45 +0000
+
+    Merge branch 'epson2/add_to_main_manpage' into 'master'
+
+    epson2: add driver to main sane manpage
+
+    See merge request sane-project/backends!660
+
+commit bb941829822cb9a22989434e59be2009105e1975
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2021-11-21 21:11:27 +0100
+
+    epson2: add driver to main sane manpage
+
+    Reported missing by A E Lawrence via mail. Thanks!
+
+commit 952976c6a6056d4205a974869e6ee5a679c25ba4
+Merge: 5ecd4a9d3edc 91c24b29550e
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2021-12-08 08:47:29 +0000
+
+    Merge branch 'epson2/more_ids' into 'master'
+
+    epson2/epsonds: add new IDs provided by Epson
+
+    See merge request sane-project/backends!659
+
+commit 91c24b29550e252dad2dace10ccc1ddcfa62f4b4
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2021-12-03 12:34:17 +0100
+
+    epson2/epsonds: add new IDs provided by Epson
+
+    Sent by Nakamura Iwao via sane-devel mailing list on Nov, 29th. I only
+    sorted the epson2 descriptions alphabetically.
+
+     Subject: [sane-devel] Additional model support for epson2 / epsonds backend
+     Message-ID: <TYCPR01MB7872CDD0461B7572D5DBD7A8EB669@TYCPR01MB7872.jpnprd01.prod.outlook.com>
+
+commit 5ecd4a9d3edc5c5b5553670749488c5d10b54172
+Merge: 3b47d1d26a73 0bbf1155af51
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2021-12-07 20:54:54 +0000
+
+    Merge branch 'canon_xk90_ts8030' into 'master'
+
+    pixma: Added testing information for Canon XK90 and added large image interleave.
+
+    See merge request sane-project/backends!661
+
+commit 0bbf1155af513b98e122a7d65dd832190ae1db18
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2021-12-07 20:54:54 +0000
+
+    pixma: Added testing information for Canon XK90 and added large image interleave.
+
+commit 3b47d1d26a73054b7138759fa7af57ed6c8e8e35
+Merge: 3440ef60b3d0 72992f4e25dd
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-10-21 06:58:39 +0000
+
+    Merge branch 'escl-segfault' into 'master'
+
+    Fix segfault sane-escl.
+
+    See merge request sane-project/backends!653
+
+commit 72992f4e25ddbc000b79a2a66f41e5be98dc2120
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-10-20 22:25:10 +0200
+
+    Fix segfault sane-escl.
+
+commit 3440ef60b3d0ab64823534d83218e6978bda92ee
+Merge: 0c1faae1de3b 1b5344ba56a0
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-10-18 11:45:22 +0000
+
+    Merge branch 'master' into 'master'
+
+    escl: Follow the 302 redirects
+
+    See merge request sane-project/backends!652
+
+commit 1b5344ba56a0d49ff583e734705acae5a88088d9
+Author: Jindřich Makovička <makovick@gmail.com>
+Date:   2021-02-14 13:16:48 +0100
+
+    escl: Follow the 302 redirects
+
+    Recent ipp-usb redirects from http://127.0.0.1 to http://localhost
+
+commit 0c1faae1de3b0cd85b955d33887666e97315b36e
+Merge: 65b66849849c 3a5f128e8a79
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2021-10-14 14:47:51 +0000
+
+    Merge branch 'test_int_inexact_option' into 'master'
+
+    Add int_inexact option to test SANE_INFO_INEXACT.
+
+    See merge request sane-project/backends!633
+
+commit 3a5f128e8a79252c24803c218812ac5ef5929c16
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2021-10-14 14:47:51 +0000
+
+    Add int_inexact option to test SANE_INFO_INEXACT.
+
+----------------------------------------------------------------------
+Older entries are located in the ChangeLogs/ directory, which contains
+a separate file for each release.  (Please note: 1.0.26 and 1.1.0 were
+skipped as release numbers.)

@@ -1,0 +1,2438 @@
+commit c1c567c49b3bc9d86a5796b7fd9b17816700f75c
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-14 20:00:00 +0900
+
+    NEWS: Document changes for 1.0.32 release
+
+commit eda0a770bf52c4ae446779d8ad8af005a8a974f9
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-14 16:24:24 +0900
+
+    po: Re-sync *.po files to pick up latest source code changes
+
+    Lines number have changes due to the FSF address change.
+
+commit edcfdbc0d801547d3c1e0ab8bd62dad74295c54e
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-13 20:21:45 +0900
+
+    saned: Add new -p, --port option to the manual page
+
+    This complements !549.
+
+commit 3408eef8ed04bbffd2cf601850ccee16e596e4b1
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-13 20:20:14 +0900
+
+    escl.desc: Add entries for models newly supported since 1.0.31
+
+    These were mentioned in the commit logs and merge requests but missing
+    from the descriptions file.
+
+commit e0b5a7e40748490bccfe10fbc2cd2d5a469cfd90
+Merge: 102288c22eb3 9c46d6bcaccf
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-14 09:31:59 +0000
+
+    Merge branch 'disable-canoscan-4400f' into 'release/1.0.32'
+
+    genesys: Disable support for the CanoScan 4400F
+
+    See merge request sane-project/backends!592
+
+commit 9c46d6bcaccf38df870f22b5bc78ca8cc2eba692
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-14 10:46:36 +0900
+
+    genesys: Disable support for the CanoScan 4400F.  Re #436
+
+commit 102288c22eb33e2becb38ff866fdb3260f58cefb
+Merge: ef8e403572d9 e3962ad18434
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-14 07:18:00 +0000
+
+    Merge branch 'add-files-to-source-tarball' into 'release/1.0.32'
+
+    Add extra documentation and utility file to the source tarball
+
+    See merge request sane-project/backends!593
+
+commit e3962ad1843432bdf11c7ac31338491407a41960
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-14 16:01:01 +0900
+
+    Add extra documentation and utility file to the source tarball
+
+    These might be useful for someone starting from one of our release or
+    snapshot source tarballs.
+
+commit ef8e403572d91cb8bac4ef63ba9cae21fc46f5dc
+Merge: 1532520fa14b 85f4ef106577
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2021-02-13 20:20:01 +0000
+
+    Merge branch '433-issues-in-sane-man-pages' into 'release/1.0.32'
+
+    Resolve "Issues in SANE man pages"
+
+    See merge request sane-project/backends!581
+
+commit 85f4ef10657735b0322c9f545b426b857a28b502
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-02-13 12:02:54 -0800
+
+    doc: final pass through the man pages.
+
+    Mostly just tidy up, catching pages that I missed the first time round.
+    A small number of pages were given a bit more reformat. A bit beyond
+    the remit of this merge request but not too much has been changed.
+
+commit 0eaae38d1e546ddd67b811ef81791194cf5c4687
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-02-12 18:01:30 -0800
+
+    doc: remaining man pages done.
+
+    I will quickly review them all and check in corrections.
+    I know that there are a few things that I did wrong in the first pass
+    and I will fix them up.
+
+commit 30eaec1f00f6d5edfec8f7ce79baa6fb5c0541bc
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-02-02 12:58:54 -0800
+
+    doc: additional format tweaks to man pages hpljm1005-kodakaio
+
+commit 460898b18ff0657550a06d1bdfba1a4f393441f8
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-01-31 23:19:48 -0800
+
+    doc: hp manpages tweaked.
+
+commit 6a51099e9fe313a29a92cc60bd7189e7b67a59cf
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-01-31 22:06:39 -0800
+
+    doc: some more consistency changes to format.
+
+commit 79b866619b6292da00d385fdd3c7d182a0634d0f
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-01-31 19:44:13 -0800
+
+    doc: corrections for trailing space and a batch of man pages
+
+commit cfa36aa47a7d768d7db694ed5702c70bf8448565
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-01-31 17:44:58 -0800
+
+    doc: implemented some reformatting and wording suggestions
+
+    Partly through suggestions from translators but also from canonical
+    man page references for consistency and conformity.
+
+    I have also removed some unnecessary wordiness from some of the backend
+    supporting lists which contained verbose repetition.
+
+commit 742989b65807e27bb9d6a1343e949094ddca1649
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-01-30 12:25:09 -0800
+
+    man: grammar and formatting for gamma4scanimage.man and sane.man
+
+commit ab945b1a89cb193a28ea2aa50c084c28d1be0ca0
+Merge: b90ecabf8c62 a7a8cb44d4f1
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-25 11:09:24 +0000
+
+    Merge branch 'ci-bump-alpine-fedora-versions' into 'master'
+
+    CI: Bump alpine fedora versions
+
+    See merge request sane-project/backends!579
+
+commit a7a8cb44d4f1e2f31fc09825fed846ba31a2b195
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-24 21:22:34 +0900
+
+    CI: Bump Fedora from 32 to 33
+
+commit 8462b2d75ae83a6930eccfe014fded249572a774
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-24 21:22:07 +0900
+
+    CI: Bump Alpine from 3.12 to 3.13
+
+commit 1532520fa14b43972c708282efbb19b436dd4ce8
+Merge: 9ec6ec40a926 4c8ac5e0a6bd
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-12 09:52:08 +0000
+
+    Merge branch '320-incorrect-fsf-address-in-license-and-copying' into 'release/1.0.32'
+
+    Resolve "Incorrect FSF address in LICENSE and COPYING"
+
+    See merge request sane-project/backends!591
+
+commit 4c8ac5e0a6bd565a59099426aa7212eb780175d5
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-12 18:23:53 +0900
+
+    COPYING: Sync with current plain text version on the FSF site
+
+    This updates the Free Software Foundation's postal address.
+
+    It replaces references to the Library General Public License (LGPL-2)
+    with references to the GNU Lesser Public License (LGPL-2.1) as well.
+    These licenses differ slightly, the latter adds section 6b, but the
+    references are *outside* the TERMS AND CONDITIONS section.  Moreover,
+    the first reference is in connection with clarifying the licensing of
+    Free Software Foundation software and the second reference is merely a
+    suggestion to use the LGPL in case you want to allow linking your code
+    with proprietary software.
+
+    In view of that, these changes in COPYING do *not* have an effect on
+    the licensing status of the SANE Backends.
+
+    Re #320.
+
+commit e79adde8b2d713448f3022632f410d4a9de0fb91
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-12 17:41:38 +0900
+
+    Use URL to refer users to copies of the GPL and LGPL
+
+    With the exception of use in three quotes as well as our inlcuded copy
+    of the GPL, all use of the Free Software Foundation's postal address
+    has been removed.
+
+    Re #320.
+
+commit 9ec6ec40a926cc78cdba7e02168c54c68a5944f9
+Merge: a21f4713da86 51a7abd1fb94
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-09 09:14:43 +0000
+
+    Merge branch 'update_uk3' into 'release/1.0.32'
+
+    Update Ukrainian translation
+
+    See merge request sane-project/backends!589
+
+commit 51a7abd1fb940c299cbad31c6da57217e5b8ef57
+Author: Yuri Chornoivan <yurchor@ukr.net>
+Date:   2021-02-08 15:33:42 +0200
+
+    Update Ukrainian translation
+
+commit a21f4713da86f355941307c91d03cc64c211d045
+Merge: 5db03a05935f ae2c4068428a
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-08 13:15:43 +0000
+
+    Merge branch 'sync-po-files-with-source' into 'release/1.0.32'
+
+    I18N: Sync po/*.po files with sources slated for next release
+
+    See merge request sane-project/backends!588
+
+commit ae2c4068428a9345670b0b9902555a00bc868555
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-08 21:58:34 +0900
+
+    I18N: Sync po/*.po files with sources slated for next release
+
+commit 5db03a05935f06fe31035a08ff6cc81007d83efe
+Merge: 335edb9ed87f a83126fc2373
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 12:25:51 +0000
+
+    Merge branch '124-configure-disable-shared-errors-out-linking-scanimage' into 'release/1.0.32'
+
+    Resolve "./configure --disable-shared errors out linking scanimage"
+
+    See merge request sane-project/backends!586
+
+commit a83126fc2373e838cae4a7cc41b5ad572fcc877d
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 21:06:38 +0900
+
+    Work around missing C++ symbols for static linking scenarios
+
+commit fe7b1a8f2d9e1d63ccd685263fb7a7bcf4dd642d
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 19:33:11 +0900
+
+    Add missing backend dependencies for static linking.  Re #124
+
+commit 4cb49c1f0819c0dffb38e63c28f6cd3dbc12adee
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 19:32:24 +0900
+
+    Disambiguate symbols for static linking scenarios.  Re #124
+
+commit 335edb9ed87f4367f5aed91cb8c95830b3af752d
+Merge: 68312608d13a fea0ccca1ea8
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 07:42:06 +0000
+
+    Merge branch '354-genesys-testsuite-built-even-when-backend-isnt' into 'release/1.0.32'
+
+    Build genesys testsuite only when backend is build
+
+    See merge request sane-project/backends!585
+
+commit fea0ccca1ea879ccdedcfc8feb1de82905a37d98
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 16:25:30 +0900
+
+    Build genesys testsuite only when backend is build.  Re #354
+
+commit 68312608d13adcabea808f2239f52c4183dd493e
+Merge: 5ff049699846 e86771c21bb2
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 06:23:25 +0000
+
+    Merge branch '248-generated-source-tar-balls-cant-be-built' into 'release/1.0.32'
+
+    Resolve "Generated source tar balls can't be built"
+
+    See merge request sane-project/backends!584
+
+commit e86771c21bb29cc7a082c96f935e2c77c45ad22d
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 15:02:38 +0900
+
+    Fix ignore pattern when comparing sane-desc outputs in testsuite
+
+    The old versions used plain `git describe` output leading to versions
+    like 1.0.32-265-g5ff049.  The `git-version-gen` scripts replaces the
+    first dash, `-`, with a period, `.`, for the benefit of other version
+    comparison tools and strips the `g` to save a byte.  So that leads to
+    versions like 1.0.32.265-5ff049.
+
+commit bb463d642a464e11610abcfc1aa9f68b34ecf178
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 14:49:52 +0900
+
+    Make it easy to update the git-version-gen script
+
+commit c28c9843ed12f0fe2697d66c3dad724f68d0e576
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 14:46:47 +0900
+
+    Use git-version-gen to inject a version
+
+    This fixes builds from tarballs without a .git directory.
+
+    Fixes #248
+
+commit 3ca641c0185124d471e4186b77c1411d6aba280c
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-02-07 14:44:50 +0900
+
+    autogen.sh: Fix out-of-tree invocation
+
+commit 5ff049699846dc59424aaacb76b7eafee0bddf5d
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-31 19:44:18 +0900
+
+    pixma: Downcase USB product ID
+
+commit 5ae713180a335306398e2e0db0be2d26dd10778b
+Merge: 1229b5a3d1d5 7acfdead7038
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-31 08:20:48 +0000
+
+    Merge branch '122-autogen-sh-script-complains-about-obsolete-macros' into 'release/1.0.32'
+
+    Resolve "autogen.sh script complains about obsolete macro"
+
+    See merge request sane-project/backends!582
+
+commit 7acfdead7038ee8f1482f11676dac1e15f1935bb
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-31 16:51:01 +0900
+
+    Collect patches in one place and distribute them
+
+commit 129b53bbca254914b6b7d716bd63b30d0f3e2f70
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-31 16:44:49 +0900
+
+    Suppress obsolete macro warnings.  Fixes #122
+
+commit 1229b5a3d1d5daf626b61da94010505f158db167
+Merge: b90ecabf8c62 7946a14cfbae
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2021-01-24 18:36:03 +0000
+
+    Merge branch 'ukGB_translation' into 'release/1.0.32'
+
+    Added en_GB translations.
+
+    See merge request sane-project/backends!578
+
+commit 7946a14cfbae0303562663f5acd756eef7d0c2fb
+Author: Ralph Little <skelband@gmail.com>
+Date:   2021-01-24 10:04:47 -0800
+
+    po: Added en_GB translations.
+
+    Note: also fixed a minor grammar point in the pixma backend.
+
+commit b90ecabf8c62e92bec8284559dee2bf0dd11158b
+Merge: 63d938de61c3 a0570828010e
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-24 11:42:36 +0000
+
+    Merge branch 'update_uk1' into 'master'
+
+    Update Ukrainian translation
+
+    See merge request sane-project/backends!576
+
+commit a0570828010e061fda2bae0fab4a569ead47fee3
+Author: Yuri Chornoivan <yurchor@ukr.net>
+Date:   2021-01-18 13:36:37 +0200
+
+    Update Ukrainian translation
+
+commit 63d938de61c3be99dbc9474f48740ccbb143ea80
+Merge: 420e09214a58 1042a61c30e5
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-24 08:24:47 +0000
+
+    Merge branch 'fix-udev-rules' into 'master'
+
+    Trigger udev rules parsing on all kernel events except of "remove".
+
+    See merge request sane-project/backends!541
+
+commit 1042a61c30e5ed3131f134290dea3820a70a3185
+Author: Marcin Kocur <marcin2006@gmail.com>
+Date:   2020-10-28 18:09:33 +0000
+
+    Trigger udev rules parsing on all kernel events except of "remove" - fix tests - udev.ref
+
+commit 968114e7e408cf5d261ec7004e1e8a75142f193c
+Author: Marcin Kocur <marcin2006@gmail.com>
+Date:   2020-10-28 17:52:59 +0000
+
+    Trigger udev rules parsing on all kernel events except of "remove" - fix test udev+hwdb
+
+commit b5bbcb2ef7c2928b60371c559fda18dd908df458
+Author: Marcin Kocur <marcin2006@gmail.com>
+Date:   2020-10-28 17:29:19 +0000
+
+    Trigger udev rules parsing on all kernel events except of "remove" - fix tests.
+
+commit a9c181a211870ca8c129370156be813be84cf556
+Author: Marcin Kocur <marcin2006@gmail.com>
+Date:   2020-10-26 21:15:29 +0000
+
+    Trigger udev rules parsing on all kernel events except of "remove".
+
+commit 420e09214a5833f0040881d3e2036ff03cea1f5b
+Merge: c3a29fb9843c 6f9044264179
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-01-24 07:17:36 +0000
+
+    Merge branch 'escl-fix-sleep-mode' into 'master'
+
+    Fix sleep mode
+
+    See merge request sane-project/backends!577
+
+commit 6f9044264179dc8f2503cd4e73a1f7eff82543c8
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-01-24 07:17:36 +0000
+
+    Fix sleep mode
+
+commit c3a29fb9843ccbf479b8127fff4ce8a1c568cf20
+Merge: fc74de7c5ec6 7ddbefd103df
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-24 06:24:53 +0000
+
+    Merge branch 'readme1' into 'master'
+
+    Add Ubuntu pre-built section to README
+
+    See merge request sane-project/backends!518
+
+commit 7ddbefd103dfd9d724065d5b7aa951a80a554c65
+Author: Gábor Lipták <gliptak@gmail.com>
+Date:   2020-09-07 09:07:30 -0400
+
+    Add Ubuntu pre-built section to README
+
+    Signed-off-by: Gábor Lipták <gliptak@gmail.com>
+
+commit fc74de7c5ec6043542b028e6a0f39ec8c01358e3
+Merge: ece6d7d5e721 9dd8319a0192
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-01-17 16:52:58 +0000
+
+    Merge branch 'escl-complete-hack-scanjob-request' into 'master'
+
+    Use MakeAndModel to apply the hack to the device
+
+    See merge request sane-project/backends!575
+
+commit 9dd8319a01923feabfbbe0cb97965fce19f2b75f
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-01-17 17:23:56 +0100
+
+    Utilise MakeAndModel pour le device au hack.
+
+commit ece6d7d5e7212e8d8d59175be9c1e49a5f324c3c
+Merge: 7b602c1d6b12 af445c2e9c78
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-01-16 22:27:14 +0000
+
+    Merge branch 'escl-hack-scanjob-request' into 'master'
+
+    Escl hack scanjob request
+
+    See merge request sane-project/backends!574
+
+commit af445c2e9c78adbfe33551f5262b4ddcd24981c2
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-01-16 22:11:36 +0000
+
+    Fix syntax in escl.conf.in
+
+commit 4b6418476e1aa675af0e55fa25a2127a1f5d8aa7
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-01-16 23:01:31 +0100
+
+    Allows to activate the hack from the configuration file, only the first form supports it.
+
+commit cb8b6d2ace5316ad6379018358e788590f3fef4f
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-01-16 09:06:01 +0100
+
+    Fixed variable initialization.
+
+commit b24907c8a9f8bdfecaeb33175653a49f7a0f650a
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-01-16 09:03:14 +0100
+
+    Fix scanjob for LaserJet FlowMFP M578 and LaserJet MFP M630.
+
+commit 7b602c1d6b12ab48ce0dea5095f2359fa051c0f2
+Merge: c26e9acd79ee 957a4fcb8f1a
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-16 06:30:56 +0000
+
+    Merge branch 'sync-utsushi-desc-with-upstream' into 'master'
+
+    utsushi.desc: Sync with upstream
+
+    See merge request sane-project/backends!573
+
+commit 957a4fcb8f1a374c54c8061f2fe5b74807328431
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-16 15:14:22 +0900
+
+    utsushi.desc: Sync with upstream
+
+commit c26e9acd79ee7072c9803ced5107eb5e3424e6cc
+Merge: d46fbd9d794c 891ccac3b62b
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-01-15 15:16:45 +0000
+
+    Merge branch 'escl-fix-alloc' into 'master'
+
+    escl: fix char_to_array memory allocation calculations
+
+    Closes #425
+
+    See merge request sane-project/backends!571
+
+commit 891ccac3b62b2677623696b8dbdf03a27611bf1b
+Author: Timo Teräs <timo.teras@iki.fi>
+Date:   2021-01-15 16:45:12 +0200
+
+    escl: fix char_to_array memory allocation calculations
+
+    Too little memory allocated due to incorrect calculation.
+
+    Fixes #425
+
+commit d46fbd9d794cd7acefba2f491582319a6c4750cd
+Merge: b0655dc03e67 0293e662cff9
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-01-14 12:46:22 +0000
+
+    Merge branch 'escl-check-poppler-glib' into 'master'
+
+    Fix check poppler-glib, (see issue #422).
+
+    See merge request sane-project/backends!570
+
+commit 0293e662cff93fcd6da8c0ce41f77a47a4f4a0f1
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2021-01-14 13:20:17 +0100
+
+    Fix check poppler-glib, (see issue #422).
+
+commit b0655dc03e67de902bf98850b4460b188503c186
+Author: Gerhard Jaeger <gerhard@gjaeger.de>
+Date:   2021-01-07 12:34:34 +0100
+
+    Fix issue with '--enable-locking': Do not require sub-directory for locking.
+
+commit f0f7e43d7fb06ee4e1587ec3b84852bd4dcce957
+Merge: adbfcd16960c fefc6f1818a2
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-01-04 19:07:25 +0000
+
+    Merge branch 'escl-fix-orders' into 'master'
+
+    The order of the parameters does not change the result.
+
+    See merge request sane-project/backends!568
+
+commit fefc6f1818a286a23217420a74c29ad2da825496
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2021-01-04 19:47:08 +0100
+
+    The order of the parameters does not change the result.
+
+commit adbfcd16960ca535c6426005f632076d2feddcdb
+Merge: 2e41482e0142 17023afb99fb
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2021-01-04 18:40:43 +0000
+
+    Merge branch 'escl-devices-list-properties' into 'master'
+
+    Adds to the list of detected devices the different supported trays
+
+    See merge request sane-project/backends!564
+
+commit 17023afb99fbbcbff73b7e534c1ee3ea147331f0
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2020-12-29 11:33:55 +0100
+
+    Get device informations with avahi.
+
+commit 2e41482e0142b63ce998ab9401f2ce826eab5d3c
+Merge: 0c2fa6bea6ef 445b5bd7e192
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-01 07:19:07 +0000
+
+    Merge branch '409-autoconf-2.70-causes-resulting-configure-file-to-fail' into 'master'
+
+    Drop use of obsoleted autoconf AC_HEADER_STDC macro.  Fixes #409
+
+    Closes #409
+
+    See merge request sane-project/backends!566
+
+commit 445b5bd7e19245c08de6a0e669dd9211d2597bfa
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2021-01-01 15:53:11 +0900
+
+    Drop use of obsoleted autoconf AC_HEADER_STDC macro.  Fixes #409
+
+    Use of the STDC_HEADER pre-processor macro that the autoconf macro
+    used to define has been removed.  Conditionalized code is now used
+    unconditionally.  This should be fine as the macro checks for ANSI
+    C, i.e. C89 (ISO C90), compliant headers.  We already require C99.
+
+commit 0c2fa6bea6ef07c5e2909b5c404db37361b15e4a
+Merge: 422425d740ea b4be10c5a2d8
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2020-12-26 22:19:45 +0000
+
+    Merge branch 'fix_crash' into 'master'
+
+    Fix crash in scanimage when must_buffer is true
+
+    Closes #408
+
+    See merge request sane-project/backends!563
+
+commit b4be10c5a2d8fe4105ee476b40cf636a24d79444
+Author: James Ring <sjr@jdns.org>
+Date:   2020-12-26 13:55:54 -0800
+
+    Fix crash in scanimage when must_buffer is true
+
+    Fixes https://gitlab.com/sane-project/backends/-/issues/408.
+
+commit 422425d740ea1abfc3cec7a8bb1c53c7623ddc62
+Merge: 5af7850ba6b6 ea50fb683c1b
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2020-12-26 17:26:42 +0000
+
+    Merge branch 'port' into 'master'
+
+    allow saned to listen on specified port, or an ephemeral port
+
+    See merge request sane-project/backends!549
+
+commit ea50fb683c1b8bbf904d51cad6766b1dfae84ae9
+Author: James Ring <sjr@jdns.org>
+Date:   2020-12-05 09:16:18 -0800
+
+    allow saned to listen on specified port, or an ephemeral port
+
+commit 5af7850ba6b6970a8330c15ecface09e8ba81190
+Merge: ee7f913974ef e9d2cdf67bb4
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2020-12-26 14:16:19 +0000
+
+    Merge branch 'sanei-usb-configure-record-open-clear' into 'master'
+
+    sanei_usb: Allow backends to specify when USB recording is cleared
+
+    See merge request sane-project/backends!392
+
+commit e9d2cdf67bb4dd8b7cd6b5df06d6e724d708d0a9
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2020-04-09 00:47:41 +0300
+
+    sanei_usb: Allow backends to modify when USB recording is cleared
+
+commit ee7f913974efb0e08fc1456f0096ff49e3b155b4
+Merge: 9c00d111e678 ffc2bbb1ffd6
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2020-12-26 13:56:49 +0000
+
+    Merge branch 'pixma-add-models' into 'master'
+
+    Add models
+
+    See merge request sane-project/backends!553
+
+commit ffc2bbb1ffd617f2f50e6f5d4eba805c289d24a3
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2020-12-15 07:21:21 +0100
+
+    pixma: Add models
+
+commit 9c00d111e678da3eba892264605174f59614a68d
+Merge: e0be6fc89201 aa228faa1370
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2020-12-26 13:41:52 +0000
+
+    Merge branch 'fix_leak' into 'master'
+
+    fix small memory leak in scanimage option processing
+
+    See merge request sane-project/backends!551
+
+commit aa228faa137072ebd69913efbe1dfc3e7706e7fe
+Author: James Ring <sjr@jdns.org>
+Date:   2020-12-07 14:55:32 -0800
+
+    fix small memory leak in scanimage option processing
+
+commit e0be6fc892013b849ed69e42c3ac7daaa72e15ef
+Merge: 1ae3197f004f 4d347512ebdc
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-12-26 05:17:54 +0000
+
+    Merge branch '395-add-epson-et-2600-support' into 'master'
+
+    Resolve "Epson ET-2600 works with libusb configuration"
+
+    Closes #395
+
+    See merge request sane-project/backends!562
+
+commit 4d347512ebdca44f986753ee6331e0ded9e08647
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-12-26 13:44:42 +0900
+
+    epson2.desc: Fix formatting error
+
+commit be8b84105771de6f43b7eae04e4faf89ec3695d8
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-12-26 12:04:11 +0900
+
+    utsushi.desc: Sync with upstream
+
+commit 77a3173e9094a79fe743f1dff3b7397531b09c2d
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-12-26 12:03:15 +0900
+
+    epson2: Add ET-2600 as supported
+
+    See https://gitlab.com/sane-project/backends/-/issues/395
+
+commit 1ae3197f004f7cb4d3d095452f25892455fe219f
+Merge: 87d9a86742ff 1dbc31632709
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-12-22 15:58:19 +0000
+
+    Merge branch 'escl-fix-messages-and-variable' into 'master'
+
+    Fix messages and variable.
+
+    See merge request sane-project/backends!561
+
+commit 1dbc316327093508a357ed72388732a7e816118e
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-12-22 16:14:44 +0100
+
+    Fix messages and variable.
+
+commit 87d9a86742ff0efc6c7c43a8290dcd4d64980bbf
+Merge: ae06e017f442 4aa767327d72
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-12-21 20:54:27 +0000
+
+    Merge branch 'escl-fix-documentformat' into 'master'
+
+    Choose the format according to availability and options.
+
+    See merge request sane-project/backends!560
+
+commit 4aa767327d72d3df92f968346b47dfeb46a9e157
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-12-21 20:17:03 +0000
+
+    Choose the format according to availability and options.
+
+commit ae06e017f4423b02fd7e85e22660e2c7447c847e
+Merge: c8e1c9595ee5 c0dae7e8f5a8
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-12-21 19:42:45 +0000
+
+    Merge branch 'remotes/origin/escl-fix-adv-options' into 'master'
+
+    refactoring options code
+
+    See merge request sane-project/backends!559
+
+commit c0dae7e8f5a8466855dcdf9d6d25bc7a8edac776
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-12-21 18:16:31 +0100
+
+    refactoring options code
+
+commit c8e1c9595ee5489766d7e411ee1fe6b13c528634
+Merge: 6652aa42a8bd e111c485627b
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2020-12-20 03:35:57 +0000
+
+    Merge branch '402-hp-scanjet-5370c-produces-double-height-image-and-cannot-preview' into 'master'
+
+    Resolve "HP Scanjet 5370C produces double height image and cannot preview"
+
+    Closes #402
+
+    See merge request sane-project/backends!558
+
+commit e111c485627b540ec14609f48cf3123ff7290543
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-12-19 17:28:36 -0800
+
+    avision: added increment of the line variable in non-interpolated case
+
+commit 15e200a981bf2605e445ec642a070dbd5a7289de
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-12-19 17:27:23 -0800
+
+    avision: added some brackets to silence warnings about precedence ambiguity
+
+commit 6652aa42a8bd3ca676d638433099c0e5da6a335e
+Merge: a03e0106a119 a5181be71bee
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-12-19 21:22:20 +0000
+
+    Merge branch 'escl-fix-segfault' into 'master'
+
+    Fix a crash when asking for the list of options: scanimage -A
+
+    See merge request sane-project/backends!557
+
+commit a5181be71bee8b0433f7b9916a2801d5eee0f227
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2020-12-19 22:04:30 +0100
+
+    Fix a crash when asking for the list of options: scanimage -A
+
+commit a03e0106a119008410786b75174ad8e6e907fd00
+Merge: fc1c5667da48 3ad2f011ca9c
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-12-18 08:16:26 +0000
+
+    Merge branch 'update-external-model-scangearmp2' into 'master'
+
+    Add model version scangearmp2 4.0 and 4.10.
+
+    See merge request sane-project/backends!556
+
+commit 3ad2f011ca9c8162c4c7742d2fbefca17c92ceb5
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-12-18 08:48:27 +0100
+
+    Add model version scangearmp2 4.0 and 4.10.
+
+commit fc1c5667da48cbc8024f2613a3b343c3335bcc34
+Merge: bb84652c3c34 6ad635234281
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-12-17 10:57:02 +0000
+
+    Merge branch 'escl-device-crash-without-flatbed' into 'master'
+
+    Escl device crash without flatbed
+
+    See merge request sane-project/backends!554
+
+commit 6ad6352342812305e575fba632f8b83c0cb9c7d1
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-12-16 13:50:24 +0100
+
+    Add model HP Deskjet 3760.
+
+commit 841680f6108abaa1ebb032137fa5a4850011a8a3
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-12-16 13:41:31 +0100
+
+    Fix : Fixes the crash of devices that do not have a tray, discovered on the HP Deskjet 3760 device.
+
+commit bb84652c3c345bd8bbd724e1b057392688281b9b
+Merge: f1154375f59c a388c3abc158
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2020-12-07 13:21:30 +0000
+
+    Merge branch 'origin/pixma_bug_fixes' into 'master'
+
+    General pixma backend fixes
+
+    See merge request sane-project/backends!548
+
+commit a388c3abc1584ca80eed435a3063839c4c3b4752
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-11-28 19:34:52 -0800
+
+    pixma: avoid structure copy on every read by using cinfo address.
+
+commit 410f954f3b962368d218ac8ad154c97049089797
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-11-28 19:29:06 -0800
+
+    pixma: assignment must be inside the loop to be effective.
+
+commit f1154375f59c12b4a0286e6b847289082255b722
+Merge: 7f7a4778bee3 cbf9627fd8d2
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-11-30 11:07:40 +0000
+
+    Merge branch 'master' into 'master'
+
+    drop CVS keywords
+
+    See merge request sane-project/backends!547
+
+commit cbf9627fd8d20b7b35ee8376ad8cd36f8aa8bb51
+Author: Mikolaj Kucharski <mikolaj@kucharski.name>
+Date:   2020-11-29 09:19:26 +0000
+
+    final Revision CVS keyword removal
+
+commit 4196d204f108be532ab9ad10d1624f8aaf3d46d6
+Author: Mikolaj Kucharski <mikolaj@kucharski.name>
+Date:   2020-11-29 09:17:33 +0000
+
+    drop more tricky Revision CVS keyword
+
+commit 7de7c051fa5afbf6765bac91b8df2a5fd2f0aec3
+Author: Mikolaj Kucharski <mikolaj@kucharski.name>
+Date:   2020-11-29 09:06:48 +0000
+
+    more CVS keywords removed, Log and Revision
+
+commit 65f11315414d44417ae453e940387cd3b869deb0
+Author: Mikolaj Kucharski <mikolaj@kucharski.name>
+Date:   2020-11-28 10:01:56 +0000
+
+    drop CVS keywords
+
+commit 7f7a4778bee37c88510d8f6b6af4297a54aceeb2
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2020-11-28 18:48:50 -0500
+
+    canon_dr backend v60
+
+    - add new gray and color interlacing options for DR-C120
+    - initial support for DR-C120 and C130
+    - enable fine calibration for P-208 (per @sashacmc in !546)
+
+commit 08eaf1a22e6441ecc446d0a5b34f21c08709a770
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-11-28 19:19:26 -0800
+
+    pixma: MX490 series returns JPEG from ADF scans.
+
+commit e5bd31c88284881f156bbca3d42384711e89a34d
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-11-25 20:05:28 +0900
+
+    utsushi.desc: Sync with upstream
+
+commit 8a8595808de7b43aabe86a4b1d5c514ad8853ef7
+Merge: a7f42db900a0 862ca098ae38
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-11-23 01:39:29 +0000
+
+    Merge branch 'master' into 'master'
+
+    Fixed Artec AstraSlim SE configuration.
+
+    See merge request sane-project/backends!545
+
+commit 862ca098ae38c31f4a1489203eadc66424bbdb22
+Author: RICCIARDI-Adrien <adrien.ricciardi@hotmail.fr>
+Date:   2020-11-21 11:58:17 +0100
+
+    Fixed Artec AstraSlim SE configuration.
+
+commit a7f42db900a02955ac030408e460d7b7b79909c0
+Merge: eae1e9068af0 c7dd86c7e758
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-11-08 19:31:12 +0000
+
+    Merge branch 'add-new-modele' into 'master'
+
+    Add model Canon TS-5351
+
+    See merge request sane-project/backends!544
+
+commit c7dd86c7e75853bbd7d3bd6622747795e01d1651
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2020-11-08 20:16:05 +0100
+
+    Add model Canon TS-5351
+
+commit eae1e9068af08f3db20bf56ff38ea53d191c7a6d
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2020-11-08 20:11:50 +0100
+
+    Revert "Add model Canon wqTS-5351."
+
+    This reverts commit 9ec62a4780dd5db444a573c055d2558739e63881.
+
+commit 9ec62a4780dd5db444a573c055d2558739e63881
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2020-11-08 20:02:55 +0100
+
+    Add model Canon wqTS-5351.
+
+commit 7699e1a09873df90185ca65f162812f987a87395
+Merge: e4ef0548bf86 d0695c147065
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2020-11-02 22:07:21 +0000
+
+    Merge branch 'pixma-calibrate' into 'master'
+
+    pixma: Add --calibrate option
+
+    See merge request sane-project/backends!542
+
+commit d0695c14706575d765c770cfbea63372ff85bd45
+Author: Iskren Chernev <me@iskren.info>
+Date:   2020-11-02 21:44:08 +0200
+
+    pixma: Add --calibrate option
+
+    Feature was discussed in https://gitlab.com/sane-project/backends/-/issues/321
+
+commit e4ef0548bf86a0690c2b373d3ece5aae52300036
+Merge: 016271ebdcf5 6fe222ed2924
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-10-20 09:01:15 +0000
+
+    Merge branch 'leak_fix' into 'master'
+
+    Fix memory leaks in dll and test backends
+
+    See merge request sane-project/backends!537
+
+commit 6fe222ed29240e039ccaf462eeaa20a919ae9da9
+Author: Fletcher Woodruff <fletcherw@chromium.org>
+Date:   2020-10-12 11:20:49 -0600
+
+    test: do not leak initial values of string options
+
+    The default values for string options are set using static (i.e.
+    non-malloced) strings. Later, if new values are loaded from the config
+    file, those SANE_Strings will then point to dynamically allocated memory
+    which is eventually leaked.
+
+    Change the initial values for the string options to NULL, and initialize
+    them to the proper values within sane_init() using strdup(). This way,
+    whenever the value for the string is changed, we can safely free() the
+    previous value.
+
+    This eliminates the other main source of memory leaks in the test backend.
+
+    This patch also updates sane_init for the test backend to properly cleanup
+    memory if it fails.
+
+commit f71ac6126f7834c400fc9ced96325d1a61fc94d9
+Author: Fletcher Woodruff <fletcherw@chromium.org>
+Date:   2020-10-12 09:14:35 -0600
+
+    test: free memory used for string options
+
+    Inside Test_Device, track whether we've already called init_options().
+    If we have, don't call it again when calling sane_open() again.
+
+    Add a function cleanup_options() which frees the memory used for these
+    options, and call it in sane_exit() if we previously called
+    init_options().
+
+    Change Test_Devices to be initialized with calloc instead of malloc,
+    so that we can assume that uninitialized fields are NULL, and can safely
+    call free() on them unconditionally.
+
+    This eliminates some larger memory leaks within the test backend.
+
+commit de903b84c49f80a973f48ea47e46e5e47a186b7e
+Author: Fletcher Woodruff <fletcherw@chromium.org>
+Date:   2020-10-12 16:22:40 -0600
+
+    dll: fix memory leak in load
+
+    In the case where we are unable to get a path for loading libs, and
+    instead just use LIBDIR, we set 'src = strdup(LIBDIR)'. However, we
+    never update orig_src to point to src before tokenizing the path with
+    strsep(), so the memory is never freed.
+
+    Update load to always set orig_src to src so that we don't leak memory.
+
+commit 016271ebdcf52351051ddd41fe71841aa03203b2
+Merge: 519c300ff064 bc64c8f5492b
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2020-10-18 17:36:24 +0000
+
+    Merge branch '362-lexmark-mc3200-mc3224adwe-network-scanner-crash-due-to-null-constraints' into 'master'
+
+    Resolve "Lexmark MC3200 / MC3224adwe Network scanner crash due to NULL constraints"
+
+    Closes #362
+
+    See merge request sane-project/backends!534
+
+commit bc64c8f5492bd9ada7800a89a8fdaaf5777ed7e3
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-10-18 09:51:35 -0700
+
+    scanimage: check also for negative word_list length which is nonsensical.
+
+commit 968add6706b88218e2cb91a9a26ef6928868b793
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-10-06 20:16:13 -0700
+
+    scanimage: added checks for null constraints.
+
+    We have seen this from buggy backends that present NULL for constraint
+    string_lists. This is probably illegal behaviour from backends but we
+    don't want to crash.
+
+commit 519c300ff0644f49d1a0a520aa4272aa9a36b685
+Merge: 730982bd6b00 b1b412d5f82e
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-10-18 01:47:29 +0000
+
+    Merge branch 'brightness_on_12000xl' into 'master'
+
+    epson2: fix lower brightness limit for DS-G20000/12000XL
+
+    See merge request sane-project/backends!529
+
+commit b1b412d5f82e682119517c52addc37a36de7cf0a
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2020-09-18 20:37:40 +0200
+
+    epson2: fix lower brightness limit for DS-G20000/12000XL
+
+    I get -EINVAL with -4 (ROM Version 1.02). -3 works.
+
+    Signed-off-by: Wolfram Sang <wsa@kernel.org>
+
+commit 730982bd6b00176c52a88a467543775dce6b1b6d
+Merge: 7f38f0f71c77 014c307e024c
+Author: Povilas Kanapickas <povilas@radix.lt>
+Date:   2020-10-15 21:20:20 +0000
+
+    Merge branch '364-pixma-mx320-cannot-do-1200dpi-in-adf' into 'master'
+
+    Resolve "Pixma MX320 cannot do 1200dpi in ADF"
+
+    Closes #364
+
+    See merge request sane-project/backends!538
+
+commit 014c307e024ce85fe1a5509109ed97f88fbac176
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-10-13 09:03:45 -0700
+
+    pixma: MX320 machine will not perform 1200 dpi scan from the ADF
+
+    600 dpi maximum from ADF.
+
+commit 7f38f0f71c7779281bc26dde40bab0456e60f43d
+Merge: 7e6231fe5714 6af85ec669f7
+Author: Gerhard Jäger <gerhard@gjaeger.de>
+Date:   2020-10-12 09:14:04 +0000
+
+    Merge branch 'canoscan_n650u_plustek_usb_workaround' into 'master'
+
+    [plustek] Add 1ms delay before writing to register 0x59 during reseting registers
+
+    Closes #137
+
+    See merge request sane-project/backends!535
+
+commit 6af85ec669f7a201360f3dcc48f6b47a06812914
+Author: Zdenek Dohnal <zdohnal@redhat.com>
+Date:   2020-10-09 08:55:41 +0200
+
+    plustek-usbhw.c: Add 1ms sleep before writing to register 0x59
+
+    Works around discovery problem for CanoScan N650U, fixes #137.
+
+commit 7e6231fe571429d0b23654f24eac2333349381be
+Merge: b75e39af8cad 42520aeaa9ea
+Author: Ralph Little <littlesincanada@yahoo.co.uk>
+Date:   2020-10-10 19:22:41 +0000
+
+    Merge branch '358-gt68xx-1-0-31-breaks-mustek-1248ub-after-first-scan' into 'master'
+
+    Resolve "gt68xx: 1.0.31 breaks Mustek 1248UB after first scan"
+
+    Closes #358
+
+    See merge request sane-project/backends!533
+
+commit 42520aeaa9ea9f4e55b4025d6f04c7497bfa5852
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-10-10 12:01:33 -0700
+
+    gt68xx: added flag to fix stop scan bug
+
+    Some scanners (notably the Mustek 1248UB) doesn't like receiving a
+    STOP scan command when it is not scanning. Flag prevents it my making
+    sure that START/STOP commands are only ever paired up.
+
+commit 6886cf6e8015e5e7c452add4907d7a486ee8ccb1
+Author: Ralph Little <skelband@gmail.com>
+Date:   2020-10-03 10:38:50 -0700
+
+    gt68xx: Added temporary fix to avoid stop scan during cancel.
+
+    Calling this function upsets some scanners in this family.
+    This temporary sticking plaster permits the Mustek 1248UB scanner to
+    scan after cancelling. We need to look into this much more when a
+    scanner becomes available for investigation.
+
+commit b75e39af8cade19d3658e5fbdc5b09bba76af8fd
+Merge: 9ac6ee6cd625 8885312711ec
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-10-10 16:51:52 +0000
+
+    Merge branch 'escl-avahi-resolve' into 'master'
+
+    Fixes device discovery
+
+    See merge request sane-project/backends!536
+
+commit 8885312711ec7a228c5e60fde9b6447bc2569ba6
+Author: Thierry HUCHARD <thierry@ordissimo.com>
+Date:   2020-10-10 18:01:55 +0200
+
+    Fixes device discovery
+
+commit 9ac6ee6cd6252e7c4e63a21715497295c5684a55
+Author: pimvantend <pimvantend@yahoo.com>
+Date:   2020-10-07 15:06:07 +0200
+
+    desc and news lide 600
+
+commit 81227d1d408af53105cd26cecefd3963729b92d9
+Merge: efd4767d13a8 5ef217b19dca
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-29 09:38:15 +0000
+
+    Merge branch 'avision_add_av186plus_av188_support' into 'master'
+
+    add ID information for Avision AV186+ and AV188 sheetfed USB scanners
+
+    See merge request sane-project/backends!532
+
+commit 5ef217b19dcad89c3eb4587a0480e89008ca8961
+Author: Nikolai Kostrigin <nickel@altlinux.org>
+Date:   2020-06-25 18:13:41 +0300
+
+    add ID information for Avision AV186+ and AV188 sheetfed USB scanners
+
+    backend/avision.c: add AV186+ as 'good',
+                           AV188 as 'untested'
+    doc/descriptions/avision.desc: add AV186+ as 'good',
+                                       AV188 as 'untested'
+
+commit efd4767d13a8c49634187180662c3e0cacf5d5de
+Merge: 9e9dc5104ea2 7139d6decf08
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-28 09:16:31 +0000
+
+    Merge branch 'epson2/rework_focus' into 'master'
+
+    Epson2/rework focus
+
+    See merge request sane-project/backends!531
+
+commit 7139d6decf0860b868314d6bdae4bf4e493cf066
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2020-09-26 13:22:57 +0200
+
+    epson2: add autofocus
+
+    Enable autofocus support on my Epson 12000XL. The middle of the scan
+    area will be used as the focus point. An arbitrary X,Y is possible but
+    not implemented yet
+
+    Signed-off-by: Wolfram Sang <wsa@kernel.org>
+
+commit 5d706c2c3573f21438c39020782cbdfa4923076d
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2020-09-19 11:24:37 +0200
+
+    epson2: implement full range manual focus settings
+
+    Allow the whole range of manual focus settings as an expert option. This
+    is also now independent of a TPU being installed or not. The old default
+    values are applied if the user changes the source type (either FLATBED
+    or TPU). Adding a focus group here because autofocus options will come
+    with later patches.
+
+    Signed-off-by: Wolfram Sang <wsa@kernel.org>
+
+commit f9f75ca068f66e3d9f8c442789b7582595b947b4
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2020-09-19 10:13:43 +0200
+
+    saneopts: add entries for focus/autofocus
+
+    coolscan2 has focus entries already reused in coolscan3. Because I want
+    to add the same options to epson2, it makes sense to make them available
+    globally. Add i18n while here.
+
+    Signed-off-by: Wolfram Sang <wsa@kernel.org>
+
+commit a0e68f7de9679a0fe5f6ae61f9487d5fd9c8a86b
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2020-09-26 11:32:49 +0200
+
+    epson2: enable focus for all scanner types
+
+    Even with USB based scanners, we need to send the esci command to set
+    the focus. There is no byte in the extended scanning parameters for it.
+    So, move the code to a place where it is called for all cases.
+
+    Signed-off-by: Wolfram Sang <wsa@kernel.org>
+
+commit 1653b0f80c296477387101774ee3d0ea2c696cb8
+Merge: 429cc0efc005 94506b17874d
+Author: Wolfram Sang <wsa@kernel.org>
+Date:   2020-09-26 11:47:57 +0200
+
+    Merge branch 'zdohnal/esci_set_focus_retval' into focus_on_12000XL
+
+commit 9e9dc5104ea206e79d04c64a2b9eaca49cb1a172
+Merge: 429cc0efc005 94506b17874d
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-27 08:01:36 +0000
+
+    Merge branch 'esci_set_focus_retval' into 'master'
+
+    epson2: check for return value of e2_esc_cmd
+
+    See merge request sane-project/backends!526
+
+commit 94506b17874dfdbea0f02c6ecd0b58dcb6a71b84
+Author: Zdenek Dohnal <zdohnal@redhat.com>
+Date:   2020-09-22 11:34:56 +0200
+
+    epson2: check for return value of e2_esc_cmd
+
+commit 429cc0efc0055a8f231199260e0b52e18169be5f
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-09-25 16:40:07 +0200
+
+    pixma: backend version 0.28.6
+
+commit 9db8fc305e7b5547fe508096895fe94245373813
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-09-25 16:38:38 +0200
+
+    pixma: add comment for last merge
+
+commit e80612275eaa5ea61434e81b2dcb0e23330c8804
+Merge: 72fd68cb56ee 4a76bbd16211
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-09-25 14:35:40 +0000
+
+    Merge branch 'patch-1' into 'master'
+
+    Added support for Canon Pixma MX340 buttons and ADF status
+
+    See merge request sane-project/backends!513
+
+commit 4a76bbd162110f6a3944ebc7a6f08259724e4618
+Author: Asela Fernando <apn.fernando@gmail.com>
+Date:   2020-08-20 00:32:49 +0000
+
+    Added support for Canon Pixma MX340 buttons buf[7] and ADF status buf[8]
+
+commit 72fd68cb56eeaf29dea6ea8af6656a9514fb25f0
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-09-25 16:20:58 +0200
+
+    introduce Povilas Kanapickas as pixma maintainer
+
+commit e46adab4f28b0f65df9fb8e4c0181512d0d0c710
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2020-08-11 19:28:11 -0400
+
+    canon_dr v59: fine calibration updates
+
+    - restructure fine calibration code
+    - initial support for uploading fine calibration payloads
+    - improve DR-C225 support
+
+    Most canon scanners require that the driver apply fine (per-cell)
+    calibration information. But a few require that the info be loaded
+    into the scanner. Here, we add initial support for that, though the
+    needed values are hardcoded instead of calculated.
+
+commit 588f01526e7cc9459739d88fdf57961b021ffec7
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2020-09-23 21:03:45 -0400
+
+    fujitsu v137b: brightness/contrast improvements
+
+    - change window_gamma init (fixes bright/contrast for iX1500)
+    - only call send_lut after set_window (remove late_lut)
+
+commit 5b92a367c386d2a576c5aa4f4b95106252ce62a1
+Author: m. allan noah <kitno455@gmail.com>
+Date:   2020-09-23 20:57:26 -0400
+
+    fujitsu v137a: fix JPEG duplex memory corruption
+
+commit 6d7fbc83200e4c0ae4fb5bdad89714e1f84604e6
+Merge: b155955b0e24 cd768b3692e1
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-09-18 14:03:22 +0000
+
+    Merge branch 'escl-check-scan-options' into 'master'
+
+    Check options scan and fix xml.
+
+    See merge request sane-project/backends!528
+
+commit cd768b3692e1fa18e97bb5565299ba2a2c83a354
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-09-18 15:47:45 +0200
+
+    Check options scan and fix xml.
+
+commit b155955b0e24ab5ff40f3ca9cdcad4b676f1ac4d
+Merge: ddcfa6a12fce e281dfb0cd5f
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-09-17 20:29:28 +0000
+
+    Merge branch 'escl-add-scan-options' into 'master'
+
+    Added options: Brightness, Threshold, Sharpen and Contrast.
+
+    See merge request sane-project/backends!527
+
+commit e281dfb0cd5fb15acc1ee80766d22c26ac0e6e53
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-09-17 18:55:03 +0200
+
+    Fix style.
+
+commit fcbeeccbf08b302e2944b5e912daaaf99bbbdc1a
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-09-17 18:50:33 +0200
+
+    Added options: Brightness, Threshold, Sharpen and Contrast.
+
+commit ddcfa6a12fce64f41ba0f40746a6487207fdfb95
+Merge: b89b9b135003 924dcf073176
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-17 11:41:31 +0000
+
+    Merge branch 'master' into 'master'
+
+    Do not use fixed python executable name and use AM_PROG_PYTHON
+
+    See merge request sane-project/backends!525
+
+commit 924dcf073176bc130750056f5e2b2943d287d382
+Author: Your Name <you@example.com>
+Date:   2020-09-14 15:44:36 +0100
+
+    Lower minimum python version required to 2.7
+
+commit 0f7ce3fe7a22c2bf89caa7e7297d2af27e69f772
+Author: Your Name <you@example.com>
+Date:   2020-09-13 20:17:43 +0100
+
+    Do not use fixed python executable name and use AM_PROG_PYTHON
+
+    On many systems now python executable it is python3.
+    On my system it the case and by this muild failed with:
+
+    make[2]: Leaving directory '/home/tkloczko/rpmbuild/BUILD/backends-1.0.31/backend'
+    make[2]: Entering directory '/home/tkloczko/rpmbuild/BUILD/backends-1.0.31/backend'
+    Generating pixma/pixma_sane_options.h from pixma/pixma.c
+    /bin/sh: python: command not found
+    make[2]: *** [Makefile:7317: pixma/pixma_sane_options.h] Error 127
+    make[2]: Leaving directory '/home/tkloczko/rpmbuild/BUILD/backends-1.0.31/backend'
+    make[2]: *** Waiting for unfinished jobs....
+
+    Using AM_PROG_PYTHON() nmacro cllows avoide tha by hecks current version of the
+    python and allw to use custom python executable by execute configure by:
+
+    $ PYTHON=</some/python> ./configure <params>
+
+    AM_PROG_PYTHON aclocal macro propagates to automake files $(PYTHON) variable
+    which could be used on geberate instaleable scripts on duting build process like
+    it is now in backend/Makefile.am.
+
+    Currently minum version of required vesion of the python is python >= 3.
+
+commit b89b9b1350035a579757b2b11b34db112bc920ad
+Merge: 2c5f3e181449 a380fb089499
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 10:38:24 +0000
+
+    Merge branch '345-fix-pixma-libxml-build-dependency' into 'master'
+
+    pixma: Restore old behaviour in case XML support is missing
+
+    Closes #345
+
+    See merge request sane-project/backends!524
+
+commit a380fb089499f6b5192c07ae2feaa3376997382f
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 18:47:32 +0900
+
+    pixma: Restore old behaviour in case XML support is missing
+
+    Fixes #345.
+
+commit 2c5f3e181449451daa4999e8eb5bc60cb2d134d5
+Merge: 3ac8ca4e87aa 4846d36ad1e9
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 09:12:58 +0000
+
+    Merge branch '344-generate-sane-backends-pot-inputs' into 'master'
+
+    po: Make sure all sane-backends.pot input are available
+
+    Closes #344
+
+    See merge request sane-project/backends!523
+
+commit 4846d36ad1e9ca709cb3a2eaa839c8c79effe34b
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 17:56:40 +0900
+
+    po: Make sure all sane-backends.pot input are available
+
+commit 3ac8ca4e87aabcc432fe629d905bcfdee4c0a199
+Merge: e69284695a75 1666e3916db2
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 08:44:21 +0000
+
+    Merge branch 'epson_perfection_1640' into 'master'
+
+    Add SCSI ids for Epson Perfection 1640SU
+
+    See merge request sane-project/backends!509
+
+commit 1666e3916db23aa1a8f82c32e9156d8ca994d783
+Author: StefanBruens <stefan.bruens@rwth-aachen.de>
+Date:   2020-08-18 19:13:19 +0000
+
+    Add SCSI ids for Epson Perfection 1640SU
+
+    See:
+    https://sane-devel.alioth.debian.narkive.com/fNt0Hkzn/epson-perfection-1640su-with-adf-or-filmadapter
+
+commit e69284695a75b124533b411fdffd6f8dd8727b24
+Merge: 2539a13dfbdc 0077988e83f1
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 08:38:26 +0000
+
+    Merge branch '350-remove-automake-maintainer-mode' into 'master'
+
+    Resolve "1.0.31: build fails"
+
+    Closes #350
+
+    See merge request sane-project/backends!522
+
+commit 0077988e83f1ba3704e5d8fc296e030563b2dd91
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 16:24:46 +0900
+
+    po/README: Make the documentation use consistent notation
+
+commit e22b393e38afb4db00adb73466ad87eda1631fb1
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 16:24:17 +0900
+
+    po/README: Update documentation that refers to maintainer mode
+
+commit 262e32ce591feb79ba5be9b21396b9dd71f1f067
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 16:21:03 +0900
+
+    configure.ac: Remove maintainer mode
+
+    Now that we no longer include generated files in our git repository
+    builds should always have maintainer mode enabled so checkouts pick
+    up on changes in Makefile.am, configure.ac, etc. between builds.
+
+    See #350.
+
+commit 30b7e31eacd14675c373a5d44833f606c46ca894
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 15:56:04 +0900
+
+    configure.ac: Remove stale release versioning comment
+
+commit 2539a13dfbdc71c6c8becd7973c22c5da26b6354
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 16:31:41 +0900
+
+    Fix spelling differences in testsuite reference data
+
+    Fix up of ffff088641e3dcd5d3a3b92d533c2eb0a02a6219.
+
+commit 404e1500c2851055f0544fef5b5ac2cd52961d45
+Merge: 5d3ce7806858 b5cf71318b7c
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 06:07:39 +0000
+
+    Merge branch 'usb_udev_attrs' into 'master'
+
+    Speedup ATTR match for USB devices
+
+    Closes #341
+
+    See merge request sane-project/backends!510
+
+commit b5cf71318b7c34635df41178a7f1666ffb035df9
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 14:50:15 +0900
+
+    sane-desc: Update test reference files
+
+    This follows ad66f79c43c1c1cd809ad6f77fb16ba94c71bea9.
+
+commit 124c16fe6f7731f6e4cf35d870f3aafe8bf15094
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-13 14:34:21 +0900
+
+    sane-desc: Fail build if testsuite fails
+
+commit ad66f79c43c1c1cd809ad6f77fb16ba94c71bea9
+Author: StefanBruens <stefan.bruens@rwth-aachen.de>
+Date:   2020-08-18 19:23:09 +0000
+
+    Speedup ATTR match for USB devices
+
+    Fixes #341
+
+commit 5d3ce78068580e5e9fe0e2142caddb883312fecc
+Merge: 17ab6caa383c 2a238f83e0d1
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-09-11 08:17:35 +0000
+
+    Merge branch 'escl-add-models' into 'master'
+
+    Added HP "DeskJet 2710" and "DesJet 2723" models as supported.
+
+    See merge request sane-project/backends!519
+
+commit 2a238f83e0d1bf6b7d6a7d70ee025689fc20163a
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-09-11 09:58:09 +0200
+
+    Added HP "DeskJet 2710" and "DesJet 2723" models as supported.
+
+commit 17ab6caa383ceec41930ae95956b34197d183c5a
+Author: pimvantend <pimvantend@yahoo.com>
+Date:   2020-09-07 15:15:21 +0200
+
+    canon_lide70 simplified going back
+
+commit cea2a83ea2c006a6347e8926b6b9163d20e77874
+Merge: f59ba7003d4f 33d1aecc7c5a
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-07 09:24:15 +0000
+
+    Merge branch 'master-spelling' into 'master'
+
+    spelling fixes
+
+    See merge request sane-project/backends!516
+
+commit 33d1aecc7c5a3e0604c1a24903e9d22d10081eb1
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-09-06 07:34:40 +0000
+
+    Apply 1 suggestion(s) to 1 file(s)
+
+commit 950aded610368dd4e87e96ba5cffd3dd2cb3164e
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-09-06 07:29:49 +0000
+
+    Apply 1 suggestion(s) to 1 file(s)
+
+commit 6e16f45b76d50530c66c1e2e6dfc295b50f9aaa3
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-09-06 07:29:44 +0000
+
+    Apply 1 suggestion(s) to 1 file(s)
+
+commit 76ab18f064eb282a0708039b63ff3ebd9acfb086
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-09-06 07:29:33 +0000
+
+    Apply 1 suggestion(s) to 1 file(s)
+
+commit 408fb55b026ba681ca992d02d20db83694f21af8
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-09-06 07:20:32 +0000
+
+    Apply 1 suggestion(s) to 1 file(s)
+
+commit d78954552157675237ff0f5904830ade388c0a6d
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-09-06 07:17:00 +0000
+
+    Apply 1 suggestion(s) to 1 file(s)
+
+commit c0ab7e950e15aae16f05b3003b9d401b9239136e
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-09-06 07:16:41 +0000
+
+    Apply 1 suggestion(s) to 1 file(s)
+
+commit 2ad63d4e1ee942a0289b4986fd015ae426868a44
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:47:52 +0200
+
+    spelling fixes for sane core
+
+commit 7cbcc9ceac565e44e2990ba1de78c26b1a85721c
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:46:45 +0200
+
+    spelling fixes for docs, READMEs, ...
+
+commit b4c6cbeb1ff9a12b25ac0c047c17570c5d40babf
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:44:47 +0200
+
+    spelling fixes for tools
+
+commit ffff088641e3dcd5d3a3b92d533c2eb0a02a6219
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:44:33 +0200
+
+    spelling fixes for testsuite
+
+commit cd8c018585c36391e58ebc8409facf033f57c645
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:43:03 +0200
+
+    spelling fixes for xerox_mfp backend
+
+commit 77406ed606607f509cac9fcfb6ece998505cd191
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:43:03 +0200
+
+    spelling fixes for sceptre backend
+
+commit 44755f6fc59a72b871ffc34c36081e097fef1972
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:42:15 +0200
+
+    spelling fixes for dmc backend
+
+commit 5515db02724e08f8fbe4afcfe2619f3d91cfe85a
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:42:15 +0200
+
+    spelling fixes for leo backend
+
+commit 5137304bb62313a5202ba2d68abed54f19fdf498
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:42:15 +0200
+
+    spelling fixes for ma1509 backend
+
+commit f8d08816a83067a63ed816930f512b7ca65f7a98
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:42:15 +0200
+
+    spelling fixes for sp15c backend
+
+commit 25af0a7403f2451b0668c610275ca1332f2efc82
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:42:15 +0200
+
+    spelling fixes for tamarack backend
+
+commit 66443f37e6c14b73b251e2080d7d97ff6a746b5b
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:40:56 +0200
+
+    spelling fixes for ibm backend
+
+commit f6059bd3cbe8fa2c613e884839a4b0e5f037d590
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:40:56 +0200
+
+    spelling fixes for gphoto2 backend
+
+commit a36cf4afda01c2d871aa8a01d7078a5d8bfc4d9c
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:40:56 +0200
+
+    spelling fixes for dell1600n backend
+
+commit 9d368fd7a884103362fa73914795a21ae82e305d
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:40:56 +0200
+
+    spelling fixes for dc25 backend
+
+commit 37bee66d055b364530289410bd512b5e88454f6c
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:39:02 +0200
+
+    spelling fixes for s9036 backend
+
+commit 56cbbdad5d6f8fe01708785bbac88485fdbf8c1e
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:39:02 +0200
+
+    spelling fixes for sharp backend
+
+commit 4984bedb6e39ee24fd48d9f95cd0ccf02a282538
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:39:02 +0200
+
+    spelling fixes for ricoh backend
+
+commit 35fe083519e49cfe87ce41d9384fa1e8b5766dbc
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:39:02 +0200
+
+    spelling fixes for qcam backend
+
+commit 95eda03dd12de41972407c4943f2f6e28f289a60
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:39:02 +0200
+
+    spelling fixes for nec backend
+
+commit 340f7e7329a87af240b5de647375c13f84a8c60f
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:37:18 +0200
+
+    spelling fixes for niash backend
+
+commit 56be6cf59af13523ac9696121f119d477269b2f6
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:36:19 +0200
+
+    spelling fixes for lexmark backend
+
+commit fc24607b3165a8df897a3d71455f1e47a19ebd65
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:35:16 +0200
+
+    spelling fixes for agfafocus backend
+
+commit b834e472876f47639c87bda8ae9996b06f409754
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:33:32 +0200
+
+    spelling fixes for kodak backend
+
+commit af9f9d62cd97830aac9b417f7af3c673c2dd0fcb
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:33:13 +0200
+
+    spelling fixes for kodakaio backend
+
+commit 269a7c0413c0b6e9b9a1703a414860587b6dfeab
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:32:00 +0200
+
+    spelling fixes for avision backend
+
+commit f611cab816eec5df32c26b110148b41aad95fdff
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:31:46 +0200
+
+    spelling fixes for v4l backend
+
+commit 9a6ef1ceb046367d5b48ea57bb9af27f9e51f91b
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:31:33 +0200
+
+    spelling fixes for hs2p backend
+
+commit e0bc8e9ba7aeb04e20f507c10b9ef64b2ece124c
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:29:25 +0200
+
+    spelling fixes for net backend
+
+commit 15d95a5b1b40b96e4df92c32b7cd27218ab9512d
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:26:33 +0200
+
+    spelling fixes for matsushita backend
+
+commit 452f21c1e2c460aee14d35e819e29f801d60aa43
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:24:51 +0200
+
+    spelling fixes for microtek2 backend
+
+commit 16acc1c2335358883ffae78526237894e5c9db71
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:23:03 +0200
+
+    spelling fixes for artec backend
+
+commit 917c8b2c5fcb5d4a12f35357bf5598dbb9adfb0d
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:22:53 +0200
+
+    spelling fixes for artec_eplus48u backend
+
+commit 7e984d479a8aacd7b838e01d9fae951bf84a38c5
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:22:37 +0200
+
+    spelling fixes for apple backend
+
+commit ffb741852ad46017926b81bf24a466a56ef8f4f7
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:20:08 +0200
+
+    spelling fixes for hp backend
+
+commit 7dcb5dc096e5eff45ffbd1f7ac55ed3d5a4c7ebe
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:19:45 +0200
+
+    spelling fixes for hp3500 backend
+
+commit f4fb21e33410c9d246a4028573efd95f26cd8ad3
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:19:31 +0200
+
+    spelling fixes for hp3900 backend
+
+commit 32aa1ef82607ffd130a747dd4325624841981b2d
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:19:15 +0200
+
+    spelling fixes for hp5400 backend
+
+commit b9ca020ef60bd2553c9eab092c9277d0683ac269
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:18:26 +0200
+
+    spelling fixes for hpljm1005 backend
+
+commit bbf7d068eda56ef7506f1c7d83903ce7af9cac34
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-29 08:17:09 +0200
+
+    spelling fixes for hpsj5s backend
+
+commit 33f413e790ac203e1550440274915e03e2110c54
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:10:36 +0200
+
+    spelling fixes for epson backend
+
+commit b2ce3110c6ebdcfbc228e32ed187a918ee0b9c99
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:10:25 +0200
+
+    spelling fixes for epson2 backend
+
+commit 3d1a5da4e1363942b6d1a878b43711e964b53954
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:08:59 +0200
+
+    spelling fixes for fujitsu backend
+
+commit 79a1aa27234ebaf7d44f23e02979d1e9eb7bfb06
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:07:54 +0200
+
+    spelling fixes for stv680 backend
+
+commit d2f2d9965e974f1094cbb3c2b2c639dac4e63e41
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:07:33 +0200
+
+    spelling fixes for st400 backend
+
+commit b7676f3ec1b89b73b0f66fd16ff2e0d54478265f
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:05:10 +0200
+
+    spelling fixes for canon backend
+
+commit fbe99c09149450389a6e2d0d282e83ee7dee1caa
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:04:55 +0200
+
+    spelling fixes for canon_dr backend
+
+commit 0e8b1d0e89fb5e0b40bd6651d4e8a7d662e23c15
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:04:45 +0200
+
+    spelling fixes for canon_pp backend
+
+commit ec07e73d04cc98aae22a47fdaabbd2a003d6a473
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:04:25 +0200
+
+    spelling fixes for canon630u backend
+
+commit e1ea09c8344a1a990f54a0d89bf3cbb1a3dc873a
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:01:50 +0200
+
+    spelling fixes for coolscan backend
+
+commit e78667e32d12bb01f98fe1459b090e15a2b57885
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:01:44 +0200
+
+    spelling fixes for coolscan2 backend
+
+commit 27e5078c39cc86bcb7876221fcd9f744da3d5e61
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:01:36 +0200
+
+    spelling fixes for coolscan3 backend
+
+commit dde1ad7a82689e247818672aeae621c8ae87a44e
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 19:00:07 +0200
+
+    spelling fixes for kvs40xx backend
+
+commit 5d606d9b56126b19dd425f73cd80a06cdd787449
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:59:58 +0200
+
+    spelling fixes for kvs20xx backend
+
+commit bf5ddfe38912be356d662364da08344b5b5bf86f
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:59:42 +0200
+
+    spelling fixes for kvs1025 backend
+
+commit 0ff0d7d25bbe66d79126eb8f97cbb0c8ed0bebe2
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:58:19 +0200
+
+    spelling fixes for epjitsu backend
+
+commit f69854bb4843756c630b49e2b7e9b126b340156f
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:57:23 +0200
+
+    spelling fixes for rts8891 backend
+
+commit 78dd1892abe7bef46672ce7260f2b2022af3832e
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:55:39 +0200
+
+    spelling fixes for sm3840 backend
+
+commit a94c17175f2bd3bf541fc62ff1036351c44eefa0
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:55:26 +0200
+
+    spelling fixes for sm3600 backend
+
+commit 3e33c9664aebda7b87db0e77b0e533e6f4039e6c
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:52:53 +0200
+
+    spelling fixes for pixma backend
+
+commit 4f4278ab2dc80dbc893eb8b24daf28939875390e
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:51:48 +0200
+
+    spelling fixes for escl backend
+
+commit 13b56dd1223fa3fc09019f45142faf022ac22884
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:50:36 +0200
+
+    spelling fixes for pie backend
+
+commit 63c686b9295983f3196f0043956eff7da43f42b9
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:50:24 +0200
+
+    spelling fixes for pieusb backend
+
+commit 064d73ed5a653998f518e5d9fecde2c27e104e04
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:48:30 +0200
+
+    spelling fixes for umax backend
+
+commit 0d862ba5753183e14f01f63270857e63c3ad7786
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:48:12 +0200
+
+    spelling fixes for umax1220u backend
+
+commit e8ba89fdccf0d87eac731cdf3d8f283423b0e615
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:46:31 +0200
+
+    spelling fixes for umax_pp backend
+
+commit b8cc6ce3a9ff9fe535d3a888703988536b57d47d
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:45:02 +0200
+
+    spelling fixes for cardscan backend
+
+commit 192262a2774df19a70233a3f158b76482ac7257d
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:43:42 +0200
+
+    spelling fixes for p5 backend
+
+commit 0b2e89db18bddfca70a1aa00271a2ffaf9104907
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:42:16 +0200
+
+    spelling fixes for snapscan backend
+
+commit cbbfcd1121af9cc8322cd17aed8afe43287e430a
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:39:49 +0200
+
+    spelling fixes for gt68xx backend
+
+commit f4385e21c34d77626569376f56290a04611b5992
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:35:49 +0200
+
+    spelling fixes for teco3 backend
+
+commit 78bf42e04e8761b7a2a3b1ec246c354e188f6868
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:35:41 +0200
+
+    spelling fixes for teco2 backend
+
+commit fe71899cc83747ee8c4e052401eb3197f14fe94f
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:35:33 +0200
+
+    spelling fixes for teco1 backend
+
+commit bd081d3bbe0a512cab1df9a336648a0376449f18
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:32:54 +0200
+
+    spelling fixes for mustek_usb backend
+
+commit 6cb28ca627e556082fc434b377d16a54444a2612
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:32:42 +0200
+
+    spelling fixes for mustek_pp backend
+
+commit a1239c5601b67841c4cf6021486578182a4aa6e9
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:32:10 +0200
+
+    spelling fixes for mustek backend
+
+commit 493ed0a533ca7702b75788aa40514e31aeba0cf4
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:29:16 +0200
+
+    spelling fixes for mustek_usb2 backend
+
+commit 9afda64c421c24e1a42cf6803faff3f759cdbebf
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:23:32 +0200
+
+    spelling fixes for plustek backend
+
+commit e3f20a932c368906f50124db4c434044a05f545a
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:21:06 +0200
+
+    spelling fixes for plustek_pp backend
+
+commit 0cd9de9befaca49ff8717233f4a0a01b338ea56d
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:17:08 +0200
+
+    spelling fixes for genesys backend
+
+commit 94a9ef8250564b916bf2c1bb74c556c1862d1506
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:13:03 +0200
+
+    spelling fixes for ChangeLogs
+
+commit a307ba8ccf3d9ac5fb92ada268169c40234c08c0
+Author: Peter Marschall <peter@adpm.de>
+Date:   2020-08-28 18:12:00 +0200
+
+    spelling fixes for u12 backend
+
+commit f59ba7003d4f5cdaddaba722aff01ddae23d6bbf
+Merge: 7884311d4a20 e946d14e6cd9
+Author: Ordissimo <thierry@ordissimo.com>
+Date:   2020-09-07 08:40:34 +0000
+
+    Merge branch 'escl-add-models' into 'master'
+
+    Addition of two models
+
+    See merge request sane-project/backends!517
+
+commit e946d14e6cd9dcc678610b7c7d81a92ca6d10174
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-09-07 10:15:03 +0200
+
+    Addition of two models
+
+commit 7884311d4a207c20feca30d2a229459c83a1e5e4
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-09-07 10:10:40 +0200
+
+    Revert "Addition of two models"
+
+    This reverts commit 059296b287774f68e3379bb9c63e6c706a7770a0.
+
+commit 059296b287774f68e3379bb9c63e6c706a7770a0
+Author: thierry1970 <thierry@ordissimo.com>
+Date:   2020-09-07 10:07:06 +0200
+
+    Addition of two models
+
+commit c946aa5a84297f33b30cddb0c89fcf375ed65d10
+Merge: 8894364c5bbc 0f9b481fee97
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-04 11:48:13 +0000
+
+    Merge branch 'dell1600n_net_return_eaccess_if_local_only' into 'master'
+
+    dell1600n_net: return ACCESS_DENIED when local devices are requested
+
+    See merge request sane-project/backends!506
+
+commit 0f9b481fee97c05adaceaeb9291a73380372d6d9
+Author: pobrn <pobrn@protonmail.com>
+Date:   2020-08-20 15:39:27 +0200
+
+    dell1600n_net: return empty list when local devices are requested
+
+    !502 made the dell1600n_net backend return GOOD status when local
+    devices are requested. This is problematic since in that case
+    the caller may assume that the passed device list has been populated.
+    However, this is not the case for this backend, since the device list
+    is not modified in any way in that case. The caller trying to access
+    the device list may lead to undesired consequences. Fix that by
+    returning an empty list if 'local_only' is true.
+
+commit 8894364c5bbcbb893ca22d3bfda693c857157c35
+Merge: f7ad04168227 f089aeac8c28
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-09-03 12:10:51 +0000
+
+    Merge branch 'master' into 'master'
+
+    backend/avision.c adf_reset(): In debug message "adf_reset: read ... failed...
+
+    See merge request sane-project/backends!515
+
+commit f089aeac8c2863def8540eb6452cd86720156888
+Author: Adam Richter <adamrichter4@gmail.com>
+Date:   2020-08-24 03:56:36 -0700
+
+    backend/avision.c adf_reset(): In debug message "adf_reset: read ... failed ...", fix arithmetic and compiler warning about printf integer format type mismatch.
+
+commit f7ad04168227ae37ddc0497129688ef2d22eaff1
+Author: pimvantend <pimvantend@yahoo.com>
+Date:   2020-08-28 14:30:48 +0200
+
+    canon_lide70 eliminating old cmd_buffer
+
+commit 0544e420029938fb2f3afb9737b58644c3490310
+Author: pimvantend <pimvantend@yahoo.com>
+Date:   2020-08-27 15:16:05 +0200
+
+    lide 70 init problem solved
+
+commit e97919d53b63158ae15c70a67db8b6fa6d363190
+Author: pimvantend <pimvantend@yahoo.com>
+Date:   2020-08-26 15:25:24 +0200
+
+    canon_lide70 small changes
+
+commit ead06704ea4bc5e8963a72c4d02e66d26a70fd80
+Author: pimvantend <pimvantend@yahoo.com>
+Date:   2020-08-24 17:14:40 +0200
+
+    removed trailing whitespace
+
+commit 5bfbb13b08cfcc69c330d1b6132b1ff82db56e19
+Author: pimvantend <pimvantend@yahoo.com>
+Date:   2020-08-24 15:23:00 +0200
+
+    renaming startblobs, modernizing gamma procedures
+
+commit bfab54e3913f3f7fb80f7a3d4532efe1b4dad072
+Merge: ed43548de752 871813a22db1
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-08-24 09:19:44 +0000
+
+    Merge branch 'release/1.0.31' into 'master'
+
+    Release/1.0.31
+
+    See merge request sane-project/backends!514
+
+commit ed43548de752d2f02fcd42158f1f5bfac6f39ec8
+Author: pimvantend <pimvantend@yahoo.com>
+Date:   2020-08-22 11:15:44 +0200
+
+    first support for the lide600. 1200dpi dropped.
+
+commit d00af49e365e2cbad363b2faf27bbed1410ce570
+Author: pimvantend <pimvantend@yahoo.com>
+Date:   2020-08-20 16:49:17 +0200
+
+    preparing for the lide600
+
+commit 245564dffe96ddf0fd1c703c48973cd35fddd268
+Merge: 65db792a14c1 45f84a569c1f
+Author: Olaf Meeuwissen <paddy-hack@member.fsf.org>
+Date:   2020-08-16 09:55:14 +0000
+
+    Merge branch 'respect_local_only' into 'master'
+
+    Respect 'local_only' parameter of sane_get_devices()
+
+    Closes #140 and #130
+
+    See merge request sane-project/backends!502
+
+commit 45f84a569c1f15fd76f36199061eed41f5f1587f
+Author: pobrn <pobrn@protonmail.com>
+Date:   2020-08-12 12:29:36 +0200
+
+    respect 'local_only' parameter of sane_get_devices()
+
+    Certain backends do network scans even if the 'local_only'
+    parameter for 'sane_get_devices()' is true. Fix that.
+
+    Changes:
+
+    1. Modify 'sanei_configure_attach()' so that backend specific
+       data may be passed to the 'attach()' function.
+
+    2. Use this in certain backends to pass the value of the
+       'local_only' parameter so that network related activities
+       are only carried out when the value is false.
+
+commit 65db792a14c1db609c4d5ae57b4c9272282ea5ca
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-08-15 14:33:48 +0200
+
+    pixma: backend version 0.28.5
+
+commit 311bf867f9119ba72c92f321356fdba9a3a2f176
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-08-15 14:32:58 +0200
+
+    pixma: MP495 is working
+
+    Pixma backend supports only symmetric scan resolutions, here 600dpi.
+
+    See issue sane-project/backends#32
+
+commit d1fea9269d118942bbc52123e9c4378fb9c5ca70
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-08-14 20:27:06 +0200
+
+    Revert "pixma: MP490 Series doesn't need special image formatting @ high dpi"
+
+    This reverts commit 1675697366e0d69edf1e413265c6fc15e6f3ab97.
+
+    See issue sane-project/backends#338
+
+commit 5207b12d5d35e9fe76ffbbbab3264dbd7199ac10
+Merge: d289b42ad736 34c25369e5c7
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-08-14 19:58:51 +0200
+
+    Merge branch '333-canon-mf264dw-fails-to-scan'
+
+    See issue sane-project/backends#333
+
+commit 34c25369e5c78a84eec0d6b2ef32200325dc4ae3
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-08-14 19:58:15 +0200
+
+    pixma: backend version 0.28.4
+
+commit 584099c9c17b8cbcd2772679becab0ccdc37f8db
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2020-08-14 19:47:11 +0200
+
+    pixma: enable PIXMA_CAP_JPEG for Canon i-SENSYS MF260 Series
+
+commit a384de5aeacda7d822ecd80ff3cb668d9d92f352
+Author: Rolf Bensch <rolf@bensch-online.de>
+Date:   2019-11-20 22:42:52 +0100
+
+    pixma: new capability PIXMA_CAP_JPEG

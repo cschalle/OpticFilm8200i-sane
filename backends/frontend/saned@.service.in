@@ -1,0 +1,11 @@
+[Unit]
+Description=Scanner Service
+Requires=saned.socket
+
+[Service]
+ExecStart=@SBINDIR@/saned
+User=saned
+Group=saned
+
+[Install]
+Also=saned.socket

@@ -1,0 +1,1 @@
+escl: Fixed support for scanners which used ancient versions of TLS encryption protocols.

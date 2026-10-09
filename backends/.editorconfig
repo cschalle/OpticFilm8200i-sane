@@ -1,0 +1,19 @@
+# .editorconfig -- settings for consistent coding style conventions
+# Copyright (C) 2017  Olaf Meeuwissen
+#
+# License: GPL-3.0+
+
+# Your editor may need a plugin for this configuration to take effect.
+# See http://editorconfig.org/#download for details.
+
+; look no further
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[backend/escl/*]
+indent_size = 4
+indent_style = space

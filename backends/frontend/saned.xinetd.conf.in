@@ -1,0 +1,13 @@
+# default: off
+# description: The sane server accepts requests
+# for network access to a local scanner via the
+# network.
+service sane-port
+{
+   port        = 6566
+   socket_type = stream
+   wait        = no
+   user        = saned
+   group       = saned
+   server      = @SBINDIR@/saned
+}

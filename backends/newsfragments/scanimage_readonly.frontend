@@ -1,0 +1,1 @@
+scanimage: Attempts to set readonly options will give a warning about readonly option set attempt now, instead of the misleading "unknown option" error.
