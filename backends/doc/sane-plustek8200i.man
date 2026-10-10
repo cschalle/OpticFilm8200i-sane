@@ -86,7 +86,9 @@ The backend scans one frame per
 It does not advance the film or select a frame: position the holder by
 hand, then scan. There is no batch mode.
 .IP \(bu 2
-Only the 35 mm frame is supported. The largest scan window is about
+The scanner takes 35 mm film only, strips and mounted slides; no other
+film size exists for it, so there is nothing to select. The largest scan
+window, which the backend covers entirely, is about
 36.5 x 27.2 mm, the frame plus a margin at each end. The
 .B \-l \-t \-x \-y
 options select a part of that window.

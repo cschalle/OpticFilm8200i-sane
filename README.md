@@ -30,8 +30,9 @@ profile; do that in your frontend or image editor.
 ## Status and limitations
 
 The backend was developed and verified against a single scanner. It scans one
-frame per start, with the film holder positioned by hand, and it supports only
-the 35 mm frame. The full list is in the **LIMITATIONS** section of the manual
+frame per start, with the film holder positioned by hand. The scanner itself
+takes 35 mm film only (strips and mounted slides), and the backend covers its
+whole scan area. The full list is in the **LIMITATIONS** section of the manual
 page (`man sane-plustek8200i`). It is not part of the upstream SANE project.
 
 ## Comparison with SANE's genesys backend
