@@ -111,6 +111,18 @@ applies to colour scans only.
 .B Color+Infrared
 needs a frontend that accepts more than one SANE frame per image.
 .IP \(bu 2
+Infrared repair does not work on Kodachrome slides. Its dyes absorb
+infrared as they absorb visible light, so the infrared plane shows the
+picture as well as the dust, and
+.B \-\-ir\-clean
+cannot tell the two apart and can damage the image. The backend does not
+know the film type and does not warn: do not use
+.B \-\-ir\-clean
+or the infrared plane for dust removal on Kodachrome, and remove dust in
+software instead. Ektachrome and other E-6 slide films, and colour
+negatives, are transparent to infrared and work normally. Silver
+black and white negatives block infrared as well.
+.IP \(bu 2
 Non-blocking I/O is not supported:
 .BR sane_set_io_mode
 refuses it and
