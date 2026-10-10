@@ -51,6 +51,7 @@ tests/
 docs/*
 !docs/clean-room/
 !docs/clean-room-analysis/
+!docs/comparison/
 
 # Session notes and status documents (root-level)
 SESSION_*.md

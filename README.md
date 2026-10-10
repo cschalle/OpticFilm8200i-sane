@@ -32,20 +32,49 @@ frame per start, with the film holder positioned by hand, and it supports only
 the 35 mm frame. The full list is in the **LIMITATIONS** section of the manual
 page (`man sane-plustek8200i`). It is not part of the upstream SANE project.
 
-## Relationship to SANE's genesys backend
+## Comparison with SANE's genesys backend
 
 Upstream SANE's `genesys` backend gained support for this scanner in September 2026
 (it lists it as the "Plustek OpticFilm 8200i SE", the same USB ID `07b3:1825`). This
-backend was developed independently and has not been submitted upstream.
+backend was developed independently and has not been submitted upstream. If both are
+installed, `scanimage -L` lists the scanner twice, as `plustek8200i:...` and
+`genesys:...`; choose one with `-d`.
 
-If both are installed, `scanimage -L` lists the scanner twice, as `plustek8200i:...`
-and `genesys:...`; choose one with `-d`. In side-by-side tests on one unit, both
-produced equally sharp images of the same frame. This backend additionally provides
-the infrared channel with dust and scratch removal, 8-bit output and wider margins
-around the film; genesys offers more resolutions (150 to 7200 dpi). In one test,
-genesys refused to start after this backend had been used ("the carriage isn't at
-home") until the scanner was power-cycled, so avoid alternating between the two
-without a power cycle.
+The same colour negative, scanned once with each backend on the same unit, and put
+through the same negative conversion (`nv-cli render` from the Negative Vibes
+scanning application):
+
+![The same frame at 600 dpi with each backend, with scan windows and film edges marked](docs/comparison/scan-area-comparison.jpg)
+
+At full resolution (3600 dpi) both resolve the same fine detail; this is the same
+physical area cut from each scan:
+
+![A 3600 dpi crop of the same area from each backend](docs/comparison/detail-3600dpi.jpg)
+
+| | this backend | genesys GL128 |
+|---|---|---|
+| Full frame, 600 dpi | 864 x 645 px, 16.7 s | 864 x 586 px, 16.4 s |
+| Full frame, 3600 dpi | 5184 x 3877 px, 34.6 s | 5184 x 3519 px, 54.4 s |
+| Infrared channel, dust and scratch removal | yes | no |
+| Bit depth | 8 or 16 | 16 |
+| Resolutions | 6 (300 to 7200 dpi) | 11 (150 to 7200 dpi) |
+| Film margin left / right (mm, 3600 dpi) | 0.17 / 0.85 | 1.19 / 0.06 |
+| Film margin top / bottom (mm, 3600 dpi) | 1.64 / 1.56 | 0.45 / 0.22 |
+
+Genesys's scan window sits about 1.06 mm to the left of this backend's and leaves less
+room above and below the film, so a small positioning error would clip the picture.
+Its raw colour balance is also different (greener and brighter), which comes from its
+calibration and can be corrected in software.
+
+**[Open the interactive comparison](docs/comparison/drivers-comparison.html)** to wipe,
+blink and zoom between the two scans, including more 3600 dpi detail. GitHub shows HTML
+files as source, so download the file (or clone the repository) and open it in a
+browser; it is a single self-contained file that works offline.
+
+These are single-unit, single-frame results, so treat them as one data point. In one
+test, genesys refused to start after this backend had been used ("the carriage isn't at
+home") until the scanner was power-cycled, so avoid alternating between the two without
+a power cycle.
 
 ## Installing on Fedora
 
