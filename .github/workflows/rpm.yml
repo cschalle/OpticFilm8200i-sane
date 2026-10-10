@@ -1,0 +1,94 @@
+name: Fedora RPM
+
+# Build the plustek8200i backend as a Fedora RPM on every push and pull request.
+# The version is computed from git (see tools/rpm-version.sh): VERSION holds
+# major.minor and the third number is the commit count, so each push produces a
+# higher version than the last. A tag vX.Y.Z builds exactly X.Y.Z.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch supersedes an older run, except on main, where
+# every run should finish and publish.
+concurrency:
+  group: rpm-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  rpm:
+    name: Build RPM (Fedora ${{ matrix.fedora }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: [latest]
+    container:
+      image: registry.fedoraproject.org/fedora:${{ matrix.fedora }}
+    steps:
+      # git must exist before checkout, or the action falls back to a tarball
+      # download with no history, and the version and the source snapshot
+      # (tools/build-rpm.py) both need a real clone.
+      - name: Install git
+        run: dnf -y install git
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Allow git to read the workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Build the RPM
+        id: build
+        run: tools/ci-build-rpm.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm-fedora-${{ matrix.fedora }}-${{ steps.build.outputs.version }}
+          path: dist/*.rpm
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: Publish
+    needs: rpm
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rpm-fedora-*
+          path: dist
+          merge-multiple: true
+
+      - name: Show what will be published
+        run: ls -l dist
+
+      # Every push to main replaces one rolling pre-release called "latest", so
+      # the newest build always has a stable download link.
+      - name: Update the rolling "latest" pre-release
+        if: github.ref == 'refs/heads/main'
+        run: |
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest dist/*.rpm \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "Latest build from main" \
+            --notes "Automatic build of ${GITHUB_SHA::7} from main. Install with: sudo dnf install ./sane-backends-plustek8200i-*.x86_64.rpm"
+
+      - name: Create a release for the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.rpm \
+            --title "$GITHUB_REF_NAME" --generate-notes
