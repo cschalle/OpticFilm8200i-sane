@@ -1,5 +1,7 @@
 # plustek8200i — SANE backend for the Plustek OpticFilm 8200i (GL128)
 
+[![Fedora RPM build](https://github.com/cschalle/OpticFilm8200i-sane/actions/workflows/rpm.yml/badge.svg)](https://github.com/cschalle/OpticFilm8200i-sane/actions/workflows/rpm.yml)
+
 A [SANE](http://www.sane-project.org/) backend for the Plustek OpticFilm 8200i
 film scanner with the Genesys **GL128** controller, USB ID `07b3:1825`. It
 works with any SANE frontend (`scanimage`, XSane, Simple Scan, ...).
@@ -78,9 +80,30 @@ a power cycle.
 
 ## Installing on Fedora
 
-The repository builds a Fedora RPM that adds the backend to the standard SANE
+The backend is packaged as a Fedora RPM that adds it to the standard SANE
 installation. It does not replace `libsane`, other backends or
 `/etc/sane.d/dll.conf`.
+
+### Download a prebuilt package
+
+Every push to `main` is built automatically for the current Fedora release (x86_64)
+and published as the **[latest build](https://github.com/cschalle/OpticFilm8200i-sane/releases/tag/latest)**.
+Download `sane-backends-plustek8200i-*.x86_64.rpm` from that page and install it:
+
+```sh
+sudo dnf install ./sane-backends-plustek8200i-*.x86_64.rpm
+sudo udevadm control --reload-rules
+# unplug and reconnect the scanner, then:
+scanimage -L
+```
+
+Version numbers count up with every commit (`0.1.<commits>`), and the release string
+carries the commit it was built from, so `rpm -q sane-backends-plustek8200i` tells
+you exactly which build you have. These are automatic builds of the development
+branch, marked as a pre-release; the matching source RPM is on the same page. The
+build is defined in [`.github/workflows/rpm.yml`](.github/workflows/rpm.yml).
+
+### Build it yourself
 
 ```sh
 sudo dnf install rpm-build redhat-rpm-config gcc gcc-c++ make autoconf \
