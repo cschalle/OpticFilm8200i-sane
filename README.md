@@ -32,6 +32,21 @@ frame per start, with the film holder positioned by hand, and it supports only
 the 35 mm frame. The full list is in the **LIMITATIONS** section of the manual
 page (`man sane-plustek8200i`). It is not part of the upstream SANE project.
 
+## Relationship to SANE's genesys backend
+
+Upstream SANE's `genesys` backend gained support for this scanner in September 2026
+(it lists it as the "Plustek OpticFilm 8200i SE", the same USB ID `07b3:1825`). This
+backend was developed independently and has not been submitted upstream.
+
+If both are installed, `scanimage -L` lists the scanner twice, as `plustek8200i:...`
+and `genesys:...`; choose one with `-d`. In side-by-side tests on one unit, both
+produced equally sharp images of the same frame. This backend additionally provides
+the infrared channel with dust and scratch removal, 8-bit output and wider margins
+around the film; genesys offers more resolutions (150 to 7200 dpi). In one test,
+genesys refused to start after this backend had been used ("the carriage isn't at
+home") until the scanner was power-cycled, so avoid alternating between the two
+without a power cycle.
+
 ## Installing on Fedora
 
 The repository builds a Fedora RPM that adds the backend to the standard SANE
