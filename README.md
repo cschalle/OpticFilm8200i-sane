@@ -69,10 +69,12 @@ room above and below the film, so a small positioning error would clip the pictu
 Its raw colour balance is also different (greener and brighter), which comes from its
 calibration and can be corrected in software.
 
-**[Open the interactive comparison](docs/comparison/drivers-comparison.html)** to wipe,
-blink and zoom between the two scans, including more 3600 dpi detail. GitHub shows HTML
-files as source, so download the file (or clone the repository) and open it in a
-browser; it is a single self-contained file that works offline.
+**[Open the interactive comparison](https://htmlpreview.github.io/?https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/drivers-comparison.html)**
+to wipe, blink and zoom between the two scans, including more 3600 dpi detail. GitHub
+itself only shows HTML files as source, so the link goes through htmlpreview.github.io,
+which renders the page. The page is a single self-contained file
+([source](docs/comparison/drivers-comparison.html)), so you can also download it and open
+it offline in a browser.
 
 These are single-unit, single-frame results, so treat them as one data point. In one
 test, genesys refused to start after this backend had been used ("the carriage isn't at
