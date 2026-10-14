@@ -22,13 +22,10 @@
 */
 
 /*
- * Motor Table Generation - Ported from macOS Driver
+ * Motor tables for the Plustek OpticFilm 8200i
  *
- * Generates the acceleration curve the ASIC expects, rather than
- * replaying a fixed table captured at one speed.
- *
- * This file contains the DYNAMIC motor table generation logic from the
- * macOS driver, translated to clean C for Linux SANE integration.
+ * The init table below is the 256-entry acceleration curve the ASIC
+ * expects, as observed in USB captures of the vendor driver.
  */
 
 /* Mark as auxiliary source file for SANE backend */
@@ -43,53 +40,12 @@
 #include "plustek8200i.h"
 #include "plustek8200i-dma.h"
 
-/*============================================================================
- * GL128 DMA Addresses for Motor Tables
- *===========================================================================*/
-
-
-
-/*============================================================================
- * Motor Table Generation
- *===========================================================================*/
-
-
-
-
-
-
-
-
-
-
-
-/*============================================================================
- * Simplified Interface for Linux Driver
- *===========================================================================*/
-
-/**
- * Load all motor tables for a scan operation
- *
- * This is the simplified interface for the Linux driver. It generates
- * and loads all three motor tables (acceleration, constant, deceleration)
- * using reasonable default parameters.
- *
- * @param fd: USB device handle
- * @param steps: Number of motor steps for this scan
- * @return SANE_STATUS_GOOD on success
+/*
+ * Motor phase table, written to two DMA addresses (0x1000C000, table 4,
+ * and 0x10010000, table 5).  256 little-endian 16-bit step periods, from
+ * 0x2048 (slowest) down to ~0x0126 (fastest).
  */
-/**
- * Hardcoded motor phase table
- *
- * The vendor driver writes this identical 512-byte table to two DMA addresses:
- *   - 0x1000C000 (table 4: fast table 1)
- *   - 0x10010000 (table 5: fast table 2)
- *
- * The table contains 256 16-bit little-endian motor step period values,
- * starting at 0x2048 (8264, slowest) and ramping down to ~0x0126 (294, fastest).
- * This is an acceleration curve: high period = slow speed, low period = fast speed.
- */
-static const uint8_t macos_motor_table[512] = {
+static const uint8_t init_motor_table[512] = {
     0x48, 0x20, 0xAE, 0x09, 0x6A, 0x07, 0x58, 0x06,
     0xAE, 0x05, 0x36, 0x05, 0xDC, 0x04, 0x94, 0x04,
     0x59, 0x04, 0x28, 0x04, 0xFE, 0x03, 0xD9, 0x03,
@@ -160,55 +116,26 @@ SANE_Status plustek8200i_load_motor_tables(int fd, int steps)
 {
     SANE_Status status;
 
-    (void)steps;  /* Not used with hardcoded table */
+    (void)steps;
 
-    DBG(DBG_info, "Loading hardcoded macOS motor tables (512 bytes each)\n");
+    DBG(DBG_info, "Loading motor tables (512 bytes each)\n");
 
-    /*
-     * Write to table 4 (0x1000C000) — matches macOS USB capture exactly.
-     * macOS DMA setup: wValue=0x0082, wIndex=0x0001, data=[00 C0 00 10 00 02 00 00]
-     */
     DBG(DBG_info, "Writing motor table to 0x1000C000 (table 4)\n");
-    status = plustek8200i_dma_write(fd, 0x1000C000, macos_motor_table, 512);
+    status = plustek8200i_dma_write(fd, 0x1000C000, init_motor_table, 512);
     if (status != SANE_STATUS_GOOD) {
         DBG(DBG_error, "Motor table write to 0x1000C000 failed: %s\n",
             sane_strstatus(status));
         return status;
     }
 
-    /*
-     * Write to table 5 (0x10010000) — same data, same as macOS.
-     * macOS DMA setup: wValue=0x0082, wIndex=0x0001, data=[00 00 01 10 00 02 00 00]
-     */
     DBG(DBG_info, "Writing motor table to 0x10010000 (table 5)\n");
-    status = plustek8200i_dma_write(fd, 0x10010000, macos_motor_table, 512);
+    status = plustek8200i_dma_write(fd, 0x10010000, init_motor_table, 512);
     if (status != SANE_STATUS_GOOD) {
         DBG(DBG_error, "Motor table write to 0x10010000 failed: %s\n",
             sane_strstatus(status));
         return status;
     }
 
-    DBG(DBG_info, "Motor tables loaded successfully (macOS-identical data)\n");
+    DBG(DBG_info, "Motor tables loaded successfully\n");
     return SANE_STATUS_GOOD;
 }
-
-/*
- * Scan motor table base constant.
- *
- * ConvertPPS turns the speed curve into timer periods as
- * period = base / speed, where base = 1e9 / (1 << TGTIME) / MotorUnitTime.
- * Rather than guess that split, the product was fitted directly against
- * the known-good macos_motor_table: all 256 entries agree to within 1%
- * (median 0.06%, worst 0.41%).
- *
- * That fit also CONFIRMS the whole derivation chain offline:
- * macos_motor_table is exactly ConvertPPS(GammaCurve(30, 5000, 260)),
- * with (30, 5000, 260) being the Motor/Curve value from
- * share/sane/plustek8200i/ScanInfoVID_07B3_PID_1825.plist.
- */
-
-/* Motor/Curve from the device plist: gamma, max_speed, curve_param. */
-
-
-
-

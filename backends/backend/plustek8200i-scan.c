@@ -22,11 +22,9 @@
 */
 
 /*
- * Scan operations for Plustek OpticFilm 8200i
- *
- * What is left here after the unreachable scan-init path was removed:
- * the register-write helper every other unit uses, and the scan stop.
- * Both were decoded from USB captures of the vendor driver.
+ * Scan operations for Plustek OpticFilm 8200i: the bulk register-write
+ * helper and the scan stop, both decoded from USB captures of the vendor
+ * driver.
  */
 
 /* Mark as auxiliary source file for SANE backend */
@@ -38,37 +36,9 @@
 #include <unistd.h>
 
 /*
- * Register initialization blocks from USB capture
- *
- * These are the FINAL register values after all dynamic updates. The
- * vendor driver computes register values dynamically from the scan
- * parameters (resolution, mode, area), then updates them after the
- * initial register setup; these values include those updates. They were
- * read from a USB capture of the vendor driver.
- *
- * Key changes from previous static values:
- *   - 0x0B (TG0CNT): 0x6C → 0x8C (CCD timing)
- *   - 0x13 (TRMODE): 0x08 → 0x0F (transfer mode)
- *   - 0x5E (VSMP): 0x1F → 0x80 (vertical sample)
- *   - 0x51, 0x5D: Now included (previously missing)
- *   - Many other registers updated with final values
- */
-
-/*
- * Write multiple register/value pairs (WriteAllReg)
- *
- * Sends bulk register writes using control transfer format:
- *   bmRequestType: 0x40 (Host→Device, Vendor)
- *   bRequest: 0xA0 (same as single register writes)
- *   wValue: 0x0083 (Register write command)
- *   wIndex: 0x0000
- *   Data: [reg, val, reg, val, ...] pairs
- *
- * CRITICAL FIX: bRequest was 0x04, but macOS USB capture shows 0xA0.
- * Single write_reg already used 0xA0 correctly. Data is split into
- * 64-byte chunks matching the macOS WriteAllReg behavior.
- *
- * From macOS USB capture validation
+ * Write [reg, val, ...] pairs as vendor control writes (bRequest 0xA0,
+ * wValue 0x0083, as for single register writes), split into 64-byte
+ * chunks as seen in USB captures.
  */
 SANE_Status
 plustek8200i_write_regs(int fd, const uint8_t *reg_val_pairs, size_t count)
@@ -83,11 +53,6 @@ plustek8200i_write_regs(int fd, const uint8_t *reg_val_pairs, size_t count)
     DBG(DBG_info, "plustek8200i_write_regs: %zu bytes (%zu register pairs)\n",
         count, count / 2);
 
-    /*
-     * Split into 64-byte chunks, matching macOS WriteAllReg behavior.
-     * macOS sends 64+64+64+40 for 232 bytes (116 register pairs).
-     * USB control transfers have practical size limits.
-     */
     size_t offset = 0;
     while (offset < count) {
         size_t chunk = count - offset;
@@ -99,8 +64,8 @@ plustek8200i_write_regs(int fd, const uint8_t *reg_val_pairs, size_t count)
 
         status = sanei_usb_control_msg(fd,
                                         0x40,    /* bmRequestType */
-                                        0xA0,    /* bRequest (FIXED: was 0x04) */
-                                        0x0083,  /* wValue: register write */
+                                        0xA0,    /* bRequest */
+                                        0x0083,  /* wValue */
                                         0x0000,  /* wIndex */
                                         chunk,   /* wLength */
                                         (unsigned char *)(reg_val_pairs + offset));
@@ -118,11 +83,7 @@ plustek8200i_write_regs(int fd, const uint8_t *reg_val_pairs, size_t count)
     return SANE_STATUS_GOOD;
 }
 
-/*
- * Stop scanning
- *
- * Clears the SCAN bit to stop the scan operation and motor.
- */
+/* Clear the SCAN bit, stopping the scan and motor */
 SANE_Status
 plustek8200i_scan_stop(int fd)
 {
@@ -131,7 +92,6 @@ plustek8200i_scan_stop(int fd)
 
     DBG(DBG_info, "plustek8200i_scan_stop: stopping scan\n");
 
-    /* Read current CISSET register value */
     status = plustek8200i_read_reg(fd, REG_CISSET, &cisset);
     if (status != SANE_STATUS_GOOD) {
         DBG(DBG_error, "scan_stop: failed to read CISSET\n");
@@ -140,10 +100,8 @@ plustek8200i_scan_stop(int fd)
 
     DBG(DBG_debug, "CISSET before: 0x%02x\n", cisset);
 
-    /* Clear SCAN bit (bit 7) */
     cisset &= ~CISSET_SCAN;
 
-    /* Write back to register */
     status = plustek8200i_write_reg(fd, REG_CISSET, cisset);
     if (status != SANE_STATUS_GOOD) {
         DBG(DBG_error, "scan_stop: failed to clear SCAN bit\n");

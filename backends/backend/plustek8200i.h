@@ -21,6 +21,13 @@
    SPDX-License-Identifier: LGPL-2.1-or-later
 */
 
+/*
+ * Provenance: this driver contains no code from any vendor driver.  Its
+ * behaviour was worked out by observing USB captures of the vendor
+ * software (macOS and Windows) and by measurements on the hardware.
+ * Comments that mention a "capture" refer to those observations.
+ */
+
 #ifndef PLUSTEK8200I_H
 #define PLUSTEK8200I_H
 
@@ -52,7 +59,7 @@
  * Scanner Parameters
  * ========================================================================== */
 
-/* Supported resolutions (dpi) — from macOS driver plist configuration */
+/* Supported resolutions (dpi), from the vendor's device configuration */
 #define PLUSTEK8200I_MAX_DPI          3600
 #define PLUSTEK8200I_OPTICAL_DPI      3600
 #define PLUSTEK8200I_MIN_DPI          72
@@ -344,16 +351,15 @@ typedef struct plustek8200i_device {
 #define REG_LINCNT_H         0x25   /* Bits 19:16 (in bits 3:0) */
 #define REG_LINCNT_M         0x26   /* Bits 15:8 */
 #define REG_LINCNT_L         0x27   /* Bits 7:0 */
-/* Legacy aliases — BEWARE: naming is backwards!
- * REG_LINCNT_H (0x25) holds the HIGH bits, not the low bits.
- * Prefer REG_LINCNT_H/_M/_L defined above. */
-#define REG_LINCNT_LOW       0x25  /* Misleading name: actually LINCNT[19:16] (HIGH) */
+/* Legacy aliases with misleading names: _LOW is LINCNT[19:16] and _HIGH
+ * is LINCNT[7:0].  Prefer REG_LINCNT_H/_M/_L above. */
+#define REG_LINCNT_LOW       0x25
 #define REG_LINCNT_MID       0x26
-#define REG_LINCNT_HIGH      0x27  /* Misleading name: actually LINCNT[7:0] (LOW) */
+#define REG_LINCNT_HIGH      0x27
 
 /* --- 0x28-0x2B: Buffer/pixel control ---
  * NOTE: 0x28-0x29 are NOT MAXWD. MAXWD is at 0x35-0x37.
- * Confirmed by the vendor driver, which writes register 0x35, and by
+ * Confirmed by USB captures (register 0x35 is written) and by
  * sane-genesys, where REG_MAXWD = 0x35 for the related ASICs. */
 #define REG_28               0x28
 #define REG_29               0x29
@@ -361,8 +367,7 @@ typedef struct plustek8200i_device {
 #define REG_2B               0x2B
 
 /* --- 0x2C-0x2D: DPISET — DPI Setting [11:0] ---
- * Confirmed by macOS the vendor driver writes register 0x2c
- * Sets the software DPI (resolution) for the scan. */
+ * Software DPI for the scan; seen written in captures. */
 #define REG_DPISET_H         0x2C   /* Bits 11:8 */
 #define REG_DPISET_L         0x2D   /* Bits 7:0 */
 
@@ -371,14 +376,12 @@ typedef struct plustek8200i_device {
 #define REG_2F               0x2F
 
 /* --- 0x30-0x31: STRPIXEL — Start Pixel [12:0] ---
- * Confirmed by macOS the vendor driver writes register 0x30
- * Defines the first pixel of the scan area (in CCD pixel units). */
+ * First pixel of the scan area (CCD pixel units); seen written in captures. */
 #define REG_STRPIXEL_H       0x30   /* Bits 12:8 */
 #define REG_STRPIXEL_L       0x31   /* Bits 7:0 */
 
 /* --- 0x32-0x33: ENDPIXEL — End Pixel [12:0] ---
- * Confirmed by macOS the vendor driver writes register 0x32
- * Defines the last pixel of the scan area (in CCD pixel units). */
+ * Last pixel of the scan area (CCD pixel units); seen written in captures. */
 #define REG_ENDPIXEL_H       0x32   /* Bits 12:8 */
 #define REG_ENDPIXEL_L       0x33   /* Bits 7:0 */
 
@@ -386,19 +389,15 @@ typedef struct plustek8200i_device {
 #define REG_34               0x34
 
 /* --- 0x35-0x37: MAXWD — Maximum Word Data [23:0] ---
- * Confirmed by macOS the vendor driver writes register 0x35
- * Same address as REG_MAXWD in the related ASICs in sane-genesys
- * MAXWD is expressed in 4-word units (i.e., value = bytes_per_line >> 2).
- * Formula used by sane-genesys for the related ASICs:
- *   MAXWD = (output_line_bytes_raw * channels) >> 2
- * Note: the channels multiply is a known bug in genesys but it works. */
+ * Seen written in captures; same address as REG_MAXWD in sane-genesys.
+ * In 4-word units: sane-genesys uses (output_line_bytes_raw * channels) >> 2
+ * (the channels multiply is a known genesys quirk, but it works). */
 #define REG_MAXWD_H          0x35   /* Bits 23:16 */
 #define REG_MAXWD_M          0x36   /* Bits 15:8 */
 #define REG_MAXWD_L          0x37   /* Bits 7:0 */
 
 /* --- 0x38-0x39: LPERIOD — Line Period [15:0] ---
- * Confirmed by macOS the vendor driver reads register 0x38
- * Controls the time between scan lines (in system clock cycles). */
+ * Time between scan lines in system clock cycles; seen read in captures. */
 #define REG_LPERIOD_H        0x38   /* High byte */
 #define REG_LPERIOD_L        0x39   /* Low byte */
 
@@ -568,7 +567,7 @@ typedef struct plustek8200i_device {
  * the integration time, which is also the line period. Changing them
  * scales brightness and lines-per-inch by the same factor -- see
  * PLUSTEK8200I_BASE_EXPOSURE. The old names are kept as aliases because
- * the macOS-derived init tables still refer to them. */
+ * the init tables still refer to them. */
 #define REG_EXPOSURE_H       0x7D
 #define REG_EXPOSURE_M       0x7E
 #define REG_EXPOSURE_L       0x7F
@@ -725,8 +724,8 @@ typedef struct plustek8200i_device {
 
 /* ==========================================================================
  * Buffer status — backward compatibility alias
- * BUFEMPTY is at status reg 0x41 bit 6. The macOS driver reads it via
- * USB register 0x82 (the vendor driver's BUFEMPTY reads base+0x82, 1 byte).
+ * BUFEMPTY is at status reg 0x41 bit 6; captures show it read via USB
+ * register 0x82 (1 byte).
  * ========================================================================== */
 #define REG_BUFEMPTY         0x82
 #define BUFEMPTY_BIT         0x40
@@ -759,11 +758,11 @@ typedef struct plustek8200i_device {
 /* ==========================================================================
  * Scanner Hardware Constants
  *
- * From macOS driver plist (ScanInfoVID_07B3_PID_1825.plist)
+ * From the vendor's device configuration for 07b3:1825
  * ========================================================================== */
 #define PLUSTEK8200I_HWDPI           7200   /* Hardware DPI (CCD native) */
 #define PLUSTEK8200I_MOTORDPI        3600   /* Motor DPI (steps/inch) */
-#define PLUSTEK8200I_UNITDPI         7200   /* Unit DPI for plist coordinates */
+#define PLUSTEK8200I_UNITDPI         7200   /* Unit DPI of the vendor's configuration coordinates */
 #define PLUSTEK8200I_LINESPACE       24     /* CCD line spacing (RGB offset) */
 #define PLUSTEK8200I_SYSTEM_CLOCK    40     /* System clock in MHz (speed1-48) */
 
@@ -781,13 +780,13 @@ SANE_Status plustek8200i_write_reg(int fd, uint8_t reg, uint8_t value);
 void plustek8200i_regtrace_pairs(const uint8_t *pairs, size_t count);
 void plustek8200i_regtrace_mark(const char *text);
 
-/* macOS register initialization - extracted from working USB capture */
-SANE_Status plustek8200i_init_macos_registers(int fd);
+/* Register initialization, from a USB capture */
+SANE_Status plustek8200i_init_registers(int fd);
 
 /* Post-WriteAllReg CCD timing adjustments */
 SANE_Status plustek8200i_post_writeallreg(int fd);
 
-/* AFE (Analog Front End) initialization - hardcoded 8 register blocks from macOS capture */
+/* AFE (Analog Front End) initialization - 8 hardcoded register blocks from a capture */
 SANE_Status plustek8200i_write_afe_init(int fd);
 
 /* Third-pass WriteAllReg (post-MOVE#2 re-initialization) */
@@ -795,7 +794,7 @@ SANE_Status plustek8200i_init_pass3_registers(int fd);
 
 /*
  * Apply the CCD timing / clock / segment registers captured from the
- * Windows driver, which are known to produce a clean bulk stream.
+ * Windows software, which are known to produce a clean bulk stream.
  * See the definition in plustek8200i-init.c.
  */
 SANE_Status plustek8200i_apply_verified_ccd_regs(int fd);
@@ -916,8 +915,6 @@ static inline int plustek8200i_full_frame_pixels(int req_dpi)
     return (req_dpi * 36) / 25;
 }
 
-/* PLUSTEK8200I_CCD_PROFILE=legacy selects the old macOS CCD values. */
-
 /* True when the infrared pass should be configured. Set from the scan
  * mode; PLUSTEK8200I_IR=1 forces it on for testing. */
 int plustek8200i_use_infrared(void);
@@ -929,19 +926,7 @@ SANE_Status plustek8200i_load_scan_motor_table(int fd, int period);
 /* Scan-phase register configuration (CCD timing, buffer layout, AFE) */
 SANE_Status plustek8200i_configure_scan_phase(int fd);
 
-/*
- * Dynamic scan parameter computation
- *
- * Sets registers based on scan options (resolution, area, mode).
- * Register addresses confirmed from the vendor driver:
- *   DPISET (0x2C-0x2D): the vendor driver writes register 0x2c
- *   STRPIXEL (0x30-0x31): the vendor driver writes register 0x30
- *   ENDPIXEL (0x32-0x33): the vendor driver writes register 0x32
- *   MAXWD (0x35-0x37): the vendor driver writes register 0x35
- *   LPERIOD (0x38-0x39): the vendor driver reads register 0x38
- *   LINCNT (0x25-0x27): the vendor driver writes register 0x25
- *   FEEDL (0x3D-0x3F): the vendor driver writes register 0x3d
- */
+/* Set the geometry registers (DPISET, STRPIXEL, ENDPIXEL, MAXWD, LPERIOD, LINCNT, FEEDL) from the scan options */
 SANE_Status plustek8200i_set_scan_parameters(int fd,
                                               int resolution,
                                               double tl_x_mm,

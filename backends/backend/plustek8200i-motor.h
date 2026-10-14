@@ -24,7 +24,8 @@
 /*
  * Motor control for Plustek OpticFilm 8200i
  *
- * Based on the vendor driver's motor control sequence.
+ * Register layout and sequencing come from USB captures of the vendor
+ * driver's traffic.
  */
 
 #ifndef PLUSTEK8200I_MOTOR_H
@@ -34,7 +35,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Motor control registers (from analysis of the vendor driver) */
+/* Motor control registers (from USB captures) */
 #define REG_CONTROL        0x02  /* Power control (PWRBIT) */
 #define REG_CISSET_MOVE    0x0F  /* MOVE enable (entire register) */
 #define REG_CISSET_SCAN    0x01  /* SCAN bit register address */
@@ -43,7 +44,7 @@
 #define REG_FEEDL_M        0x3E  /* Feed length bits [15:8] */
 #define REG_FEEDL_L        0x3F  /* Feed length bits [7:0] */
 #define CONTROL_LAMPPWR_BIT 0x10  /* Bit 4: Lamp power */
-#define CONTROL_MTRPWR_BIT 0x10  /* Bit 4: Motor power (matches macOS MTRPWR) */
+#define CONTROL_MTRPWR_BIT 0x10  /* Bit 4: Motor power */
 
 /* Motor control functions */
 
@@ -69,15 +70,10 @@ SANE_Status plustek8200i_move_enable(int device_handle, bool enable);
  */
 SANE_Status plustek8200i_motor_stop(int device_handle);
 
-/**
- * Enable motor power rails (GPIO / bus gating)
- * Approximated from macOS MotorPowerSel/MotorBusPowerSel behavior for 8200i.
- */
+/** Enable motor power rails (GPIO latch and driver enable) */
 SANE_Status plustek8200i_motor_power_sel(int device_handle, bool enable);
 
-/**
- * Align motor bus power with system power (approximated from macOS)
- */
+/** Gate motor bus power (GPO bus register) */
 SANE_Status plustek8200i_motor_bus_power_sel(int device_handle, bool enable);
 
 

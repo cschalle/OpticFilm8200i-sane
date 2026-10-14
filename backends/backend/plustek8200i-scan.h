@@ -27,30 +27,8 @@
 #include "plustek8200i.h"
 
 /*
- * Scan operations for Plustek OpticFilm 8200i
- *
- * Decoded from USB captures of the vendor driver.
- *
- * This module implements a minimal viable scan operation:
- * - Register initialization from USB captures
- * - Basic scan control (start/stop)
- * - Data reading via DMA
- * - Preview resolution (150 DPI)
- *
- * USB Captures: a macOS USB capture
- */
-
-/*
- * Register addresses are defined in plustek8200i.h.
- * Key scan registers:
- *   REG_MTRPWR (0x02): Motor power/control
- *   REG_DPISET_H/L (0x2C/0x2D): DPI setting [11:0]
- *   REG_STRPIXEL_H/L (0x30/0x31): Start pixel [12:0]
- *   REG_ENDPIXEL_H/L (0x32/0x33): End pixel [12:0]
- *   REG_LPERIOD_H/L (0x38/0x39): Line period [15:0]
- *   REG_LINCNT_H/M/L (0x25/0x26/0x27): Line count [19:0]
- *   REG_FEEDL_H/M/L (0x3D/0x3E/0x3F): Feed length [19:0]
- *   CISSET_SCAN (0x01): Scan enable (reg 0x01 bit 0)
+ * Scan operations for Plustek OpticFilm 8200i, decoded from USB captures
+ * of the vendor driver.  Register addresses are in plustek8200i.h.
  */
 
 /* Scan parameters for preview mode */

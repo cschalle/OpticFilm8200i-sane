@@ -1,19 +1,18 @@
 /*
  * plustek8200i-feed.c -- fast positioning feeds for the GL128 8200i
  *
- * The image pass used to reach the frame with its own FEEDL, at scan
- * speed: 9 s at 600 dpi, 29 s at 3600, 57 s at 7200. SilverFast instead
- * moves the carriage with separate feeds (0x02 = MTRPWR | FASTFED, motor
- * ramp tables uploaded to 0x1000C000 and 0x10010000), then starts the
- * image with FEEDL = 1.
+ * Feeding to the frame with the image pass's own FEEDL runs at scan speed
+ * (9 s at 600 dpi, 57 s at 7200).  Instead, as in a USB capture of the
+ * vendor's SilverFast software, the carriage is moved by separate fast
+ * feeds (0x02 = MTRPWR | FASTFED, ramp tables at 0x1000C000 and
+ * 0x10010000) and the image then starts with FEEDL = 1.
  *
- * Everything here is taken from a USB capture of the vendor's
- * SilverFast software:
- *  - feed register block at 5.040 s and 6.100 s;
- *  - ramp tables: the first feed (FEEDL 28292) used feed_ramp_slow, the
- *    second (13128) feed_ramp_fast, each written to both table addresses;
+ * From that capture:
+ *  - the feed register blocks (5.040 s and 6.100 s);
+ *  - the first feed (FEEDL 28292) uses feed_ramp_slow, the second (13128)
+ *    feed_ramp_fast, each written to both table addresses;
  *  - completion: status 0x101 goes d5 (feeding) -> f5 (FEEDFSH 0x20 set)
- *    -> f4 (motor 0x01 off); SilverFast then writes 0x02 = 0x08, FEEDL 1.
+ *    -> f4 (motor 0x01 off), then 0x02 = 0x08 and FEEDL 1 are written.
  *
  * Copyright (C) 2026 Christian Schaller
  * This file is part of the SANE package.
@@ -116,8 +115,7 @@ static const uint8_t feed_ramp_fast[512] = {
     0xD2, 0x00, 0xD2, 0x00, 0xD1, 0x00, 0xD1, 0x00, 0xD1, 0x00, 0xD0, 0x00, 0xD0, 0x00, 0xD0, 0x00,
 };
 
-/* Registers a feed changes; saved before and written back after, so the
- * image pass sees exactly the registers it was given. */
+/* Registers a feed changes; saved and restored around it */
 static const uint8_t feed_touched[] = {
     0x01, 0x02, 0x04, 0x05, 0x1C, 0x1D, 0x2C, 0x2D, 0x3B,
     0x3D, 0x3E, 0x3F, 0x7D, 0x7E, 0x7F, 0x80, 0x81,
@@ -162,7 +160,7 @@ plustek8200i_feed_restore(int fd, const plustek8200i_feed_saved_t *saved)
 SANE_Status
 plustek8200i_feed(int fd, int steps, int slow_ramp)
 {
-    /* SilverFast's feed block (5.040 s), FEEDL patched in. */
+    /* The captured feed block, FEEDL patched in */
     uint8_t regs[] = {
         0x3B, 0x01, 0x01, 0x22, 0x04, 0x42, 0x05, 0x48,
         0x3D, 0x00, 0x3E, 0x00, 0x3F, 0x00,
@@ -207,9 +205,9 @@ plustek8200i_feed(int fd, int steps, int slow_ramp)
     if (st != SANE_STATUS_GOOD)
         return st;
 
-    /* The previous move's FEEDFSH is still set at START, so first see
-     * the feed running (motor on or FEEDFSH clear), then wait for
-     * FEEDFSH with the motor off. */
+    /* FEEDFSH is still set from the previous move: first see the feed
+     * running (motor on or FEEDFSH clear), then wait for FEEDFSH with the
+     * motor off. */
     while (now_s() < deadline) {
         st = plustek8200i_read_reg(fd, 0x101, &s);
         if (st != SANE_STATUS_GOOD)

@@ -22,12 +22,7 @@
 */
 
 
-/*
- * plustek8200i-mode.c -- run-time mode flags shared across the backend.
- *
- * These were the only live functions in the former plustek8200i-config.c,
- * which otherwise held a plist parser that nothing called.
- */
+/* plustek8200i-mode.c -- run-time mode flags shared across the backend */
 
 #define DEBUG_DECLARE_ONLY
 #include "plustek8200i.h"

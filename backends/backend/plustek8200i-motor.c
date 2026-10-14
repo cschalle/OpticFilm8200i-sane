@@ -24,11 +24,10 @@
 /*
  * Motor control for Plustek OpticFilm 8200i
  *
- * Register assignments, established from USB captures of the vendor
- * driver and confirmed on the hardware:
+ * Register assignments come from USB captures of the vendor driver and
+ * were confirmed on the hardware:
  *
  * - motor power is register 0x02 bit 4
- * - the SCAN bit is register 0x01 bit 7
  * - MOVE is register 0x0F, written whole rather than as a bit
  * - feed length is registers 0xAE/0xAF, 16-bit
  * - the sequence is SCAN, wait 50 ms, then MOVE
@@ -41,120 +40,63 @@
 #include "plustek8200i-motor.h"
 #include <unistd.h>
 
-/* Approximate motor power GPIO registers (from macOS init baseline) */
-#define REG_GPIO_LATCH     0xA5  /* Seen as 0x20 in macOS register dump */
-#define REG_GPIO_MOTORDRV  0xAB  /* Seen as 0x30 in macOS register dump */
-#define REG_GPO_BUS        0x6C  /* GPIO high byte, baseline 0x55 in macOS */
+/* Motor power GPIO registers, with the values seen in USB captures */
+#define REG_GPIO_LATCH     0xA5  /* Seen as 0x20 */
+#define REG_GPIO_MOTORDRV  0xAB  /* Seen as 0x30 */
+#define REG_GPO_BUS        0x6C  /* GPIO high byte, seen as 0x55 */
 #define GPIO_LATCH_MOTOR   0x20  /* Bit mask to keep motor rail latched */
 #define GPIO_MOTORDRV_MASK 0x30  /* Bits used for motor driver enable */
 
-/*
- * Helper: Read-modify-write a single bit in a register
- *
- * This preserves other bits in the register while changing only the specified bit.
- */
+/* Read-modify-write the bits in bit_mask, preserving the rest */
 static SANE_Status
 write_reg_bit(int device_handle, uint8_t reg, uint8_t bit_mask, bool set)
 {
     uint8_t val;
     SANE_Status status;
 
-    /* Read current register value */
     status = plustek8200i_read_reg(device_handle, reg, &val);
     if (status != SANE_STATUS_GOOD)
         return status;
 
-    /* Modify the bit */
-    if (set) {
-        val |= bit_mask;  /* Set bit */
-    } else {
-        val &= ~bit_mask; /* Clear bit */
-    }
+    if (set)
+        val |= bit_mask;
+    else
+        val &= ~bit_mask;
 
-    /* Write back */
     return plustek8200i_write_reg(device_handle, reg, val);
 }
 
-/*
- * Enable or disable motor power
- *
- * Observed in the vendor driver
- *
- * macOS code (simplified):
- *   register[0x02] = (register[0x02] & 0xFFEF) | ((enable & 1) << 4);
- *
- * Translation:
- *   - Register 0x02, bit 4 (0x10)
- *   - Read-modify-write to preserve other bits
- *   - macOS uses immediate write (not batched)
- */
+/* Motor power: register 0x02 bit 4, read-modify-write */
 SANE_Status
 plustek8200i_motor_power(int device_handle, bool enable)
 {
     DBG(DBG_info, "plustek8200i_motor_power: %s\n", enable ? "enable" : "disable");
 
-    /* Register 0x02, bit 4 (0x10) */
     return write_reg_bit(device_handle, REG_CONTROL, CONTROL_MTRPWR_BIT, enable);
 }
 
 /*
- * Enable or disable SCAN bit
- *
- * Observed in the vendor driver
- *
- * Register 0x01, bit 0: SCAN — start scanning process.
- *
- * NOTE: the vendor driver appears to use bit 7. That has not been
- * reconciled with bit 0, which the main sane_start() code uses and which
- * works (it writes 0x01 = 0x03 = SHDAREA|SCAN).
- *
- * Translation:
- *   - Register 0x01, bit 0 (0x01)
- *   - Read-modify-write to preserve other bits
+ * SCAN bit: register 0x01 bit 0, read-modify-write.  sane_start() uses
+ * the same bit (0x01 = 0x03 = SHDAREA|SCAN).
  */
 SANE_Status
 plustek8200i_scan_enable(int device_handle, bool enable)
 {
     DBG(DBG_info, "plustek8200i_scan_enable: %s\n", enable ? "enable" : "disable");
 
-    /* Register 0x01, bit 0 (SCAN) */
     return write_reg_bit(device_handle, REG_CISSET_SCAN, REG_CISSET_SCAN_BIT, enable);
 }
 
-/*
- * Enable or disable motor movement (MOVE bit)
- *
- * Observed in the vendor driver
- *
- * macOS code (simplified):
- *   register[0x0F] = enable;  // Note: writes ENTIRE register, not a bit!
- *
- * Translation:
- *   - Register 0x0F
- *   - Unlike other functions, this writes the ENTIRE register value
- *   - 0x00 = MOVE disabled
- *   - 0x01 = MOVE enabled
- *
- * IMPORTANT: This is different from MTRPWR and CISSET!
- * MOVE does NOT use bit manipulation - it writes the whole register.
- */
+/* MOVE: register 0x0F, written whole (0x00 off, 0x01 on), not as a bit */
 SANE_Status
 plustek8200i_move_enable(int device_handle, bool enable)
 {
     DBG(DBG_info, "plustek8200i_move_enable: %s\n", enable ? "enable" : "disable");
 
-    /*
-     * MOVE is special: the whole register is written, not a single
-     * bit. Observed as a direct 16-bit store in the vendor driver.
-     */
     return plustek8200i_write_reg(device_handle, REG_CISSET_MOVE, enable ? 0x01 : 0x00);
 }
 
-/*
- * Stop motor movement
- *
- * Reverse of motor start: disable MOVE, SCAN, and power
- */
+/* Reverse of motor start: MOVE off, SCAN off, then power */
 SANE_Status
 plustek8200i_motor_stop(int device_handle)
 {
@@ -162,28 +104,25 @@ plustek8200i_motor_stop(int device_handle)
 
     DBG(DBG_info, "plustek8200i_motor_stop\n");
 
-    /* 1. Disable MOVE bit */
     status = plustek8200i_move_enable(device_handle, false);
     if (status != SANE_STATUS_GOOD) {
         DBG(DBG_error, "Motor stop: Failed to disable MOVE\n");
         return status;
     }
 
-    /* 2. Disable SCAN bit */
     status = plustek8200i_scan_enable(device_handle, false);
     if (status != SANE_STATUS_GOOD) {
         DBG(DBG_error, "Motor stop: Failed to disable SCAN\n");
         return status;
     }
 
-    /* 3. Disable motor power */
     status = plustek8200i_motor_power(device_handle, false);
     if (status != SANE_STATUS_GOOD) {
         DBG(DBG_error, "Motor stop: Failed to disable motor power\n");
         return status;
     }
 
-    /* 4. Drop motor power rails and bus gating */
+    /* Drop the power rails and bus gating */
     (void)plustek8200i_motor_bus_power_sel(device_handle, false);
     (void)plustek8200i_motor_power_sel(device_handle, false);
 
@@ -191,17 +130,7 @@ plustek8200i_motor_stop(int device_handle)
     return SANE_STATUS_GOOD;
 }
 
-/*
- * Motor power rail selection (approximation of macOS MotorPowerSel)
- *
- * macOS uses registry-provided GPIO addresses/masks. For the 8200i we observed
- * the macOS init snapshot writing:
- *   - REG_GPIO_LATCH (0xA5) = 0x20
- *   - REG_GPIO_MOTORDRV (0xAB) = 0x30
- *   - REG_GPO_BUS (0x6C) = 0x55
- *
- * This helper mirrors that behavior: enabling sets those bits, disabling clears.
- */
+/* Motor power rails: set (or clear) the latch and driver-enable bits */
 SANE_Status
 plustek8200i_motor_power_sel(int device_handle, bool enable)
 {
@@ -210,7 +139,6 @@ plustek8200i_motor_power_sel(int device_handle, bool enable)
 
     DBG(DBG_info, "plustek8200i_motor_power_sel: %s\n", enable ? "enable" : "disable");
 
-    /* Latch rail */
     status = plustek8200i_read_reg(device_handle, REG_GPIO_LATCH, &val);
     if (status != SANE_STATUS_GOOD)
         return status;
@@ -222,7 +150,6 @@ plustek8200i_motor_power_sel(int device_handle, bool enable)
     if (status != SANE_STATUS_GOOD)
         return status;
 
-    /* Motor driver enable mask */
     status = plustek8200i_read_reg(device_handle, REG_GPIO_MOTORDRV, &val);
     if (status != SANE_STATUS_GOOD)
         return status;
@@ -237,13 +164,7 @@ plustek8200i_motor_power_sel(int device_handle, bool enable)
     return SANE_STATUS_GOOD;
 }
 
-/*
- * Motor bus power gating (approximation of macOS MotorBusPowerSel)
- *
- * macOS toggles a MotorBusPowerReg based on system power polarity.
- * We mirror the observed baseline: set bits in REG_GPO_BUS when enabling,
- * clear them when disabling.
- */
+/* Motor bus gating: set (or clear) the 0x55 pattern in REG_GPO_BUS */
 SANE_Status
 plustek8200i_motor_bus_power_sel(int device_handle, bool enable)
 {
@@ -257,7 +178,6 @@ plustek8200i_motor_bus_power_sel(int device_handle, bool enable)
         return status;
 
     if (enable) {
-        /* Use macOS baseline 0x55 as enable pattern */
         val |= 0x55;
     } else {
         val &= (uint8_t)~0x55;

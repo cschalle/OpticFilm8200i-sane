@@ -21,40 +21,26 @@
    SPDX-License-Identifier: LGPL-2.1-or-later
 */
 
-/*
- * USB I/O for Plustek OpticFilm 8200i
- *
- * TODO: Port from macOS driver the vendor driver's ReadRegs/WriteRegs
- * For now, using proven implementation from old code for hardware testing
- */
+/* USB register I/O for Plustek OpticFilm 8200i */
 
 /* Mark as auxiliary source file for SANE backend */
 #define DEBUG_DECLARE_ONLY
 
 #include "plustek8200i.h"
 
-/* USB constants from reverse engineering */
+/* USB constants, from USB captures */
 #define USB_REQ_READ_REG    0xC0
 #define USB_REQ_WRITE_REG   0x40
 #define USB_WVAL_STATUS_POLL 0x008E
 #define USB_WVAL_REG_WRITE   0x0083
 
 /*
- * Read single register
+ * Read a register.  The reply is 2 bytes: [value, 'U'].
  *
- * Based on the vendor driver's ReadRegs() and ControlRead():
- *   wIndex = (reg << 8) | 0x22
- *   wValue = (reg_addr & 0x100) | 0x8E
- *   Returns 2 bytes: [value, 'U']
- *
- * The register address can include bit 8 as a flag:
- *   reg_addr 0x01  → wValue=0x008E (reads shadow/written value)
- *   reg_addr 0x101 → wValue=0x018E (reads actual hardware state)
- *
- * On the wire: wValue carries 0x8E with bit 8 taken from the register
- * address, and wIndex is the address shifted up a byte with 0x22 in the
- * low byte. The vendor driver uses 0x018E (bit 8 set) when polling
- * hardware status registers such as reg 0x01 after MOVE commands.
+ * wIndex = (reg << 8) | 0x22; wValue = 0x8E with bit 8 taken from
+ * reg_addr.  Bit 8 selects the source: reg 0x01 reads the shadow (last
+ * written) value, 0x101 the actual hardware state, which is what status
+ * polling after MOVE needs.
  */
 SANE_Status
 plustek8200i_read_reg(int usb_fd, uint16_t reg_addr, uint8_t *value)
@@ -70,11 +56,11 @@ plustek8200i_read_reg(int usb_fd, uint16_t reg_addr, uint8_t *value)
 
     status = sanei_usb_control_msg(usb_fd,
                                    0xC0,    /* bmRequestType: device-to-host, vendor */
-                                   0xA0,    /* bRequest: vendor-specific */
-                                   wValue,  /* wValue: 0x008E or 0x018E */
-                                   wIndex,  /* wIndex: (reg<<8)|0x22 */
+                                   0xA0,    /* bRequest */
+                                   wValue,
+                                   wIndex,
                                    2,       /* wLength */
-                                   response);  /* data */
+                                   response);
 
     if (status != SANE_STATUS_GOOD) {
         DBG(DBG_error, "read_reg: control read failed for reg 0x%02x: %s\n",
@@ -93,20 +79,9 @@ plustek8200i_read_reg(int usb_fd, uint16_t reg_addr, uint8_t *value)
 }
 
 /*
- * Write single register
- *
- * Uses the same [reg, val] data-payload format as write_regs (WriteAllReg),
- * which is confirmed working. The previous implementation encoded the register
- * in wIndex as (reg << 8) | 0x83 with just the value as data, but read-after-
- * write verification showed the scanner silently ignored those writes.
- *
- * Now delegates to the bulk write path: bmRequestType=0x40, bRequest=0xA0,
- * wValue=0x0083, wIndex=0x0000, data=[reg, val].
- */
-/*
- * Register-write tracing goes through the debug levels: the register
- * state at any point of a scan can be reconstructed from the log with
- * SANE_DEBUG_PLUSTEK8200I set to DBG_data or above.
+ * Register-write tracing goes through the debug levels: set
+ * SANE_DEBUG_PLUSTEK8200I to DBG_data or above to reconstruct the register
+ * state at any point of a scan from the log.
  */
 void
 plustek8200i_regtrace_pairs(const uint8_t *pairs, size_t count)
@@ -123,6 +98,11 @@ plustek8200i_regtrace_mark(const char *text)
     DBG(DBG_info, "trace: %s\n", text);
 }
 
+/*
+ * Write a register as a [reg, val] payload to wValue 0x0083, the same
+ * format as the bulk register write.  Encoding the register in wIndex
+ * instead was silently ignored by the scanner.
+ */
 SANE_Status
 plustek8200i_write_reg(int usb_fd, uint8_t reg, uint8_t val)
 {
@@ -134,7 +114,7 @@ plustek8200i_write_reg(int usb_fd, uint8_t reg, uint8_t val)
     status = sanei_usb_control_msg(usb_fd,
                                    0x40,    /* bmRequestType */
                                    0xA0,    /* bRequest */
-                                   0x0083,  /* wValue: register write */
+                                   0x0083,  /* wValue */
                                    0x0000,  /* wIndex */
                                    2,       /* wLength */
                                    reg_val_pair);

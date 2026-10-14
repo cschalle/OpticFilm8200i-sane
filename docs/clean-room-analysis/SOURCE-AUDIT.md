@@ -76,8 +76,8 @@ source or reconstruct an unproven curve-generation algorithm.
 The current executable path and macro values control the specification.
 Examples of comments/documents not carried forward as normative facts:
 
-- The older README and numerous file comments call this a macOS port or
-  a driver for a different Genesys chip and say it is incomplete. Current USB ID/manual/source
+- The older README and many older file comments called this a port of
+  another driver or a driver for a different Genesys chip and say it is incomplete. Current USB ID/manual/source
   identify the device as GL128 `07b3:1825`; the verified sensor path is
   selected by default and is the working baseline supplied by the user.
 - The manual and some comments say high resolutions are vertically

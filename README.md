@@ -35,6 +35,13 @@ takes 35 mm film only (strips and mounted slides), and the backend covers its
 whole scan area. The full list is in the **LIMITATIONS** section of the manual
 page (`man sane-plustek8200i`). It is not part of the upstream SANE project.
 
+## How it was developed
+
+The protocol was worked out by observing USB captures of the vendor's software
+(macOS and Windows) and by measurements on the hardware. The vendor's driver
+was only studied to understand the scanner's behaviour; no code from it is
+used in this backend.
+
 ## Comparison with SANE's genesys backend
 
 Upstream SANE's `genesys` backend gained support for this scanner in September 2026

@@ -21,22 +21,12 @@
    SPDX-License-Identifier: LGPL-2.1-or-later
 */
 
-/* sane - Scanner Access Now Easy.
+/*
+ * Register initialization for the Plustek OpticFilm 8200i.
  *
- * macOS Driver Register Initialization
- *
- * This file contains the EXACT register sequence extracted from
- * the macOS USB capture INIT phase (timestamp 0:38.486), NOT the
- * scan-time values (0:39.123) that were used previously.
- *
- * Changes from previous version:
- * - Fixed 7 register values to match init-time (not scan-time)
- * - Removed registers that macOS writes separately (0x00, 0x0E, 0x0F,
- *   0x51, 0x5D, 0x6C, 0xD8, 0xDC, 0xAE, 0xAF)
- * - Added post-WriteAllReg individual register writes
- * - Added WriteAllAfe (AFE initialization)
- *
- * DO NOT MODIFY these values without comparing against macOS USB capture.
+ * The values are the init-phase register writes observed in a USB capture
+ * of the vendor driver (not the scan-time values).  Do not change them
+ * without comparing against a capture.
  */
 
 #define DEBUG_DECLARE_ONLY
@@ -45,51 +35,33 @@
 #include "plustek8200i-dma.h"   /* For plustek8200i_dma_write() */
 #include <unistd.h>
 
-/**
- * WriteAllReg - bulk register initialization
- *
- * Writes ~116 register pairs matching the macOS init-phase WriteAllReg.
- *
- * CORRECTED VALUES (init phase, timestamp 0:38.486):
- *   0x01: 0x22 (was 0x10 — scan control mode bits)
- *   0x02: 0x78 (was 0x18 — power, macOS uses 0x78 during init)
- *   0x03: 0x20 (was 0x30 — lamp source, init value)
- *   0x08: 0x00 (was 0x55 — should be 0x00 during init)
- *   0x3E: 0x00 (was 0x11 — feed length mid, set later)
- *   0x3F: 0x01 (was 0x62 — feed length high, set later)
- *   0x5E: 0x1F (was 0x00 — init value is 0x1F)
- *
- * REMOVED from bulk write (macOS writes separately or not at all):
- *   0x00 (not in macOS WriteAllReg)
- *   0x0E (macOS writes separately before WriteAllReg)
- *   0x0F (MOVE command — must be written LAST, not in bulk)
- *   0x51, 0x5D, 0x6C, 0xD8, 0xDC (not in macOS WriteAllReg)
- *   0xAE, 0xAF (macOS writes these separately before MOVE)
+/*
+ * Bulk register initialization: ~116 register pairs.  Registers the
+ * vendor driver writes separately or not at all are left out: 0x00, 0x0E
+ * (written before this), 0x0F (MOVE, written last), 0x51, 0x5D, 0x6C,
+ * 0xAE, 0xAF (written before MOVE), 0xD8 and 0xDC.
  */
-SANE_Status plustek8200i_init_macos_registers(int fd)
+SANE_Status plustek8200i_init_registers(int fd)
 {
     SANE_Status status;
-    uint8_t reg_pairs[232];  /* 116 register pairs × 2 bytes = 232 bytes */
+    uint8_t reg_pairs[232];
     int idx = 0;
 
     DBG(DBG_info, "WriteAllReg: preparing init-phase register pairs...\n");
 
-    /* Build register/value pairs - CORRECTED init-phase values */
-    reg_pairs[idx++] = 0x01; reg_pairs[idx++] = 0x22;  /* FIXED: was 0x10 */
-    reg_pairs[idx++] = 0x02; reg_pairs[idx++] = 0x78;  /* FIXED: was 0x18 */
-    reg_pairs[idx++] = 0x03; reg_pairs[idx++] = 0x20;  /* FIXED: was 0x30 */
+    reg_pairs[idx++] = 0x01; reg_pairs[idx++] = 0x22;
+    reg_pairs[idx++] = 0x02; reg_pairs[idx++] = 0x78;
+    reg_pairs[idx++] = 0x03; reg_pairs[idx++] = 0x20;
     reg_pairs[idx++] = 0x04; reg_pairs[idx++] = 0x02;
     reg_pairs[idx++] = 0x05; reg_pairs[idx++] = 0x48;
     reg_pairs[idx++] = 0x06; reg_pairs[idx++] = 0x18;
     reg_pairs[idx++] = 0x07; reg_pairs[idx++] = 0x00;
-    reg_pairs[idx++] = 0x08; reg_pairs[idx++] = 0x00;  /* FIXED: was 0x55 */
+    reg_pairs[idx++] = 0x08; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0x09; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0x0A; reg_pairs[idx++] = 0x40;
     reg_pairs[idx++] = 0x0B; reg_pairs[idx++] = 0x6C;
     reg_pairs[idx++] = 0x0C; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0x0D; reg_pairs[idx++] = 0x00;
-    /* 0x0E REMOVED — macOS writes separately before WriteAllReg */
-    /* 0x0F REMOVED — MOVE command, written last */
     reg_pairs[idx++] = 0x11; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0x12; reg_pairs[idx++] = 0x04;
     reg_pairs[idx++] = 0x13; reg_pairs[idx++] = 0x08;
@@ -130,8 +102,8 @@ SANE_Status plustek8200i_init_macos_registers(int fd)
     reg_pairs[idx++] = 0x3B; reg_pairs[idx++] = 0xFF;
     reg_pairs[idx++] = 0x3C; reg_pairs[idx++] = 0xFF;
     reg_pairs[idx++] = 0x3D; reg_pairs[idx++] = 0x00;
-    reg_pairs[idx++] = 0x3E; reg_pairs[idx++] = 0x00;  /* FIXED: was 0x11 */
-    reg_pairs[idx++] = 0x3F; reg_pairs[idx++] = 0x01;  /* FIXED: was 0x62 */
+    reg_pairs[idx++] = 0x3E; reg_pairs[idx++] = 0x00;
+    reg_pairs[idx++] = 0x3F; reg_pairs[idx++] = 0x01;
     reg_pairs[idx++] = 0x4F; reg_pairs[idx++] = 0x03;
     reg_pairs[idx++] = 0x52; reg_pairs[idx++] = 0x07;
     reg_pairs[idx++] = 0x53; reg_pairs[idx++] = 0x09;
@@ -142,8 +114,7 @@ SANE_Status plustek8200i_init_macos_registers(int fd)
     reg_pairs[idx++] = 0x5A; reg_pairs[idx++] = 0x12;
     reg_pairs[idx++] = 0x5B; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0x5C; reg_pairs[idx++] = 0x40;
-    /* 0x51, 0x5D REMOVED — not in macOS WriteAllReg */
-    reg_pairs[idx++] = 0x5E; reg_pairs[idx++] = 0x1F;  /* FIXED: was 0x00 */
+    reg_pairs[idx++] = 0x5E; reg_pairs[idx++] = 0x1F;
     reg_pairs[idx++] = 0x5F; reg_pairs[idx++] = 0x05;
     reg_pairs[idx++] = 0x60; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0x61; reg_pairs[idx++] = 0x00;
@@ -151,7 +122,6 @@ SANE_Status plustek8200i_init_macos_registers(int fd)
     reg_pairs[idx++] = 0x67; reg_pairs[idx++] = 0x7F;
     reg_pairs[idx++] = 0x68; reg_pairs[idx++] = 0x7F;
     reg_pairs[idx++] = 0x69; reg_pairs[idx++] = 0x01;
-    /* 0x6C REMOVED — not in macOS WriteAllReg */
     reg_pairs[idx++] = 0x70; reg_pairs[idx++] = 0x01;
     reg_pairs[idx++] = 0x71; reg_pairs[idx++] = 0x02;
     reg_pairs[idx++] = 0x72; reg_pairs[idx++] = 0x03;
@@ -189,15 +159,12 @@ SANE_Status plustek8200i_init_macos_registers(int fd)
     reg_pairs[idx++] = 0xA9; reg_pairs[idx++] = 0x01;  /* GPIO control — sane-genesys GPO value */
     reg_pairs[idx++] = 0xAA; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0xAB; reg_pairs[idx++] = 0x30;
-    /* 0xAE, 0xAF REMOVED — macOS writes these separately before MOVE */
     reg_pairs[idx++] = 0xB8; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0xB9; reg_pairs[idx++] = 0x38;
     reg_pairs[idx++] = 0xBA; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0xBD; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0xBE; reg_pairs[idx++] = 0x00;
     reg_pairs[idx++] = 0xBF; reg_pairs[idx++] = 0x00;
-    /* 0xD8, 0xDC REMOVED — not in macOS WriteAllReg */
-    /* 0x0F REMOVED — MOVE command written as final step */
 
     DBG(DBG_info, "WriteAllReg: writing %d bytes (%d register pairs)...\n",
         idx, idx / 2);
@@ -212,21 +179,10 @@ SANE_Status plustek8200i_init_macos_registers(int fd)
     return SANE_STATUS_GOOD;
 }
 
-/**
- * Post-WriteAllReg individual register writes
- *
- * After each WriteAllReg, macOS writes these registers individually.
- * These appear to be CCD timing adjustments that must be done after
- * the bulk register write.
- *
- * From macOS USB capture (init phase):
- *   1. Reg 0x10 = 0x0E
- *   2. Reg 0x13 = 0x0E
- *   3. Reg 0x0B = 0x84
- *   4. Reg 0x13 = 0x0F
- *   5. Reg 0x0B = 0x8C
- *   6. ~100ms delay
- *   7. Reg 0x0A = 0x40
+/*
+ * CCD timing adjustments written individually after each bulk register
+ * write: 0x10=0x0E, 0x13=0x0E, 0x0B=0x84, 0x13=0x0F, 0x0B=0x8C, ~100 ms
+ * delay, 0x0A=0x40.
  */
 SANE_Status plustek8200i_post_writeallreg(int fd)
 {
@@ -249,7 +205,6 @@ SANE_Status plustek8200i_post_writeallreg(int fd)
     status = plustek8200i_write_reg(fd, 0x0B, 0x8C);
     if (status != SANE_STATUS_GOOD) return status;
 
-    /* ~100ms delay */
     usleep(100000);
 
     status = plustek8200i_write_reg(fd, 0x0A, 0x40);
@@ -259,34 +214,19 @@ SANE_Status plustek8200i_post_writeallreg(int fd)
     return SANE_STATUS_GOOD;
 }
 
-/**
- * WriteAllAfe - AFE (Analog Front End) initialization
- *
- * macOS writes 8 AFE register blocks of 6 bytes each after the
- * post-WriteAllReg adjustments. Each block is sent as a separate
- * 6-byte WriteRegs (wValue=0x0083).
- *
- * AFE registers are accessed via an indirect mechanism:
- *   0x51 = AFE register index
- *   0x5D = AFE data high byte
- *   0x5E = AFE data low byte
- *
- * From macOS USB capture:
- *   Block 0: idx=0x00, data=0x00F8 (offset/gain?)
- *   Block 1: idx=0x01, data=0x0080
- *   Block 2: idx=0x02, data=0x0000
- *   Block 3: idx=0x03, data=0x0000
- *   Block 4: idx=0x04, data=0x0000
- *   Block 5: idx=0x05, data=0x0000
- *   Block 6: idx=0x06, data=0x0000
- *   Block 7: idx=0x07, data=0x0000
+/*
+ * AFE (analog front end) initialization: 8 blocks of 6 bytes, each a
+ * separate write, after the post-register adjustments.  The AFE is
+ * reached indirectly: 0x51 = register index, 0x5D/0x5E = data high/low.
+ * Block n sets index n; only block 0 (0x00F8) and block 1 (0x0080) are
+ * nonzero.
  */
 SANE_Status plustek8200i_write_afe_init(int fd)
 {
     SANE_Status status;
     int i;
 
-    /* AFE data: 8 blocks, each [index, data_high, data_low] */
+    /* [index, data_high, data_low] */
     static const uint8_t afe_data[8][3] = {
         { 0x00, 0x00, 0xF8 },
         { 0x01, 0x00, 0x80 },
@@ -301,11 +241,10 @@ SANE_Status plustek8200i_write_afe_init(int fd)
     DBG(DBG_info, "WriteAllAfe: writing 8 AFE register blocks...\n");
 
     for (i = 0; i < 8; i++) {
-        /* Each block: 6 bytes = 3 register pairs (0x51, 0x5D, 0x5E) */
         uint8_t block[6];
-        block[0] = 0x51; block[1] = afe_data[i][0];  /* AFE index */
-        block[2] = 0x5D; block[3] = afe_data[i][1];  /* Data high */
-        block[4] = 0x5E; block[5] = afe_data[i][2];  /* Data low */
+        block[0] = 0x51; block[1] = afe_data[i][0];
+        block[2] = 0x5D; block[3] = afe_data[i][1];
+        block[4] = 0x5E; block[5] = afe_data[i][2];
 
         DBG(DBG_debug, "AFE block %d: idx=0x%02x data=0x%02x%02x\n",
             i, afe_data[i][0], afe_data[i][1], afe_data[i][2]);
@@ -321,35 +260,17 @@ SANE_Status plustek8200i_write_afe_init(int fd)
     return SANE_STATUS_GOOD;
 }
 
-/**
- * Third-pass WriteAllReg — post-MOVE#2 re-initialization
- *
- * After MOVE #2 completes, macOS sends a THIRD WriteAllReg with different
- * values from the init-phase passes. This must be sent as a proper bulk
- * write (not init + individual overwrites) because the GL128 may process
- * WriteAllReg differently from individual register writes.
- *
- * 125 register pairs extracted from macOS USB capture lines 371853-373004
- * (timestamp 0:39.870-0:39.876).
- *
- * Key differences from init-phase WriteAllReg (20 registers):
- *   0x06: 0x10 (init=0x18) — STEPNO
- *   0x0B: 0x4C (init=0x6C) — CCD control
- *   0x1C: 0x20 (init=0x00) — timing
- *   0x1D: 0x80 (init=0x00) — timing
- *   0x1E: 0x20 (init=0x10) — timing
- *   0x3B: 0x01 (init=0xFF) — backlash
- *   0x52-0x57: CCD clock offsets (all differ)
- *   0x5A: 0x22 (init=0x12) — CCD timing
- *   0x5B: 0x4A (init=0x00) — CCD timing
- *   0x70-0x73: CCD multiplexing (all differ)
- *   0x7E-0x7F: Line period (0x36B0 vs init 0x2AF8)
+/*
+ * Third register pass, sent after MOVE #2 as a proper bulk write (125
+ * register pairs), not as the init pass plus overrides.  Main differences
+ * from the init pass: 0x06 STEPNO, 0x0B CCD control, 0x1C-0x1E and
+ * 0x5A-0x5B timing, 0x3B backlash, 0x52-0x57 CCD clock offsets, 0x70-0x73
+ * CCD multiplexing and 0x7E-0x7F line period (0x36B0 vs 0x2AF8).
  */
 SANE_Status plustek8200i_init_pass3_registers(int fd)
 {
     SANE_Status status;
 
-    /* Block 1: 64 bytes (32 register pairs) */
     static const uint8_t pass3_block1[64] = {
         0x02, 0x78, 0x3D, 0x00, 0x3E, 0x00, 0x3F, 0x01,
         0x7D, 0x00, 0x7E, 0x36, 0x7F, 0xB0, 0x1C, 0x20,
@@ -361,7 +282,6 @@ SANE_Status plustek8200i_init_pass3_registers(int fd)
         0x0D, 0x00, 0x11, 0x00, 0x12, 0x04, 0x13, 0x08
     };
 
-    /* Block 2: 64 bytes (32 register pairs) */
     static const uint8_t pass3_block2[64] = {
         0x14, 0x01, 0x15, 0x80, 0x16, 0x27, 0x17, 0x0C,
         0x18, 0x10, 0x19, 0x02, 0x1A, 0x00, 0x1B, 0x00,
@@ -373,7 +293,6 @@ SANE_Status plustek8200i_init_pass3_registers(int fd)
         0x36, 0x04, 0x37, 0xC0, 0x38, 0x44, 0x39, 0x00
     };
 
-    /* Block 3: 64 bytes (32 register pairs) */
     static const uint8_t pass3_block3[64] = {
         0x3A, 0x00, 0x3B, 0x01, 0x3C, 0xFF, 0x4F, 0x03,
         0x52, 0x08, 0x53, 0x0A, 0x54, 0x00, 0x55, 0x02,
@@ -385,7 +304,6 @@ SANE_Status plustek8200i_init_pass3_registers(int fd)
         0x77, 0x00, 0x78, 0x00, 0x79, 0x0F, 0x7A, 0xFF
     };
 
-    /* Block 4: 58 bytes (29 register pairs) */
     static const uint8_t pass3_block4[58] = {
         0x7B, 0xFF, 0x7C, 0xFF, 0x80, 0x00, 0x81, 0x22,
         0x82, 0x00, 0x83, 0x01, 0x84, 0x18, 0x85, 0x00,
@@ -399,7 +317,7 @@ SANE_Status plustek8200i_init_pass3_registers(int fd)
 
     DBG(DBG_info, "WriteAllReg pass 3: sending 125 register pairs (250 bytes)...\n");
 
-    /* Send each block as a separate 64-byte chunk (matching macOS behavior) */
+    /* One 64-byte chunk per block, as in the capture */
     status = plustek8200i_write_regs(fd, pass3_block1, sizeof(pass3_block1));
     if (status != SANE_STATUS_GOOD) {
         DBG(DBG_error, "Pass 3 block 1 failed\n");
@@ -428,29 +346,17 @@ SANE_Status plustek8200i_init_pass3_registers(int fd)
     return SANE_STATUS_GOOD;
 }
 
-/*============================================================================
- * Scan-Phase Configuration
- *
- * These functions configure the scanner for the actual scanning MOVE.
- * The macOS driver uses a multi-MOVE sequence:
- *   MOVE #1: Homing (init motor table)
- *   MOVE #2-3: Calibration/positioning (scan motor table)
- *   MOVE #4: Actual scan with CCD data capture (SCAN bit enabled)
- *
- * MOVE #4 requires different CCD timing, buffer layout, and AFE settings
- * compared to the init phase. These values are extracted from the macOS
- * USB capture at timestamps 0:39.939-0:39.971.
- *===========================================================================*/
+/*
+ * Scan-phase configuration.  The scan is a multi-MOVE sequence: MOVE #1
+ * homes (init motor table), #2-3 calibrate and position (scan motor
+ * table), #4 scans with the SCAN bit set.  MOVE #4 needs its own CCD
+ * timing, buffer layout and AFE settings, taken from a USB capture.
+ */
 
-/**
- * Scan-phase motor table from macOS USB capture
- *
- * Extracted from MOVE #3 bulk OUT (timestamp ~0:39.1).
- * This is a DIFFERENT table from the init motor table (macos_motor_table
- * in plustek8200i-motor-tables.c). It has a steeper acceleration curve
- * starting at 0x1585 (5509) vs the init table's 0x2048 (8264).
- *
- * Written to 0x1000C000 (table 4) and 0x10010000 (table 5).
+/*
+ * Scan-phase motor table from the MOVE #3 bulk OUT of a USB capture.
+ * Unlike init_motor_table (plustek8200i-motor-tables.c) it starts at 0x1585
+ * rather than 0x2048.  Written to 0x1000C000 and 0x10010000.
  */
 const uint8_t scan_motor_table[512] = {
     0x85, 0x15, 0x74, 0x06, 0xF1, 0x04, 0x3A, 0x04,
@@ -519,26 +425,13 @@ const uint8_t scan_motor_table[512] = {
     0xC4, 0x00, 0xC4, 0x00, 0xC4, 0x00, 0xC4, 0x00
 };
 
-/**
- * Load scan-phase motor tables (tables 1, 2, 3)
- *
- * Register names (see the note at the register definitions in plustek8200i.h):
- *   Motor table SDRAM mapping
- *     Table 1: AHB 0x1000_0000 (scan acceleration/cruise)
- *     Table 2: AHB 0x1000_4000 (backtrack)
- *     Table 3: AHB 0x1000_8000 (scan deceleration)
- *     Each table: 8K words (16K bytes max, we use 512 bytes)
- *   Reg 0x02 bit 3 FASTFED:
- *     When FASTFED=0, motor uses tables 1-3 (scan mode)
- *     When FASTFED=1, motor uses tables 4-5 (positioning mode)
- *
- * All three tables are filled with the constant value 0x1B58 (7000),
- * meaning constant motor velocity during scanning. The acceleration
- * to scan speed is handled by tables 4/5 during the positioning MOVEs.
- *
- * Extracted from macOS USB capture timestamps 0:41.889-0:41.892.
- * Must be called after scan-phase register configuration and before
- * the scan MOVE command.
+/*
+ * Load scan-phase motor tables 1-3 (0x10000000 scan, 0x10004000 backtrack,
+ * 0x10008000 deceleration; see the register note in plustek8200i.h).
+ * With FASTFED (reg 0x02 bit 3) clear the motor uses these; set, tables
+ * 4-5.  All three are filled with one constant period, i.e. constant
+ * velocity; acceleration is done by tables 4/5 in the positioning MOVEs.
+ * Call after the scan-phase register configuration, before the scan MOVE.
  */
 SANE_Status plustek8200i_load_scan_motor_table(int fd, int period)
 {
@@ -547,24 +440,9 @@ SANE_Status plustek8200i_load_scan_motor_table(int fd, int period)
     int i;
 
     /*
-     * Compute scan motor speed using sane-genesys formula:
-     *
-     *   target_speed_w = (LPERIOD × ydpi) / base_ydpi
-     *   table_value = target_speed_w >> step_shift
-     *
-     * OpticFilm 8200i parameters:
-     *   LPERIOD = 17408 (0x4400, from macOS init reg 0x38-0x39)
-     *   ydpi = 1200 (current scan resolution)
-     *   base_ydpi = 3600 (motor native DPI, from sane-genesys motor table)
-     *   step_type = QUARTER (shift = 2, from sane-genesys motor profile)
-     *
-     *   target_speed_w = (17408 × 1200) / 3600 = 5803
-     *   table_value = 5803 >> 2 = 1450
-     *
-     * At this speed, motor advances 12 micro-steps per CCD line:
-     *   LPERIOD / table_value = 17408 / 1450 = 12
-     *   micro-steps/inch = 3600 × 4 = 14400 (quarter step)
-     *   effective_ydpi = 14400 / 12 = 1200 ✓
+     * sane-genesys formula: table_value = (LPERIOD * ydpi / base_ydpi) >> step_shift
+     * with LPERIOD = 17408 (reg 0x38-0x39), ydpi = 1200, base_ydpi = 3600
+     * and quarter steps (shift 2): 17408 * 1200 / 3600 >> 2 = 1450.
      */
     uint16_t lperiod = 17408;   /* 0x4400 */
     int ydpi = 1200;
@@ -575,21 +453,12 @@ SANE_Status plustek8200i_load_scan_motor_table(int fd, int period)
     uint16_t scan_speed = (uint16_t)(target_speed_w >> step_shift);
 
     /*
-     * The table entries are PERIODS, not speeds: larger means a longer
-     * interval between motor steps, so a slower carriage and MORE lines
-     * per inch. (Confirmed against macos_motor_table, which ramps
-     * 8264 -> 294, i.e. slow start accelerating to cruise.)
-     *
-     * So vertical resolution scales linearly with this value, and
-     * raising it SLOWS the motor. That matters for safety: the failure
-     * that ground the motor came from asking for a step rate it could
-     * not achieve, and this direction cannot do that.
-     *
-     * The formula above predicts 1200 dpi at scan_speed 1450, but the
-     * delivered vertical sampling measures ~1490 dpi
-     * (PLUSTEK8200I_HW_LINE_DPI). Anchor on the measurement rather than
-     * the prediction, since 1450 is the value actually in use.
-     *
+     * Table entries are periods: a larger value is a slower carriage and
+     * more lines per inch (init_motor_table ramps 8264 -> 294).  Raising
+     * it only slows the motor, so it cannot ask for an unachievable step
+     * rate.  The formula predicts 1200 dpi at 1450 but the measured
+     * vertical sampling is ~1490 dpi (PLUSTEK8200I_HW_LINE_DPI), so
+     * scale from the measurement.
      */
     if (period >= 500 && period <= 20000)
         scan_speed = (uint16_t)period;
@@ -598,10 +467,9 @@ SANE_Status plustek8200i_load_scan_motor_table(int fd, int period)
         scan_speed, scan_speed,
         (unsigned)((unsigned long)scan_speed * PLUSTEK8200I_HW_LINE_DPI / 1450));
 
-    /* Fill table with constant scan speed (little-endian) */
     for (i = 0; i < 512; i += 2) {
-        scan_table[i]     = scan_speed & 0xFF;         /* low byte */
-        scan_table[i + 1] = (scan_speed >> 8) & 0xFF;  /* high byte */
+        scan_table[i]     = scan_speed & 0xFF;
+        scan_table[i + 1] = (scan_speed >> 8) & 0xFF;
     }
 
     DBG(DBG_info, "Loading scan motor tables 0-2 (constant speed 0x%04X = %u)\n",
@@ -635,21 +503,11 @@ SANE_Status plustek8200i_load_scan_motor_table(int fd, int period)
     return SANE_STATUS_GOOD;
 }
 
-/**
- * Configure scan-phase registers
- *
- * Writes the complete scan-phase register configuration extracted from
- * the macOS USB capture before MOVE #4 (the first MOVE that produces
- * scan data). This includes:
- *   1. CCD timing registers (0xD0-0xF8)
- *   2. Scan buffer/area configuration (two WriteRegs blocks)
- *   3. Scan-phase AFE calibration (6 blocks)
- *
- * Extracted from macOS USB capture timestamps 0:39.939-0:39.971.
- *
- * IMPORTANT: These values are different from the init-phase values.
- * Without this reconfiguration, the scanner motor runs but produces
- * no valid scan data (valid words = 0).
+/*
+ * Configure the scan-phase registers before MOVE #4, the first MOVE that
+ * produces scan data: shading addresses and image buffers, two register
+ * blocks, and the scan-phase AFE.  Taken from a USB capture; without
+ * them the motor runs but no valid data arrives.
  */
 SANE_Status plustek8200i_configure_scan_phase(int fd)
 {
@@ -659,23 +517,15 @@ SANE_Status plustek8200i_configure_scan_phase(int fd)
     DBG(DBG_info, "=== Configuring scan-phase registers ===\n");
 
     /*
-     * Step 1: Shading addresses and image buffer configuration
-     *
-     * Register names (see the note at the register definitions in plustek8200i.h):
-     *   0xD0-0xD9: SH0DWN-SH9DWN — Shading data start addresses
-     *              in SDRAM for each calibration channel segment.
-     *   0xE0-0xF7: Image buffer boundaries — Circular buffer
-     *              start/end addresses in SDRAM for each color channel.
-     *              Units: 1k words (2048 bytes per unit for 16-bit data).
-     *   0xF8: MAXSEL/MINSEL — Bank selection for buffer-full/empty.
-     *
-     * NOTE: Previous comments incorrectly labeled these as "CCD timing"
-     * and "CCD integration window pairs". They are in fact
-     * shading and image buffer address registers.
+     * Shading addresses and image buffer configuration (register names:
+     * see the note in plustek8200i.h):
+     *   0xD0-0xD9: SH0DWN-SH9DWN, shading data start addresses in SDRAM
+     *   0xE0-0xF7: circular image buffer start/end per color channel,
+     *              in 1k-word units
+     *   0xF8:      MAXSEL/MINSEL, bank selection for buffer full/empty
      */
     DBG(DBG_info, "Scan-phase: shading addrs (D0-D2) + image buffers (E0-F8)\n");
 
-    /* Shading data addresses (SH0DWN, SH1DWN, SH2DWN) */
     status = plustek8200i_write_reg(fd, 0xD0, 0x0A);
     if (status != SANE_STATUS_GOOD) return status;
     status = plustek8200i_write_reg(fd, 0xD1, 0x0A);
@@ -683,7 +533,6 @@ SANE_Status plustek8200i_configure_scan_phase(int fd)
     status = plustek8200i_write_reg(fd, 0xD2, 0x0A);
     if (status != SANE_STATUS_GOOD) return status;
 
-    /* Image buffer addresses (R1DWN/R1UP through B2DWN/B2UP) */
     status = plustek8200i_write_reg(fd, 0xE0, 0x00);
     if (status != SANE_STATUS_GOOD) return status;
     status = plustek8200i_write_reg(fd, 0xE1, 0xA8);
@@ -736,18 +585,9 @@ SANE_Status plustek8200i_configure_scan_phase(int fd)
     if (status != SANE_STATUS_GOOD) return status;
 
     /*
-     * Step 2: Scan-phase WriteRegs block 1 (32 register pairs = 64 bytes)
-     *
-     * Register names (see the note at the register definitions in plustek8200i.h):
-     *   0x80: VRHOME/VRMOVE/VRBACK/VRSCAN — motor voltage regs
-     *   0x81-0x86: ROFFSET/GOFFSET/BOFFSET — RGB offset calibration
-     *   0x87: ACYCNRLC, ENOFFSET, LEDADD, CK4ADC, AUTOCONF
-     *   0x2C-0x2D: ENDPIXEL — end pixel position
-     *   0x01: SCAN(0), SHDAREA(1), DVDSET(5) — scan control
-     *   0x04: LINEART, BITSET, SCANMOD — scan mode config
-     *
-     * NOTE: 0x80-0x87 are motor voltage and RGB offset registers,
-     * NOT buffer addresses as previously documented.
+     * Block 1 (32 pairs): 0x80 motor voltages (VRHOME/VRMOVE/VRBACK/
+     * VRSCAN), 0x81-0x86 RGB offsets, 0x87 AFE config, 0x2C-0x2D
+     * ENDPIXEL, 0x01 scan control, 0x04 scan mode.
      */
     DBG(DBG_info, "Scan-phase: WriteRegs block 1 (32 pairs)\n");
     {
@@ -792,15 +632,7 @@ SANE_Status plustek8200i_configure_scan_phase(int fd)
         }
     }
 
-    /*
-     * Step 3: Scan-phase WriteRegs block 2 (17 register pairs = 34 bytes)
-     *
-     * Configures line count, scan area, and motor parameters.
-     * Key registers:
-     *   0x25-0x27: Line count (how many lines to scan)
-     *   0x28-0x2B: Scan area parameters
-     *   0x0D: CMD register (CLRMCNT)
-     */
+    /* Block 2 (17 pairs): 0x25-0x27 line count, 0x28-0x2B scan area, 0x0D CMD (CLRMCNT) */
     DBG(DBG_info, "Scan-phase: WriteRegs block 2 (17 pairs)\n");
     {
         static const uint8_t scan_block2[34] = {
@@ -829,13 +661,7 @@ SANE_Status plustek8200i_configure_scan_phase(int fd)
         }
     }
 
-    /*
-     * Step 4: Scan-phase AFE (6 blocks)
-     *
-     * Different from init AFE: only 6 blocks (indices 2-7), not 8.
-     * Blocks 5-7 have data=0x0080 instead of 0x0000.
-     * This configures analog gain/offset for the scan CCD channels.
-     */
+    /* Scan-phase AFE: indices 2-7 only, with blocks 5-7 at 0x0080 */
     DBG(DBG_info, "Scan-phase: AFE blocks (6 blocks, indices 2-7)\n");
     {
         static const uint8_t scan_afe_data[6][3] = {
@@ -869,34 +695,15 @@ SANE_Status plustek8200i_configure_scan_phase(int fd)
 }
 
 /*
- * Verified-good CCD timing / clock / segment configuration.
+ * CCD timing / clock / segment configuration taken from a USB capture of
+ * the Windows SilverFast software on this model.  It decodes to a clean
+ * image with no processing; the earlier values produced the dark/dummy
+ * pixel bands and R/GB interleaving that the desegmentation code in
+ * plustek8200i.c worked around.
  *
- * Source: a USB capture of the Windows SilverFast software, taken on
- * this model.
- *
- * These are not derived by analogy and not guessed. They are the exact
- * values observed driving this physical scanner minutes before our own
- * capture of the same film frame, and that stream decodes to a clean
- * image with no processing at all:
- *
- *     slice at 2592 samples -> 864 px, RGB interleaved -> luminance
- *
- * Our configuration instead produces a stream whose line-period carrier
- * is SUPPRESSED (5.4%) and replaced by +-2-sample sidebands at 26%; the
- * Windows stream has a healthy carrier (15.7%, 17x median) and no
- * sidebands. Check with:
- *
- *     python3 a USB stream decoder <capture.pcapng>
- *
- * The "dark/dummy pixel bands every 512 pixels" and "R/GB interleaving"
- * described in plustek8200i.c, and the whole desegmentation pipeline
- * built to undo them, are artifacts of the CCD values we were using.
- *
- * IMPORTANT: DPISET and the CCD clocking MUST change together. An
- * earlier session tried genesys-style CCD registers (0x70=0x0A, which is
- * what Windows uses) while holding DPISET=1200 and got "green-only
- * constant data", concluded "root cause unknown", and reverted. Windows
- * pairs that clocking with DPISET=100.
+ * DPISET and the CCD clocking must change together: genesys-style CCD
+ * registers (0x70=0x0A) with DPISET=1200 give constant green-only data.
+ * Windows pairs that clocking with DPISET=100.
  */
 SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
 {
@@ -904,48 +711,25 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
     int i;
 
     /*
-     * (register, value) pairs, Windows state AS OF SCAN START.
-     *
-     * Sampled at the frame where the image bulk stream begins, NOT at the
-     * end of the capture. 14 registers are rewritten during post-scan
-     * teardown, and an earlier attempt here copied those teardown values
-     * by mistake -- including 0x51, 0xA5, 0xA7 and 0xA9, where our legacy
-     * values were already correct. That broke the segment configuration
-     * and the scan returned constant data (one channel pinned ~38404,
-     * the others near zero), which is exactly the "green-only constant
-     * data" an earlier session hit and could not explain.
-     *
-     * Only registers that genuinely differ at scan time are written here.
+     * (register, value) pairs as of scan start in the Windows capture,
+     * not its end: 14 registers are rewritten during post-scan teardown,
+     * and copying those gave constant data.  Only registers that differ
+     * at scan time are written.
      */
     static const uint8_t verified[] = {
-        /*
-         * DPISET is NOT written here. It selects the resolution and is
-         * set from dev->opt_resolution in the scan register block, which
-         * runs BEFORE this function -- hardcoding it here silently
-         * overrode the caller and made a whole DPISET sweep return the
-         * same 864 px line three times.
-         */
+        /* DPISET is deliberately not written: the scan register block sets it
+         * from dev->opt_resolution before this runs. */
 
         /* CCD transfer-gate timing */
         0x52, 0x0B, 0x53, 0x0D, 0x54, 0x0F,
         0x56, 0x05, 0x57, 0x07,
 
         /*
-         * 0x55 is the GREEN channel's transfer-gate sample point, and it
-         * is the one place where Windows' value does NOT work for us.
-         *
-         * Windows runs 0x55=0x01. With that, green comes back quantised
-         * to a median code step of 8 -- 444 distinct values across the
-         * frame against red's 29337 -- while red and blue are clean. Our
-         * legacy 0x02 restores it to 15649 distinct values with the low
-         * byte fully populated, and leaves red and blue untouched.
-         *
-         * Isolated by reverting each register of this block in turn
-         * against a distinct-value count; 0x55 alone accounts for all of
-         * it (0x54 alone changes nothing). Presumably some other clock
-         * phase differs between our configuration and Windows' and
-         * shifts the required green sample point by one, but 0x02 is
-         * what this configuration needs -- measured, not derived.
+         * 0x55 is the green transfer-gate sample point, and the one place
+         * Windows' value (0x01) does not work: green is quantised to 444
+         * distinct values against red's 29337.  0x02 restores 15649 with
+         * red and blue unchanged (isolated by reverting each register in
+         * turn).  Measured, not derived.
          */
         0x55, 0x02,
         0x5A, 0x31, 0x5B, 0x79,
@@ -958,22 +742,14 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
         0xA3, 0x01,
 
         /*
-         * AFE. Changing the CCD clock phases above moves the moment at
-         * which each colour is valid on the output, so the AFE's sample
-         * point has to move with them -- these are not independent. With
-         * the CCD block applied but the AFE left at our values, the scan
-         * returns G pinned at ~38404 and R/B near zero, which is the
-         * "green-only constant data" symptom.
+         * AFE.  Changing the CCD clock phases moves when each colour is
+         * valid, so the AFE sample point must move with them; applying the
+         * CCD block alone gives constant green-only data.
          */
         0x80, 0x00, 0x84, 0xF2, 0x86, 0x29, 0x87, 0x72,
 
-        /*
-         * REG06 = SCANMOD[7:5] | PWRBIT[4] | GAIN4[3] | OPTEST[2:0].
-         * Windows runs SCANMOD=7, we were running SCANMOD=0. SCANMOD
-         * selects the sensor readout mode, so getting it wrong is a
-         * plausible cause of a channel reading constant. PWRBIT is set
-         * in both, so this does not touch power.
-         */
+        /* REG06 = SCANMOD[7:5] | PWRBIT[4] | GAIN4[3] | OPTEST[2:0].
+         * Windows runs SCANMOD=7, we ran 0; PWRBIT is set in both. */
         0x06, 0xF0,
 
         /* Remaining non-motor differences at scan time. */
@@ -981,35 +757,17 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
     };
 
     /*
-     * AFE gain and offset, per channel.
+     * AFE gain and offset per channel, written via the side channel
+     * (index to 0x51, value to 0x5D high / 0x5E low).  Measured:
+     *   index 0x02-0x04 = R/G/B gain, a 6-bit multiplicative field
+     *     (0x40 behaves as 0x00); monotonic but super-linear near the top,
+     *     so calibration must iterate.
+     *   index 0x05-0x07 = R/G/B offset, purely additive.
      *
-     * The AFE is programmed over a side channel: write the register
-     * index to 0x51, then the value as 0x5D (high) / 0x5E (low).
-     *
-     * MEASURED semantics (an earlier comment here had these backwards):
-     *   index 0x02/0x03/0x04 = R/G/B GAIN, a 6-bit field. Multiplicative:
-     *     sweeping it scales dark and signal by the same ratio, and 0x40
-     *     behaves identically to 0x00 because bit 6 is not part of the
-     *     field. Response is monotonic but super-linear near the top, so
-     *     calibration has to iterate rather than fit two points.
-     *   index 0x05/0x06/0x07 = R/G/B OFFSET. Purely additive: raising it
-     *     shifted dark by +1202 and the signal by +1205.
-     *
-     * The compiled values below come from the Windows capture of one
-     * specific unit and leave green and blue badly under-exposed (p99.5
-     * at 22% and 18% of full scale against red's 45%). Per-device
-     * calibration overrides them; see the config file below.
-     *
-     * Our driver left all three gains at a flat 0x80 with zero offsets.
-     * Windows ends its calibration on this scanner at the values below
-     * -- roughly a third of our gain, and unequal per channel. Running
-     * flat 0x80 left the channels at very different levels and
-     * quantised green hard: only 474 distinct values across the frame
-     * against red's 23329, i.e. about 9 bits of the 16.
-     *
-     * These are Windows' calibrated results for this unit, used here as
-     * fixed defaults. Doing our own AFE calibration pass would be
-     * better.
+     * These are Windows' calibrated results for one unit, used as fixed
+     * defaults; per-device calibration overrides them.  A flat 0x80
+     * quantised green to 474 distinct values against red's 23329.  Our
+     * own AFE calibration would be better.
      */
     static const uint8_t afe[][3] = {
         { 0x02, 0x00, 0x10 },   /* gain   R */
@@ -1026,10 +784,6 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
     if (status != SANE_STATUS_GOOD)
         return status;
 
-    /*
-     * Indices 0x02-0x04 are the R/G/B offsets, 0x05-0x07 the gains.
-     * Written as (index, offset/gain high byte, low byte) triples.
-     */
     for (i = 0; i < (int)(sizeof(afe) / sizeof(afe[0])); i++) {
         uint8_t block[6] = { 0x51, afe[i][0],
                              0x5D, afe[i][1],
@@ -1046,21 +800,13 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
         afe[3][2], afe[4][2], afe[5][2]);
 
     /*
-     * Infrared channel.
-     *
-     * From the device plist: IRMASK = 0x37,0x04,0x04, read as
-     * (register, mask, value). the vendor driver does a
-     * read-modify-write with it:
-     *
-     *   IR on :  reg = (cur & ~mask) | value          -> set bit 2
-     *   IR off:  reg = (cur & ~mask) | (mask ^ value) -> clear bit 2
-     *
-     * The plist also carries full NegativeIR / PositiveIR profiles with
-     * their own LINEGAIN / PIXELGAIN / LINEDARK, so the IR pass is a
-     * SEPARATE scan with its own calibration, not a fourth channel in
-     * the RGB readout.
-     *
-     * This only flips an illumination bit -- no motor, no geometry.
+     * Infrared channel.  The device configuration's IRMASK = 0x37,0x04,0x04
+     * is (register, mask, value), applied read-modify-write:
+     *   IR on :  reg = (cur & ~mask) | value
+     *   IR off:  reg = (cur & ~mask) | (mask ^ value)
+     * The IR pass is a separate scan with its own calibration, not a
+     * fourth RGB channel.  This only flips an illumination bit; no motor
+     * or geometry.
      */
     if (plustek8200i_use_infrared()) {
         uint8_t cur = 0, v;
@@ -1075,11 +821,10 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
         DBG(DBG_info, "IR: reg 0x37 0x%02X -> 0x%02X\n", cur, v);
 
         /*
-         * 2. White lamp OFF, XPASEL on. REG03 bit 4 is lamp power and
-         * bit 5 is XPASEL. With the white lamp left on, the IR LED
-         * merely adds light: the scan saturates and still correlates
-         * +0.86 with the visible image. With it off, the dye image
-         * disappears -- interior correlation drops to +0.007.
+         * 2. White lamp off, XPASEL on (REG03 bit 4 lamp, bit 5 XPASEL).
+         * With the lamp left on the IR LED only adds light: the scan
+         * saturates and still correlates +0.86 with the visible image;
+         * off, it drops to +0.007.
          */
         plustek8200i_read_reg(fd, 0x03, &cur);
         v = (uint8_t)((cur & (uint8_t)~0x10) | 0x20);
@@ -1088,18 +833,11 @@ SANE_Status plustek8200i_apply_verified_ccd_regs(int fd)
             cur, v);
 
         /*
-         * 3. AFE gain for the IR pass.
-         *
-         * Film base is nearly transparent to IR, so the gains
-         * calibrated for the visible pass clip the whole frame at
-         * 65535 and only total blockers register. The IR pass needs
-         * its own, far lower, gains.
-         *
-         * The plist carries NegativeIR / PositiveIR profiles, but their
-         * LINEGAIN / PIXELGAIN / LINEDARK values drive the ASIC's
-         * shading-correction tables (DVDSET), which this driver does
-         * not implement -- so they cannot be applied as-is. Gain 1 is
-         * used instead: safe, because it cannot clip.
+         * 3. AFE gain for the IR pass.  Film base is nearly transparent to
+         * IR, so the visible-pass gains clip the whole frame; use gain 1.
+         * The configuration's NegativeIR / PositiveIR gain profiles drive
+         * ASIC shading tables (DVDSET) that this driver does not
+         * implement, so they cannot be applied.
          */
         for (k = 0; k < 3; k++) {
             uint8_t g = ir_gain[k];

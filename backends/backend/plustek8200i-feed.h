@@ -27,9 +27,9 @@
 #include <stdint.h>
 #include "../include/sane/sane.h"
 
-/* Longest feed SilverFast was seen to make. */
+/* Longest feed seen in the capture */
 #define PLUSTEK8200I_FEED_MAX 28292
-/* An image FEEDL of F reaches the same place as a feed of F - this. */
+/* An image FEEDL of F lands where a feed of F - this does */
 #define PLUSTEK8200I_FEED_LEAD 520
 
 typedef struct {
@@ -39,10 +39,10 @@ typedef struct {
 
 SANE_Status plustek8200i_feed_save(int fd, plustek8200i_feed_saved_t *saved);
 SANE_Status plustek8200i_feed_restore(int fd, const plustek8200i_feed_saved_t *saved);
-/* One positioning feed of `steps` (1..PLUSTEK8200I_FEED_MAX), with
- * SilverFast's slow (first feed) or fast (second feed) ramp. Leaves
- * 0x02 = 0x08 and FEEDL = 1, as SilverFast does; the motor tables at
- * 0x1000C000/0x10010000 hold the feed ramp afterwards. */
+/* One positioning feed of `steps` (1..PLUSTEK8200I_FEED_MAX) with the
+ * captured slow (first feed) or fast (second feed) ramp.  Leaves
+ * 0x02 = 0x08 and FEEDL = 1; the feed ramp stays in the motor tables at
+ * 0x1000C000/0x10010000. */
 SANE_Status plustek8200i_feed(int fd, int steps, int slow_ramp);
 
 #endif
