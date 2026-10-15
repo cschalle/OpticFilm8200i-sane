@@ -2,6 +2,10 @@
 
 [![Fedora RPM build](https://github.com/cschalle/OpticFilm8200i-sane/actions/workflows/rpm.yml/badge.svg)](https://github.com/cschalle/OpticFilm8200i-sane/actions/workflows/rpm.yml)
 
+**[Repository on GitHub](https://github.com/cschalle/OpticFilm8200i-sane)** &nbsp;·&nbsp;
+**[Upstream SANE ticket #886](https://gitlab.com/sane-project/backends/-/work_items/886)** &nbsp;·&nbsp;
+**[Interactive driver comparison](https://htmlpreview.github.io/?https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/drivers-comparison.html)**
+
 A [SANE](http://www.sane-project.org/) backend for the Plustek OpticFilm 8200i
 film scanner with the Genesys **GL128** controller, USB ID `07b3:1825`. It
 works with any SANE frontend (`scanimage`, XSane, Simple Scan, ...).
@@ -33,7 +37,9 @@ The backend was developed and verified against a single scanner. It scans one
 frame per start, with the film holder positioned by hand. The scanner itself
 takes 35 mm film only (strips and mounted slides), and the backend covers its
 whole scan area. The full list is in the **LIMITATIONS** section of the manual
-page (`man sane-plustek8200i`). It is not part of the upstream SANE project.
+page (`man sane-plustek8200i`). It is not part of the upstream SANE project,
+though bringing its improvements to SANE's own backend is being discussed in
+[SANE backends issue #886](https://gitlab.com/sane-project/backends/-/work_items/886).
 
 ## How it was developed
 
@@ -46,7 +52,8 @@ used in this backend.
 
 Upstream SANE's `genesys` backend gained support for this scanner in September 2026
 (it lists it as the "Plustek OpticFilm 8200i SE", the same USB ID `07b3:1825`). This
-backend was developed independently and has not been submitted upstream. If both are
+backend was developed independently; the differences below were raised upstream in
+[issue #886](https://gitlab.com/sane-project/backends/-/work_items/886). If both are
 installed, `scanimage -L` lists the scanner twice, as `plustek8200i:...` and
 `genesys:...`; choose one with `-d`.
 
