@@ -67,6 +67,15 @@ th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.
 td.neg{color:#d23b3b;font-weight:700}
 .crops{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:var(--gap)}
 .note{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius);padding:12px 16px;margin:16px 0;max-width:90ch}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 20px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:9px 15px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);text-decoration:none;font-weight:650;font-size:.95rem}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{color:#fff;filter:brightness(1.08)}
+.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn svg{width:18px;height:18px;flex:none;fill:currentColor}
+.btn span.where{font-weight:400;opacity:.75}
+footer a{color:var(--accent)}
 footer{margin-top:44px;color:var(--muted);font-size:.86rem;max-width:90ch}
 [hidden]{display:none!important}
 </style>
@@ -77,6 +86,15 @@ footer{margin-top:44px;color:var(--muted);font-size:.86rem;max-width:90ch}
   <p class="lead">The same colour negative on the same OpticFilm 8200i, scanned once with our
   <span class="pill o">plustek8200i</span> backend and once with upstream SANE's
   <span class="pill g">genesys GL128</span>. Both are shown through the identical negative-conversion pipeline, so what you see differs only because the scanners' raw data differs.</p>
+
+  <nav class="links" aria-label="Project links">
+    <a class="btn primary" href="https://github.com/cschalle/OpticFilm8200i-sane">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.63-.18 1.3-.27 1.97-.27.67 0 1.34.09 1.97.27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A7.995 7.995 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      The plustek8200i backend <span class="where">on GitHub</span></a>
+    <a class="btn" href="https://gitlab.com/sane-project/backends/-/work_items/886">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>
+      Upstream SANE ticket #886 <span class="where">on GitLab</span></a>
+  </nav>
 
   <div class="cards">
     <div class="card"><h3>Speed (full frame)</h3>
@@ -170,6 +188,10 @@ footer{margin-top:44px;color:var(--muted);font-size:.86rem;max-width:90ch}
 
   <footer>
     <p><b>How this was made.</b> Same frame, same film holder position, scanned on 2026-10-09 with an OpticFilm 8200i (USB 07b3:1825). Ours: <code>plustek8200i</code> from this repository. Genesys: upstream SANE master (415217c5) with its GL128 command set. Both raw 16-bit scans went through the same <code>nv-cli render</code> negative conversion with each backend's own film-base estimate, no dust removal. The two images were aligned by correlating edges; the whole-frame views use the measured offset (1.06 mm horizontal, 1.44 mm vertical at 600 dpi). Single scanner, single frame.</p>
+    <p><b>Where to go next.</b> The backend, build instructions and the scripts that produced these images live in the
+    <a href="https://github.com/cschalle/OpticFilm8200i-sane">OpticFilm8200i-sane repository</a>.
+    Upstreaming is tracked in SANE backends
+    <a href="https://gitlab.com/sane-project/backends/-/work_items/886">work item #886</a>.</p>
   </footer>
 </div>
 
