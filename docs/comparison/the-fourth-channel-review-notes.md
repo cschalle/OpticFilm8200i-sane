@@ -1,6 +1,6 @@
 # The Fourth Channel: verification notes
 
-Companion to [The Fourth Channel](the-fourth-channel.md). These notes were written against the 15 October version; the document has since been revised (rev 2, then rev 3), and the numbered corrections below are the reasons for those revisions.
+Companion to [The Fourth Channel](the-fourth-channel.md). These notes were written against the 15 October version; the document has since been revised (rev 2 to rev 4; rev 4 is the short form for a maintainer), and the numbered corrections below are the reasons for those revisions.
 
 Review of `The Fourth Channel.md` (15 October 2026, convention draft rev 1), checked on
 21 October 2026 against:
