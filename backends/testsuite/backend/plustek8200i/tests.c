@@ -116,12 +116,60 @@ test_monotonic(void)
     }
 }
 
+/*
+ * The button latch, which a frontend reads by polling: a press must be
+ * reported exactly once, and must survive until someone asks for it.
+ * These are the pure halves of plustek8200i-button.c, so no scanner is
+ * needed; the codes themselves were measured on the hardware.
+ */
+static void
+test_button_latch(void)
+{
+    unsigned latch = 0;
+
+    check_int("empty latch reports no QuickScan",
+              plustek8200i_button_take(&latch, PLUSTEK8200I_BTN_QUICKSCAN), 0);
+
+    /* A press is latched, reported once, and then gone. */
+    latch = plustek8200i_button_fold(0, PLUSTEK8200I_BTN_INTELLISCAN);
+    check_int("IntelliScan press is latched", latch != 0, 1);
+    check_int("IntelliScan reads as pressed",
+              plustek8200i_button_take(&latch, PLUSTEK8200I_BTN_INTELLISCAN), 1);
+    check_int("IntelliScan does not read twice",
+              plustek8200i_button_take(&latch, PLUSTEK8200I_BTN_INTELLISCAN), 0);
+
+    /* Reading one button must not consume the other. */
+    latch = plustek8200i_button_fold(0, PLUSTEK8200I_BTN_INTELLISCAN);
+    latch = plustek8200i_button_fold(latch, PLUSTEK8200I_BTN_QUICKSCAN);
+    check_int("QuickScan read leaves IntelliScan alone",
+              plustek8200i_button_take(&latch, PLUSTEK8200I_BTN_QUICKSCAN), 1);
+    check_int("IntelliScan still latched afterwards",
+              plustek8200i_button_take(&latch, PLUSTEK8200I_BTN_INTELLISCAN), 1);
+
+    /* Two presses between polls collapse into one report: the hardware
+     * sends one packet per press, and a frontend acts once either way. */
+    latch = plustek8200i_button_fold(0, PLUSTEK8200I_BTN_QUICKSCAN);
+    latch = plustek8200i_button_fold(latch, PLUSTEK8200I_BTN_QUICKSCAN);
+    check_int("repeated presses collapse to one report",
+              plustek8200i_button_take(&latch, PLUSTEK8200I_BTN_QUICKSCAN), 1);
+    check_int("and nothing is left over",
+              plustek8200i_button_take(&latch, PLUSTEK8200I_BTN_QUICKSCAN), 0);
+
+    /* A byte this panel cannot produce is not a button. */
+    check_int("unknown packet bits are ignored",
+              (int)plustek8200i_button_fold(0, 0x21), 0);
+    check_int("known bits survive an unknown neighbour",
+              (int)plustek8200i_button_fold(0, PLUSTEK8200I_BTN_QUICKSCAN | 0x01),
+              PLUSTEK8200I_BTN_QUICKSCAN);
+}
+
 int
 main(void)
 {
     test_frame_geometry();
     test_vertical_sampling();
     test_monotonic();
+    test_button_latch();
 
     printf("\n%s: %d failure%s\n", failures ? "FAILED" : "PASSED",
            failures, failures == 1 ? "" : "s");

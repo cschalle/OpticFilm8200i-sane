@@ -87,8 +87,43 @@ enum plustek8200i_option {
     OPT_TL_Y,            /* Top-left Y (mm) */
     OPT_BR_X,            /* Bottom-right X (mm) */
     OPT_BR_Y,            /* Bottom-right Y (mm) */
+    OPT_SENSOR_GROUP,
+    OPT_SCAN_SW,         /* QuickScan button, read-and-clear */
+    OPT_INTELLISCAN_SW,  /* IntelliScan button, read-and-clear */
     NUM_OPTIONS
 };
+
+/*
+ * Button codes as they arrive on interrupt endpoint 0x83, one byte per
+ * press.  Measured on the hardware; see plustek8200i-button.c.
+ */
+#define PLUSTEK8200I_BTN_INTELLISCAN  0x08
+#define PLUSTEK8200I_BTN_QUICKSCAN    0x40
+
+/*
+ * Fold one interrupt packet into the latch.
+ *
+ * Unknown bits are kept out: this panel has two buttons and both codes are
+ * known, so anything else is not a press we can name and must not surface
+ * as one.
+ */
+static inline unsigned plustek8200i_button_fold(unsigned latch, uint8_t packet)
+{
+    return latch | (packet & (PLUSTEK8200I_BTN_INTELLISCAN
+                              | PLUSTEK8200I_BTN_QUICKSCAN));
+}
+
+/*
+ * Take one button out of the latch: non-zero if it was pressed since the
+ * last call, and the press is consumed.
+ */
+static inline int plustek8200i_button_take(unsigned *latch, unsigned mask)
+{
+    int pressed = (*latch & mask) != 0;
+
+    *latch &= ~mask;
+    return pressed;
+}
 
 /* Device structure */
 typedef struct plustek8200i_device {
@@ -133,6 +168,9 @@ typedef struct plustek8200i_device {
     volatile int in_start;        /* sane_start is running */
     uint8_t  *ir_map;            /* stashed IR frame, 16-bit gray */
     size_t    ir_map_size;
+    /* front-panel buttons (see plustek8200i-button.c) */
+    unsigned  btn_latch;         /* presses read off 0x83, not yet reported */
+    double    btn_last_poll;     /* seconds; coalesces back-to-back polls */
     int opt_mode;          /* 0=Color, 1=Gray */
     SANE_Fixed opt_tl_x;   /* Top-left X in mm (SANE_FIX) */
     SANE_Fixed opt_tl_y;   /* Top-left Y in mm */

@@ -72,6 +72,78 @@ For dense negatives and dark slides.
 .TP
 .B \-l \-t \-x \-y
 The scan window, in millimetres, within the film frame.
+.SH BUTTONS
+The scanner has two buttons on its front, marked
+.B IntelliScan
+and
+.BR QuickScan .
+The backend reports them as read-only sensor options, which a frontend
+polls:
+.TP
+.B \-\-scan
+The
+.B QuickScan
+button. It carries the standard SANE name
+.RB \(lq scan \(rq,
+being this panel's scan button, so a generic button daemon such as
+.BR scanbd (8)
+finds it without configuration.
+.TP
+.B \-\-intelliscan
+The
+.B IntelliScan
+button. There is no standard SANE name for a second scan button, and
+giving it a reserved one such as
+.RB \(lq email \(rq
+would misdescribe it.
+.PP
+Both are
+.B SANE_TYPE_BOOL
+with
+.B SANE_CAP_HARD_SELECT
+and
+.BR SANE_CAP_SOFT_DETECT ,
+and both are read\-and\-clear: a press stays pending until the option is
+read, and the read that reports it clears it, so one press is reported
+exactly once. Polling a few times a second is enough; a press cannot be
+missed by polling too slowly, because the scanner holds it until it is
+read.
+.PP
+To watch them with
+.BR scanimage (1):
+.PP
+.RS
+.nf
+while :; do
+    scanimage \-\-device "$dev" \-A 2>/dev/null \e
+        | grep \-E \-\- '\-\-(scan|intelliscan)\e[.*\e[yes\e]'
+    sleep 0.5
+done
+.fi
+.RE
+.PP
+A pressed button is the one whose value
+.B \-A
+prints as
+.RB \(lq [yes] \(rq,
+and it reads as
+.RB \(lq [no] \(rq
+from then on. For anything more than a look, use a daemon built for the
+job, such as
+.BR scanbd (8),
+rather than a loop around
+.BR scanimage (1):
+each run opens and closes the scanner, and
+.B sane_open
+discards whatever was pending, so a loop like the one above can drop a
+press that lands between two runs.
+.PP
+A press made while no frontend has the scanner open is still waiting the
+next time one opens it. Because such a press has no relation to what the
+new frontend is doing,
+.B sane_open
+discards whatever is pending, and only presses made during the session
+are reported.
 .SH IMAGE DATA
 As required by the SANE standard, 16 bit samples are delivered in the
 .B native byte order of the host
@@ -124,6 +196,12 @@ or the infrared plane for dust removal on Kodachrome, and remove dust in
 software instead. Ektachrome and other E-6 slide films, and colour
 negatives, are transparent to infrared and work normally. Silver
 black and white negatives block infrared as well.
+.IP \(bu 2
+Button presses are not reported while a scan is running. The scan owns
+the USB timeouts the button read would have to change, so the backend
+leaves the endpoint alone until the scan finishes. Nothing is lost: the
+scanner keeps the press queued, and the first poll after the scan
+reports it.
 .IP \(bu 2
 Non-blocking I/O is not supported:
 .BR sane_set_io_mode

@@ -1529,6 +1529,7 @@ libplustek8200i_la_SOURCES = plustek8200i.c plustek8200i.h \
 	plustek8200i-scan.c plustek8200i-scan.h \
 	plustek8200i-shading.c plustek8200i-shading.h \
 	plustek8200i-usb.c \
+	plustek8200i-button.c plustek8200i-button.h \
 	plustek8200i-mode.c
 libplustek8200i_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=plustek8200i
 

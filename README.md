@@ -25,7 +25,10 @@ backend provides:
 - 8 or 16 bits per channel;
 - optional dust and scratch removal from the infrared channel (`--ir-clean`);
 - an exposure multiplier (1.0 to 4.0) for dense negatives and dark slides;
-- a scan window inside the film frame.
+- a scan window inside the film frame;
+- the **IntelliScan** and **QuickScan** buttons on the front of the scanner,
+  as the SANE sensor options `--intelliscan` and `--scan` (see
+  `man sane-plustek8200i`).
 
 The image is delivered as the scanner measured it, after shading correction.
 The backend does not invert negatives or apply a gamma curve or colour

@@ -36,6 +36,7 @@
 #include "plustek8200i-scan.h"
 #include "plustek8200i-shading.h"
 #include "plustek8200i-feed.h"
+#include "plustek8200i-button.h"
 #include "../include/sane/sanei_config.h"
 #include <sys/time.h>
 #include <limits.h>
@@ -294,6 +295,51 @@ init_options(plustek8200i_device_t *dev)
     od->constraint_type = SANE_CONSTRAINT_RANGE;
     od->constraint.range = &y_range;
 
+    /* Group: Sensors */
+    od = &dev->opt[OPT_SENSOR_GROUP];
+    od->name = SANE_NAME_SENSORS;
+    od->title = SANE_TITLE_SENSORS;
+    od->desc = SANE_DESC_SENSORS;
+    od->type = SANE_TYPE_GROUP;
+    od->unit = SANE_UNIT_NONE;
+    od->size = 0;
+    od->cap = SANE_CAP_ADVANCED;
+    od->constraint_type = SANE_CONSTRAINT_NONE;
+
+    /*
+     * The two front-panel buttons.  SANE_CAP_HARD_SELECT says the value is
+     * chosen at the hardware, SANE_CAP_SOFT_DETECT that it can be read --
+     * the combination every button-watching frontend (scanbd and friends)
+     * looks for.  Reading one reports a press once and consumes it; see
+     * plustek8200i-button.c.
+     *
+     * QuickScan takes the standard "scan" name because it is this panel's
+     * scan button: that is what a generic button daemon will look for.
+     * IntelliScan has no standard name, and inventing a meaning for one of
+     * the reserved names ("email", "copy") would be worse than its own.
+     */
+    od = &dev->opt[OPT_SCAN_SW];
+    od->name = SANE_NAME_SCAN;
+    od->title = SANE_I18N("QuickScan button");
+    od->desc = SANE_I18N("The QuickScan button on the front of the scanner "
+                         "was pressed. Reading this reports a press once.");
+    od->type = SANE_TYPE_BOOL;
+    od->unit = SANE_UNIT_NONE;
+    od->size = sizeof(SANE_Bool);
+    od->cap = SANE_CAP_SOFT_DETECT | SANE_CAP_HARD_SELECT | SANE_CAP_ADVANCED;
+    od->constraint_type = SANE_CONSTRAINT_NONE;
+
+    od = &dev->opt[OPT_INTELLISCAN_SW];
+    od->name = "intelliscan";
+    od->title = SANE_I18N("IntelliScan button");
+    od->desc = SANE_I18N("The IntelliScan button on the front of the scanner "
+                         "was pressed. Reading this reports a press once.");
+    od->type = SANE_TYPE_BOOL;
+    od->unit = SANE_UNIT_NONE;
+    od->size = sizeof(SANE_Bool);
+    od->cap = SANE_CAP_SOFT_DETECT | SANE_CAP_HARD_SELECT | SANE_CAP_ADVANCED;
+    od->constraint_type = SANE_CONSTRAINT_NONE;
+
     /* Set defaults */
     dev->opt_resolution = 3600;
     dev->opt_bit_depth = 16;
@@ -304,6 +350,8 @@ init_options(plustek8200i_device_t *dev)
     dev->in_ir_pass = 0;
     dev->ir_map = NULL;
     dev->ir_map_size = 0;
+    dev->btn_latch = 0;
+    dev->btn_last_poll = 0.0;
     dev->opt_tl_x = SANE_FIX(0.0);
     dev->opt_tl_y = SANE_FIX(0.0);
     dev->opt_br_x = SANE_FIX(PLUSTEK8200I_WINDOW_W_MM);
@@ -550,10 +598,20 @@ sane_open(SANE_String_Const devicename, SANE_Handle *handle)
                            USB_DIR_IN | USB_ENDPOINT_TYPE_BULK, 0x81);
     sanei_usb_set_endpoint(dev->usb_fd,
                            USB_DIR_OUT | USB_ENDPOINT_TYPE_BULK, 0x02);
-    DBG(DBG_info, "sane_open: endpoints configured (bulk IN=0x81, bulk OUT=0x02)\n");
+    sanei_usb_set_endpoint(dev->usb_fd,
+                           USB_DIR_IN | USB_ENDPOINT_TYPE_INTERRUPT, 0x83);
+    DBG(DBG_info, "sane_open: endpoints configured "
+                  "(bulk IN=0x81, bulk OUT=0x02, interrupt IN=0x83)\n");
 
     /* Initialize SANE options with defaults */
     init_options(dev);
+
+    /*
+     * The scanner holds an unread button press indefinitely, so whatever is
+     * queued now dates from before this session and means nothing to the
+     * frontend that just opened us.  Drop it.
+     */
+    plustek8200i_button_discard(dev);
 
     *handle = dev;
     return SANE_STATUS_GOOD;
@@ -657,6 +715,22 @@ sane_control_option(SANE_Handle handle, SANE_Int option,
             return SANE_STATUS_GOOD;
         case OPT_BR_Y:
             *(SANE_Fixed *)value = dev->opt_br_y;
+            return SANE_STATUS_GOOD;
+
+        /*
+         * Buttons.  One poll serves whichever button is read first and
+         * fills the latch for both, so a frontend reading the pair in a row
+         * pays for a single endpoint read.
+         */
+        case OPT_SCAN_SW:
+        case OPT_INTELLISCAN_SW:
+            plustek8200i_button_poll(dev);
+            *(SANE_Bool *)value =
+                plustek8200i_button_take(&dev->btn_latch,
+                                         option == OPT_SCAN_SW
+                                           ? PLUSTEK8200I_BTN_QUICKSCAN
+                                           : PLUSTEK8200I_BTN_INTELLISCAN)
+                ? SANE_TRUE : SANE_FALSE;
             return SANE_STATUS_GOOD;
         default:
             return SANE_STATUS_INVAL;
