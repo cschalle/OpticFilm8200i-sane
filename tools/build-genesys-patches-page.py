@@ -25,6 +25,7 @@ W = sys.argv[1] if len(sys.argv) > 1 else "page"
 OUT = os.path.join(ROOT, "docs", "comparison", "genesys-patches.html")
 PATCHES = os.path.join(ROOT, "docs", "upstream-genesys-patches")
 GH = "https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/upstream-genesys-patches/"
+HP = "https://htmlpreview.github.io/?https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/"
 MM = 25.4
 
 M = json.load(open(os.path.join(W, "metrics.json")))
@@ -194,12 +195,13 @@ th:nth-child(2),th:nth-child(1){text-align:left}
   %(PU)s SANE (<code>genesys</code>, master <code>982deaef</code>) and once with the same driver with
   %(PP)s <a href="https://github.com/cschalle/OpticFilm8200i-sane/tree/main/docs/upstream-genesys-patches">seven patches</a>
   applied. Both go through the identical negative conversion, so what you see differs only because the raw data differs.
-  The patches bring genesys closer to the <a href="drivers-comparison.html">plustek8200i backend</a> compared on the earlier page.</p>
+  The patches bring genesys closer to the <a href="%(HP)sdrivers-comparison.html">plustek8200i backend</a> compared on the earlier page.</p>
 
   <nav class="links" aria-label="Project links">
     <a class="btn primary" href="https://github.com/cschalle/OpticFilm8200i-sane/tree/main/docs/upstream-genesys-patches">The patches <span class="where">on GitHub</span></a>
     <a class="btn" href="https://gitlab.com/sane-project/backends/-/work_items/886">Upstream SANE ticket #886 <span class="where">on GitLab</span></a>
-    <a class="btn" href="drivers-comparison.html">Earlier comparison <span class="where">plustek8200i vs genesys</span></a>
+    <a class="btn" href="%(HP)sdrivers-comparison.html">Earlier comparison <span class="where">plustek8200i vs genesys</span></a>
+    <a class="btn" href="%(HP)sthe-fourth-channel.html">The Fourth Channel <span class="where">infrared in SANE: the survey and the convention</span></a>
   </nav>
 
   <div class="cards">
@@ -303,7 +305,7 @@ th:nth-child(2),th:nth-child(1){text-align:left}
   <div class="note"><b>Sharpness is unchanged.</b> The patches do not touch the optics or the scanning speed: the same grain and the same dust specks appear in both. The change is in what the image is made of around them: the calibration, the area and the colour balance. The extra detail you gain is the film that was previously outside the window.</div>
 
   <h2>5 &middot; Infrared, as a second frame</h2>
-  <p class="sub">With <code>--infra-red</code> set the driver delivers the image as two frames: the colour scan, then an infrared plane of the same area. Upstream has no infrared at all for this scanner. This is one two-frame scan; both views are aligned as the driver delivered them, with no registration applied.</p>
+  <p class="sub">With <code>--infra-red</code> set the driver delivers the image as two frames: the colour scan, then an infrared plane of the same area. Upstream has no infrared at all for this scanner. This is one two-frame scan; both views are aligned as the driver delivered them, with no registration applied. The two-frame sequence is the paired-frames convention proposed in <a href="%(HP)sthe-fourth-channel.html">The Fourth Channel</a>, our survey of how SANE backends handle infrared.</p>
 <pre>sane_control_option(h, infra-red, yes)
 before start:  format=RGB   last_frame=0   864x640
 frame 1:       format=RGB   last_frame=0   864x640  depth=16   (read to the end)
@@ -337,7 +339,7 @@ frame 2:       format=GRAY  last_frame=1   864x640  depth=16   (second sane_star
 
   <footer>
     <p><b>How this was made.</b> Same frame in the holder, scanned on 2026-10-21 with an OpticFilm 8200i (USB 07b3:1825). Upstream: SANE master <code>982deaef</code>, <code>genesys</code> only. Patched: the same tree with the seven patches (<code>%(lastcommit)s</code>). Both raw 16-bit scans went through the same <code>nv-cli render</code> negative conversion with each scan's own film-base estimate and no dust removal. The detail crops are aligned on the film's measured top-left corner. Margins are measured on the raw scans; the infrared frames come from a separate two-frame scan of the same frame. The page is built by <code>tools/build-genesys-patches-page.py</code>.</p>
-    <p><b>Where to go next.</b> The patches, the <a href="drivers-comparison.html">earlier comparison</a> and the plustek8200i backend live in the
+    <p><b>Where to go next.</b> The patches, the <a href="%(HP)sdrivers-comparison.html">earlier comparison</a> and the plustek8200i backend live in the
     <a href="https://github.com/cschalle/OpticFilm8200i-sane">OpticFilm8200i-sane repository</a>. Upstreaming is tracked in SANE backends
     <a href="https://gitlab.com/sane-project/backends/-/work_items/886">work item #886</a>.</p>
   </footer>
@@ -421,7 +423,7 @@ def wcell(i):
 place_d = lambda d: json.dumps({k: round(v, 4) for k, v in d.items()})
 lastcommit = "63d8cb16"
 vals = dict(
-    STYLE=STYLE, PU=PU, PP=PP, overlays=overlays, ASPECT=ASPECT,
+    STYLE=STYLE, HP=HP, PU=PU, PP=PP, overlays=overlays, ASPECT=ASPECT,
     bw=before["w"], bh=before["h"], aw=after["w"], ah=after["h"], ow=ours3600["w"], oh=ours3600["h"],
     m600u=margin_row(PU, "before_600"), m600p=margin_row(PP, "after_600"),
     m3600u=margin_row(PU, "before_3600"), m3600p=margin_row(PP, "after_3600"),

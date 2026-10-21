@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Fourth Channel: verification notes</title>
+<style>
+:root{
+  --bg:#f6f6f4; --fg:#1d1f21; --muted:#5d6166; --card:#ffffff; --border:#d9dbdd; --stage:#0f1112;
+  --ours:#0a8fbf; --gen:#d98a00; --film:#1f9d4f; --accent:#0a8fbf;
+  --radius:10px; --gap:16px;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#15171a; --fg:#e8e9ea; --muted:#9aa0a6; --card:#1e2124; --border:#33373b; --stage:#050607;
+         --ours:#35b6e6; --gen:#f2a928; --film:#46c978; --accent:#35b6e6; }
+}
+*{box-sizing:border-box}
+html{color-scheme:light dark}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 64px}
+h1{font-size:clamp(1.6rem,3.4vw,2.2rem);line-height:1.15;margin:0 0 6px;letter-spacing:-.01em}
+h2{font-size:1.25rem;margin:40px 0 4px}
+p.lead{color:var(--muted);margin:0 0 18px;max-width:75ch}
+p.sub{color:var(--muted);margin:0 0 14px;max-width:80ch}
+.pill{display:inline-block;padding:1px 9px;border-radius:99px;font-weight:600;font-size:.85em;color:#fff}
+.pill.o{background:var(--ours)} .pill.g{background:var(--gen);color:#1a1200}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--gap);margin:18px 0 6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.card h3{margin:0 0 6px;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.card .row{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.card .row b{font-weight:650}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:12px 0}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card)}
+.seg button{all:unset;cursor:pointer;padding:7px 14px;font-weight:600;font-size:.92rem}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+.seg button:focus-visible,.handle:focus-visible,label:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+label.chk{display:inline-flex;gap:7px;align-items:center;cursor:pointer;font-size:.92rem;user-select:none}
+label.chk i{display:inline-block;width:22px;height:0;border-top:3px solid}
+.stage{position:relative;background:var(--stage);overflow:hidden;border-radius:var(--radius);touch-action:pan-y;user-select:none}
+.stage img{position:absolute;display:block;pointer-events:none;-webkit-user-drag:none}
+.layer{position:absolute;inset:0}
+.frame .stage{aspect-ratio:889/645}
+.crop .stage{aspect-ratio:4/3}
+.crop .stage img{inset:0;width:100%;height:100%}
+.ov{position:absolute;pointer-events:none;display:none}
+.show-win .ov.win{display:block;border:2px solid}
+.show-film .ov.film{display:block;border:2px dashed var(--film)}
+.ov.win.o{border-color:var(--ours)} .ov.win.g{border-color:var(--gen)}
+.handle{position:absolute;top:0;bottom:0;width:0;left:50%;cursor:ew-resize;z-index:5}
+.handle::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.handle::after{content:"\2194";position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;background:#fff;color:#111;display:grid;place-items:center;font-size:18px;box-shadow:0 1px 6px rgba(0,0,0,.5)}
+.tag{position:absolute;top:10px;z-index:6;padding:3px 10px;border-radius:99px;font-size:.8rem;font-weight:700;color:#fff;pointer-events:none}
+.tag.o{left:10px;background:var(--ours)} .tag.g{right:10px;background:var(--gen);color:#1a1200}
+.tag.mid{left:50%;right:auto;transform:translateX(-50%)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.vp{overflow:auto;border-radius:var(--radius);background:var(--stage);max-height:78vh;position:relative}
+.vp .stage{border-radius:0;min-width:100%}
+.cap{font-weight:700;margin:0 0 6px;font-size:.95rem}
+.cap.o{color:var(--ours)} .cap.g{color:var(--gen)}
+.hint{color:var(--muted);font-size:.86rem;margin:8px 0 0}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.95rem}
+th,td{padding:8px 12px;border-bottom:1px solid var(--border);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+td.neg{color:#d23b3b;font-weight:700}
+.crops{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:var(--gap)}
+.note{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius);padding:12px 16px;margin:16px 0;max-width:90ch}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 20px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:9px 15px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);text-decoration:none;font-weight:650;font-size:.95rem}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{color:#fff;filter:brightness(1.08)}
+.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn svg{width:18px;height:18px;flex:none;fill:currentColor}
+.btn span.where{font-weight:400;opacity:.75}
+footer a{color:var(--accent)}
+footer{margin-top:44px;color:var(--muted);font-size:.86rem;max-width:90ch}
+[hidden]{display:none!important}
+
+
+.prose>*:not(.tw){max-width:84ch}
+.prose h1{margin-top:.2em}
+.prose h2{margin:44px 0 6px;padding-top:6px}
+.prose h3{font-size:1.05rem;margin:26px 0 4px}
+.prose p,.prose li{line-height:1.6}
+.prose li{margin:.25em 0}
+.prose code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:0 .3em;font-size:.88em}
+.prose pre{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;overflow:auto;line-height:1.5}
+.prose pre code{background:none;border:0;padding:0}
+.prose a{color:var(--accent)}
+.prose blockquote{margin:1em 0;padding:.2em 1em;border-left:4px solid var(--accent);color:var(--muted)}
+.eyebrow{color:var(--muted);font-size:.85em;letter-spacing:.04em;text-transform:uppercase;margin:0 0 4px}
+.tw{max-width:100%;overflow-x:auto;margin:1em 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:4px 6px}
+.tw table{min-width:640px;font-size:.9em}
+.tw th,.tw td{text-align:left;vertical-align:top}
+.tw td:first-child,.tw th:first-child{white-space:nowrap}
+</style></head>
+<body>
+<div class="wrap">
+  <nav class="links" aria-label="Project links">
+    <a class="btn primary" href="https://github.com/cschalle/OpticFilm8200i-sane">The plustek8200i backend <span class="where">on GitHub</span></a>
+    <a class="btn" href="https://htmlpreview.github.io/?https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/genesys-patches.html">Genesys patches <span class="where">before and after</span></a>
+    <a class="btn" href="https://htmlpreview.github.io/?https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/drivers-comparison.html">Earlier comparison <span class="where">plustek8200i vs genesys</span></a>
+    <a class="btn" href="https://gitlab.com/sane-project/backends/-/work_items/886">Upstream SANE ticket #886 <span class="where">on GitLab</span></a>
+    <a class="btn" href="https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/the-fourth-channel-review-notes.md">Markdown source <span class="where">on GitHub</span></a>
+  </nav>
+  <div class="prose">
+  <p class="eyebrow"></p>
+<h1 id="the-fourth-channel-verification-notes">The Fourth Channel: verification notes</h1>
+<p>Companion to <a href="https://htmlpreview.github.io/?https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/the-fourth-channel.html">The Fourth Channel</a>. These notes were written against the 15 October version; the document has since been revised (rev 2, then rev 3), and the numbered corrections below are the reasons for those revisions.</p>
+<p>Review of <code>The Fourth Channel.md</code> (15 October 2026, convention draft rev 1), checked on
+21 October 2026 against:</p>
+<ul>
+<li>SANE backends master <code>982deaef</code> (2026-10-20), read from a fresh clone</li>
+<li>this repository's <code>plustek8200i</code> (<code>69103f0</code>)</li>
+<li>Negative Vibes <code>ce57ac6</code> (2026-10-21)</li>
+<li>the pages cited in the document's Sources (fetched; the mailing-list pages once each)</li>
+</ul>
+<p><code>confirmed</code> means I read the code or page and it says what the document says. Line numbers
+are cited only where they differ.</p>
+<h2 id="corrections-that-change-a-conclusion">Corrections that change a conclusion</h2>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Where</th>
+<th>Document says</th>
+<th>What I found</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>§01, §02, matrix</td>
+<td>Upstream <code>genesys</code> already offers infrared on "the OpticFilm 8200i", so one scanner has two backends with two IR contracts</td>
+<td>That entry is the <strong>GL845 8200i (<code>07b3:130d</code>)</strong>. The scanner this repository targets is the <strong>GL128 "8200i SE" (<code>07b3:1825</code>)</strong>, added in September 2026 with the comment "Infrared is not supported yet". On upstream master <code>genesys</code> offers <strong>no infrared at all</strong> for <code>1825</code>. The "incomparable contracts" problem does not exist for this scanner today; it appears only when genesys gains IR for it. This makes the choice of delivery convention for that patch the decisive one.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>§01 counts, matrix</td>
+<td>Six upstream backends have IR code; two are compiled out</td>
+<td><strong>Seven.</strong> <code>backend/coolscan.c</code> (the original Nikon backend) has an IR channel with its own correction code (<code>RGBIfix</code>, <code>OPT_IRED_*</code> options), requests it as mode <code>RGBI</code>, and reports a private <strong><code>SANE_FRAME_RGBA</code></strong> that exists in no SANE header. It is compiled out: <code>coolscan.h:320</code> has <code>/* #define HAS_IRED 1 */</code> under the comment "Comment this line if you haven't patched sane.h to include SANE_FRAME_RGBA". So <strong>three</strong> backends are compiled out (<code>coolscan</code>, <code>coolscan3</code>, <code>epson2</code>), and with ours there are eight, not seven.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>§01, §03</td>
+<td>Two backends report a format that does not describe the bytes they send</td>
+<td>In master, <code>pieusb</code> does (<code>SANE_FRAME_RGB</code>, <code>4 × bytes</code>, comment "was: SANE_FRAME_RGBI"). <code>coolscan3</code> in master cannot: its <code>infrared</code> option is <code>SANE_CAP_INACTIVE</code> unless <code>SANE_FRAME_RGBI</code> is defined. The misreport is in the <strong>MR !937 branch</strong>, which the MR says "follows the in-tree <code>pieusb</code> precedent". The document should say that.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>§05 detection table and "app gap"</td>
+<td><code>SeparateScan</code> is detected for genesys, epson2 and avision by "mode value exactly <code>Infrared</code>"; these devices "report infrared capability and deliver nothing"</td>
+<td>Only <strong>epson2</strong> puts <code>Infrared</code> in the mode list (and it is compiled out). <code>genesys</code> uses a <em>source</em> value and <code>avision</code> a bool named <code>infra-red</code>. NV's <code>detect_ir_from_options</code> returns <code>IrStyle::None</code> for both, so they report <strong>no</strong> IR capability; the unexecuted <code>SeparateScan</code> branch is reached by nothing in stock builds. Fixing the <code>"infra-red"</code> spelling makes NV detect avision as <code>MultiFrame</code>, which it is not. avision needs a distinct style or the quirks file.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Tier 1 R1</td>
+<td>"two backends already do it" (paired frames)</td>
+<td>One does: <code>plustek8200i</code>. <code>coolscan2</code> sends the pair but reports <code>last_frame = TRUE</code> on both, and its man page documents the IR plane as <strong>a second scan</strong> to be fetched with <code>scanimage --batch-count=2</code>. The MR author and Ralph Little also describe coolscan2 as the precedent, so the document's reading is shared, but "already conforming" is wrong.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>§05 failure 1, Tier 1 R2</td>
+<td>coolscan2's <code>last_frame</code> is a "backend bug", "a two-line change"</td>
+<td>It is a deviation from the proposed convention, not a bug against coolscan2's own documented contract. Changing it is <strong>not</strong> a two-line change in effect: <code>scanimage</code> loops <code>while (!parm.last_frame)</code>, so after the change <code>scanimage --infrared=yes</code> would write the RGB image with the raw IR plane appended to the same stream, and the documented <code>--batch-count=2</code> workflow would break. It needs a man-page change and a note in NEWS, and should be gated on <code>infrared=yes</code> (which is already the only case that matters).</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Tier 2 R5</td>
+<td>In <code>Color+Infrared</code> "no repair is applied", so IR-first ordering buys nothing</td>
+<td><code>--ir-clean</code> can be combined with <code>Color+Infrared</code> (<code>update_option_deps</code> only deactivates it in <code>Infrared</code> mode; <code>plustek8200i.c:1509</code> keeps a separate copy of the plane for it). With <code>ir-clean</code> on, the defect map is needed before the colour frame. Colour-first is valid only when <code>ir-clean</code> is off.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Tier 1 R1 vs Tier 2 R4</td>
+<td>R1 requires the IR frame to have the same <code>pixels_per_line</code>, <code>lines</code> and <code>depth</code>; R4 recommends scanning IR at half resolution</td>
+<td>These contradict each other. Half-resolution IR is possible only if the convention allows the IR frame to have different dimensions. The convention text needs to say how.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Clause 1 vs §06</td>
+<td>Clause 1 excludes backends where "infrared requires an independent pass"; plustek8200i is listed as conforming</td>
+<td>The 8200i's IR <strong>is</strong> an independent pass (IR LED on, white lamp off). Read literally, clause 1 excludes it. The scope has to be stated in terms of the guarantee, not the pass count.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Clause 4</td>
+<td>IR sample (x, y) corresponds to image (x, y) "to within one pixel"</td>
+<td>One pixel is resolution-relative: the mechanical repeatability is fixed in millimetres, so a promise that holds at 600 dpi fails at 7200. Measurements: plustek8200i IR-vs-colour dy 0, dx 0 at 600 dpi (NV H5; <code>DESIGN.md:836</code>); NV's own multi-sample passes jitter "up to about 1.8 pixels" at 1200 dpi (<code>DESIGN.md:307</code>); upstream genesys on the 1825: film top varied 40 / 43 rows at 600 dpi between two visible scans (about 0.13 mm) and 17 px at 3600 dpi over three scans. The 1-px figure is verified for the plustek8200i at 600 dpi only. State the residual in millimetres, and treat registration as declared and verified by the frontend.</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="smaller-corrections">Smaller corrections</h2>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Where</th>
+<th>Document says</th>
+<th>Finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>§01</td>
+<td>The constants' "values date from a May 2007 proposal"</td>
+<td>The 2007 post (m. allan noah, 25 May 2007) proposes <code>SANE_FRAME_JPEG</code> and <code>SANE_FRAME_RGBI</code> for SANE 1 and gives <strong>no values</strong>; <code>IR</code> and <code>GRAYI</code> are not mentioned. m. allan noah's July 2026 post says <code>SANE_FRAME_JPEG</code> and <code>SANE_FRAME_IR</code> are commented out over the version bump.</td>
+</tr>
+<tr>
+<td>§01</td>
+<td>"The design question has been answered three times"</td>
+<td>The 2007 post does not discuss a version bump. The February 2008 post (Alessandro Zummo) is a version handshake via a new <code>SANE_ACTION_*</code>; it does not mention infrared and no such action exists in <code>sane.h</code> today. The July 2026 <code>-sane-</code> proposal (Benjamin Gordon) is about <strong>MIME-type format negotiation</strong> (<code>-sane-image-formats-supported</code>) and he agrees <code>sane_get_parameters</code> cannot be honest under passthrough. The document extends it to an IR opt-in; that is a new proposal, not the one made. Two proposals, one of them not about IR.</td>
+</tr>
+<tr>
+<td>§01</td>
+<td>The July thread "named" paired frames</td>
+<td>Confirmed (Ralph Little: grey in the next frame "has the advantage of being supported right now"). <strong>Omitted:</strong> he says <code>SANE_FRAME_IR</code> "(or some variant) is the better one to explicitly support it", at the cost of ratifying a standard. The document should say the project lead's stated preference is the explicit constant.</td>
+</tr>
+<tr>
+<td>§01</td>
+<td>Seven backends, five request ways, four delivery ways</td>
+<td>Six distinct request spellings in three mechanisms: bool <code>infrared</code> (coolscan2, coolscan3), bool <code>infra-red</code> (avision), mode <code>RGBI</code> (pieusb, coolscan), mode <code>Infrared</code> (epson2), mode <code>Color+Infrared</code> (ours), source value (genesys). Delivery: paired frames; honestly declared four-channel (compiled out); four-channel declared as RGB (pieusb, MR !937); a standalone IR scan (epson2, genesys, avision, ours in <code>Infrared</code> mode).</td>
+</tr>
+<tr>
+<td>§03/matrix</td>
+<td>MR !937 "in draft since July"</td>
+<td>Opened 12 July as "Draft: coolscan3: add LS-5000 RGBI and multisample policy", last edited 15 July. The page does not say when it became a draft, and shows no comments.</td>
+</tr>
+<tr>
+<td>§04</td>
+<td><code>sanei_ir.c</code> "with literature citations in the header"</td>
+<td>The header credits the FOURIER library for the three threshold routines and cites nothing else. 1,204 lines, the listed functions and "exactly one backend (pieusb) links it" confirmed. Confirmed: no flat-fielding or interior-bounds code.</td>
+</tr>
+<tr>
+<td>§05</td>
+<td><code>devices.toml</code> header and entries; <code>IrStyle</code> variants; RGBI constant <code>0x10</code>; <code>bool "infrared"</code> test; <code>ir_mode_string</code> results; <code>ir_follows</code></td>
+<td>Confirmed. Line numbers have moved (NV <code>capabilities.rs:159</code> is now 148, <code>plan.rs:94-95</code> is 71-72).</td>
+</tr>
+<tr>
+<td>§05</td>
+<td>"Frontend authors will not implement it" is "close to vacuous"</td>
+<td>The count of one IR-consuming frontend is the document's claim; it is not checkable. Soften to "few".</td>
+</tr>
+<tr>
+<td>matrix</td>
+<td>avision <code>:7382</code>, <code>:2927</code>, <code>:5096</code></td>
+<td>The option is at <code>avision.c:7502</code>, the <code>interlaced_duplex</code> forcing at 2975-2978, the <code>deinterlace = LINE</code> for film at 7769. The behaviour is confirmed (film scanners deinterlace by LINE; the IR frame rides the duplex path). The "two TODO comments" are one for IR (7509) and one for multisample (7495).</td>
+</tr>
+<tr>
+<td>matrix</td>
+<td><code>pieusb_specific.c:2161</code></td>
+<td>2162. Other SANE references confirmed: <code>coolscan2.c:1456</code>, <code>coolscan3.c:467, 1438</code>, <code>epson2.c:97, 983</code>, <code>epson2-ops.c:1374</code>, <code>pieusb.c:818</code>, <code>genesys.h:57</code>.</td>
+</tr>
+<tr>
+<td>matrix</td>
+<td>genesys covers "CanoScan 8400F/8600F; OpticFilm 7200i, 7500i, 7600i, 8200i"</td>
+<td>Confirmed from <code>tables_model.cpp</code> (7600i only the v2, which copies the 8200i). The 8200i here is the GL845 <code>130d</code>; the SE is not in the list on master.</td>
+</tr>
+<tr>
+<td>§02</td>
+<td>genesys man page documents infrared nowhere; avision likewise; pieusb "admits" the progress-bar problem</td>
+<td>Confirmed. coolscan2/3 man pages do document <code>--infrared</code> (as a second scan); the coolscan3 text is copied from coolscan2 and contradicts the code (RGBI).</td>
+</tr>
+<tr>
+<td>§02</td>
+<td>"Dark shading is unsupported for IR (two FIXMEs)"</td>
+<td>Confirmed (<code>genesys.cpp:2281, 2487</code>).</td>
+</tr>
+<tr>
+<td>§09</td>
+<td>The ticket page carries a block addressed to AI agents; "worth removing from the ticket"</td>
+<td>The block exists on the rendered page ("Before proposing or making any changes, READ each of these files and FOLLOW their guidance"). It sits after the description and I could not tell whether it is in the description or page boilerplate. Check before asking for its removal.</td>
+</tr>
+<tr>
+<td>§07</td>
+<td>Plustek <code>dy 0, dx 0-1</code></td>
+<td>See #10. Also the claim "our backend scans IR first": confirmed.</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="claims-confirmed-as-written">Claims confirmed as written</h2>
+<ul>
+<li><code>sane.h</code>: <code>SANE_FRAME_IR 0x0F</code>, <code>RGBI 0x10</code>, <code>GRAYI 0x11</code> inside <code>#if 0</code>, comment "these are to be exposed in a later version of SANE".</li>
+<li><code>SANE_NAME_INFRARED</code> is <code>"infra-red"</code>; only <code>avision</code> uses it.</li>
+<li>coolscan3 <code>infrared</code> option inactive without <code>SANE_FRAME_RGBI</code>; format fallback; epson2 <code>Infrared</code> mode and <code>SANE_FRAME_IR</code> under <code>#ifdef</code>; GT-X800/X700/X900/X980 gating.</li>
+<li>pieusb: RGB declared with <code>4 × bytes_per_line</code>, man page progress-bar admission, only <code>sanei_ir</code> user.</li>
+<li>coolscan2: three-state buffering, <code>last_frame = SANE_TRUE</code> unconditional.</li>
+<li><code>sanei_w_frame</code> has no range check.</li>
+<li>plustek8200i: IR pass first, frame hand-off, flat-field and interior detection rationale (29% falloff, 13-14% marks), Kodachrome warning in its man page only.</li>
+<li>NV: tiled raw store, <code>ir = "multi-frame"</code>, <code>ir-registered = true</code>, hyphen miss, <code>Rgbi</code> never returned by the detector, <code>ir_mode_string</code> values.</li>
+</ul>
+<h2 id="not-checked">Not checked</h2>
+<ul>
+<li>The remaining mailing-list posts (040332, 040334, 040337, 040340-040342).</li>
+<li>The <code>plustek8200i</code> flat-field and mark-rate figures (29%, 80% of 4.3%, 13-14%, 0.1%) beyond what its source comments state.</li>
+<li>Whether <code>coolscan3</code>'s LS-5000 hardware table in the MR matches the description.</li>
+<li>NV's behaviour on a real genesys device.</li>
+</ul>
+  </div>
+</div>
+</body></html>
