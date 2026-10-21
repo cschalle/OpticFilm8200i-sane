@@ -1,0 +1,233 @@
+From c6ce4c58ad5e2dfebdb1eee368cac5e59b45d894 Mon Sep 17 00:00:00 2001
+From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
+Date: Wed, 21 Oct 2026 11:57:37 -0400
+Subject: [PATCH 4/7] genesys: gl128: Add the infrared scan source of the
+ OpticFilm 8200i SE
+
+The scanner has an infrared LED that shows dust and scratches on film,
+as on the OpticFilm 8200i, 7500i and Canon's film scanners. Offer it the
+way genesys does for those: a second scan source, "Transparency Adapter
+Infrared", whose Gray (or Color) scan is the infrared plane. A frontend
+or a post-processing step can use it to remove dust.
+
+An infrared pass keeps the white lamp off (0x03 = XPASEL) and sets bit 2
+of 0x37; everything else (shading, front-end gain selection, positioning
+and the image pass) is shared with the visible scan. The IR LED state is
+also kept in dev->reg, since the register set of the image pass
+rewrites 0x37 from it, and is switched off again when a visible scan
+follows. The white lamp's warm-up wait is skipped for infrared. Gray
+uses the luminance of the three channels instead of one colour filter.
+
+Checked at 600 dpi on a colour negative: the infrared frame shows the
+same dust and scratches as the Plustek8200i backend's infrared scan, with
+median 55209 of 65535 after shading; a visible scan right after has the
+usual levels (lit gate 40733/55050/47112 at gain 0).
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ backend/genesys/gl128.cpp                 | 43 +++++++++++++++++++----
+ backend/genesys/tables_model.cpp          |  4 +--
+ backend/genesys/tables_sensor.cpp         | 26 ++++++++------
+ testsuite/backend/genesys/tests_gl128.cpp | 30 ++++++++++++++--
+ 4 files changed, 81 insertions(+), 22 deletions(-)
+
+diff --git a/backend/genesys/gl128.cpp b/backend/genesys/gl128.cpp
+index be2ca73a..47998b70 100644
+--- a/backend/genesys/gl128.cpp
++++ b/backend/genesys/gl128.cpp
+@@ -342,23 +342,48 @@ int gl128_gain_code_for_level(float level, int fallback)
+     return compute_frontend_gain(level, GL128_WHITE_TARGET, FrontendType::ANALOG_DEVICES);
+ }
+ 
+-// Lamp control: single writes of 0x03. 0x37 (infrared LED) is written only at
+-// boot, as SilverFast does for colour scans; infrared is not supported yet.
++// Illumination. A visible scan lights the lamp (0x03); an infrared scan keeps
++// the lamp off and lights the IR LED instead (0x37 bit 2, as the vendor driver
++// does for its infrared pass). Single writes: 0x37 is never read-modify-written.
++constexpr std::uint8_t GL128_REG_IR_IDLE = 0xc0;
++
++bool gl128_is_infrared(const Genesys_Device* dev)
++{
++    return dev->settings.scan_method == ScanMethod::TRANSPARENCY_INFRARED;
++}
++
++// Sets the IR LED, kept in dev->reg too so that the register set of the image
++// pass writes the same value. Writes only when the value changes: a visible
++// scan never touches 0x37 unless an infrared scan left the LED lit.
++void gl128_set_ir_led(Genesys_Device* dev, bool on)
++{
++    const std::uint8_t val = GL128_REG_IR_IDLE | (on ? IR_LED : 0);
++    if (!dev->reg.has_reg(REG_IR) || dev->reg.get8(REG_IR) != val) {
++        dev->interface->write_register(REG_IR, val);
++        dev->reg.init_reg(REG_IR, val);
++    }
++}
++
+ void gl128_lamp_on(Genesys_Device* dev)
+ {
+     // Also kept in dev->reg: sanei_genesys_set_lamp_power() modifies 0x03
+     // there and needs the register to exist.
+-    std::uint8_t val = static_cast<std::uint8_t>(REG_0x03_XPASEL | REG_0x03_LAMPPWR);
++    const bool infrared = gl128_is_infrared(dev);
++    std::uint8_t val = static_cast<std::uint8_t>(
++            infrared ? REG_0x03_XPASEL : (REG_0x03_XPASEL | REG_0x03_LAMPPWR));
+     dev->interface->write_register(REG_0x03, val);
+     dev->reg.init_reg(REG_0x03, val);
++    gl128_set_ir_led(dev, infrared);
+ }
+ 
+ void gl128_lamp_off(Genesys_Device* dev)
+ {
+-    // Only 0x03, as SilverFast does before its dark strip (0x03=0x20). Also
+-    // writing 0x37 kept the lamp lit through the dark strip.
++    // Only 0x03, as SilverFast does before its dark strip (0x03=0x20); the IR
++    // LED (0x37) is switched off only if it is on. Writing 0x37 on every
++    // visible scan kept the lamp lit through the dark strip.
+     dev->interface->write_register(REG_0x03, REG_0x03_XPASEL);
+     dev->reg.init_reg(REG_0x03, REG_0x03_XPASEL);
++    gl128_set_ir_led(dev, false);
+ }
+ 
+ // Lamp control pulses on 0x03, one write every 1.5 ms as in SilverFast's
+@@ -1116,7 +1141,8 @@ void gl128_run_asic_shading(Genesys_Device* dev, const Genesys_Sensor& sensor,
+     // switching on, as SilverFast) reads 0. Read stationary lamp-on strips
+     // once a second until the brightest channel changes < 1% over three
+     // readings (at least 5 s, at most 60 s).
+-    if (dev->lamp_warmup_pending) {
++    // The white lamp's warm-up does not apply to the IR LED.
++    if (dev->lamp_warmup_pending && !gl128_is_infrared(dev)) {
+         gl128_lamp_on(dev);
+         apply_fe(level_offs, t.lamp_gains);
+         double prev = 0.0;
+@@ -2144,7 +2170,10 @@ ScanSession CommandSetGl128::calculate_scan_session(const Genesys_Device* dev,
+         session.params.channels = 3;
+         session.params.scan_mode = ScanColorMode::COLOR_SINGLE_PASS;
+     }
+-    session.params.color_filter = settings.color_filter;
++    // Infrared: all three channels see the same signal; use their luminance
++    // rather than the single colour filter of a visible gray scan.
++    session.params.color_filter = settings.scan_method == ScanMethod::TRANSPARENCY_INFRARED ?
++            ColorFilter::NONE : settings.color_filter;
+     session.params.contrast_adjustment = dev->settings.contrast;
+     session.params.brightness_adjustment = dev->settings.brightness;
+     session.params.flags = ScanFlag::NONE;
+diff --git a/backend/genesys/tables_model.cpp b/backend/genesys/tables_model.cpp
+index 5a82f9c5..6c2496a1 100644
+--- a/backend/genesys/tables_model.cpp
++++ b/backend/genesys/tables_model.cpp
+@@ -2772,10 +2772,10 @@ void genesys_init_usb_device_tables()
+     model.asic_type = AsicType::GL128;
+ 
+     // SilverFast's resolutions; 150 and 300 dpi scan at 600 and are averaged
+-    // on the host. Infrared is not supported yet.
++    // on the host.
+     model.resolutions = {
+         {
+-            { ScanMethod::TRANSPARENCY },
++            { ScanMethod::TRANSPARENCY, ScanMethod::TRANSPARENCY_INFRARED },
+             { 7200, 3600, 2400, 1800, 1440, 1200, 900, 720, 600, 300, 150 },
+             { 7200, 3600, 2400, 1800, 1440, 1200, 900, 720, 600, 300, 150 },
+         }
+diff --git a/backend/genesys/tables_sensor.cpp b/backend/genesys/tables_sensor.cpp
+index 4c307cb6..9982f929 100644
+--- a/backend/genesys/tables_sensor.cpp
++++ b/backend/genesys/tables_sensor.cpp
+@@ -3731,19 +3731,23 @@ void genesys_init_sensor_tables()
+             { { 7200 }, ScanMethod::TRANSPARENCY, 1200, 120, 0x17, 15963, 0x01 },
+         };
+ 
++        // The infrared scan uses the visible scan's timing; only the
++        // illumination differs.
+         const auto common_regs = sensor.custom_regs;
+         for (const CustomSensorSettings& setting : custom_settings) {
+-            sensor.resolutions = setting.resolutions;
+-            sensor.method = setting.method;
+-            sensor.shading_resolution = setting.resolutions.values()[0];
+-            sensor.register_dpiset = setting.register_dpiset;
+-            sensor.output_pixel_offset = setting.output_pixel_offset;
+-            sensor.dummy_pixel = setting.dummy_pixel;
+-            sensor.exposure_lperiod = setting.exposure_lperiod;
+-            sensor.custom_regs = common_regs;
+-            sensor.custom_regs.set_value(0xa5, setting.pixel_clock);
+-            sensor.custom_regs.set_value(0xab, setting.pixel_clock);
+-            s_sensors->push_back(sensor);
++            for (ScanMethod method : { setting.method, ScanMethod::TRANSPARENCY_INFRARED }) {
++                sensor.resolutions = setting.resolutions;
++                sensor.method = method;
++                sensor.shading_resolution = setting.resolutions.values()[0];
++                sensor.register_dpiset = setting.register_dpiset;
++                sensor.output_pixel_offset = setting.output_pixel_offset;
++                sensor.dummy_pixel = setting.dummy_pixel;
++                sensor.exposure_lperiod = setting.exposure_lperiod;
++                sensor.custom_regs = common_regs;
++                sensor.custom_regs.set_value(0xa5, setting.pixel_clock);
++                sensor.custom_regs.set_value(0xab, setting.pixel_clock);
++                s_sensors->push_back(sensor);
++            }
+         }
+     }
+ 
+diff --git a/testsuite/backend/genesys/tests_gl128.cpp b/testsuite/backend/genesys/tests_gl128.cpp
+index 299b0026..5f1da41f 100644
+--- a/testsuite/backend/genesys/tests_gl128.cpp
++++ b/testsuite/backend/genesys/tests_gl128.cpp
+@@ -112,14 +112,16 @@ unsigned column_step(unsigned dpi)
+ 
+ } // namespace
+ 
+-// The model offers exactly SilverFast's resolutions, transparency only.
++// The model offers exactly SilverFast's resolutions, for the visible and the
++// infrared transparency scan.
+ void test_gl128_model()
+ {
+     const auto& model = opticfilm_8200i_se_model();
+     ASSERT_TRUE(model.asic_type == AsicType::GL128);
+     ASSERT_EQ(model.resolutions.size(), 1u);
+-    ASSERT_EQ(model.resolutions[0].methods.size(), 1u);
++    ASSERT_EQ(model.resolutions[0].methods.size(), 2u);
+     ASSERT_TRUE(model.resolutions[0].methods[0] == ScanMethod::TRANSPARENCY);
++    ASSERT_TRUE(model.resolutions[0].methods[1] == ScanMethod::TRANSPARENCY_INFRARED);
+     std::vector<unsigned> expected = {
+         7200, 3600, 2400, 1800, 1440, 1200, 900, 720, 600, 300, 150
+     };
+@@ -142,6 +144,29 @@ void test_gl128_session_depth()
+     }
+ }
+ 
++// The infrared scan has a sensor entry at every resolution, and its gray image
++// is the luminance of the three channels rather than one colour filter.
++void test_gl128_session_infrared()
++{
++    Gl128Fixture f;
++    Genesys_Device dev;
++    dev.model = &opticfilm_8200i_se_model();
++    for (unsigned dpi : { 150u, 300u, 600u, 720u, 900u, 1200u, 1440u, 1800u, 2400u, 3600u,
++                          7200u }) {
++        const auto& visible = sanei_genesys_find_sensor(&dev, dpi, 3, ScanMethod::TRANSPARENCY);
++        const auto& infrared = sanei_genesys_find_sensor(&dev, dpi, 3,
++                                                         ScanMethod::TRANSPARENCY_INFRARED);
++        ASSERT_EQ(infrared.register_dpiset, visible.register_dpiset);
++        ASSERT_EQ(infrared.exposure_lperiod, visible.exposure_lperiod);
++    }
++
++    auto settings = make_settings(600, 0, 0, 10, 5, ScanColorMode::GRAY);
++    settings.scan_method = ScanMethod::TRANSPARENCY_INFRARED;
++    auto s = f.session(settings);
++    ASSERT_TRUE(s.use_host_side_gray);
++    ASSERT_TRUE(s.params.color_filter == ColorFilter::NONE);
++}
++
+ // Width: the native span is a multiple of lcm(4, 2 * step) and at least the
+ // requested width, so the output can be cropped to exactly the request.
+ void test_gl128_session_width()
+@@ -239,6 +264,7 @@ void test_gl128()
+ 
+     test_gl128_model();
+     test_gl128_session_depth();
++    test_gl128_session_infrared();
+     test_gl128_session_width();
+     test_gl128_session_stagger();
+     test_gl128_session_mirror();
+-- 
+2.56.0
+

@@ -4,7 +4,8 @@
 
 **[Repository on GitHub](https://github.com/cschalle/OpticFilm8200i-sane)** &nbsp;·&nbsp;
 **[Upstream SANE ticket #886](https://gitlab.com/sane-project/backends/-/work_items/886)** &nbsp;·&nbsp;
-**[Interactive driver comparison](https://htmlpreview.github.io/?https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/drivers-comparison.html)**
+**[Interactive driver comparison](https://htmlpreview.github.io/?https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/drivers-comparison.html)** &nbsp;·&nbsp;
+**[Upstream genesys, before and after our patches](https://htmlpreview.github.io/?https://github.com/cschalle/OpticFilm8200i-sane/blob/main/docs/comparison/genesys-patches.html)**
 
 A [SANE](http://www.sane-project.org/) backend for the Plustek OpticFilm 8200i
 film scanner with the Genesys **GL128** controller, USB ID `07b3:1825`. It

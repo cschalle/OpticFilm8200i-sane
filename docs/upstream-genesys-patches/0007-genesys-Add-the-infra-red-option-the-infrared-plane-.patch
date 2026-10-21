@@ -1,0 +1,337 @@
+From 63d8cb163e6891fdb35e09f95be9f3d219df0c6f Mon Sep 17 00:00:00 2001
+From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
+Date: Wed, 21 Oct 2026 13:36:37 -0400
+Subject: [PATCH 7/7] genesys: Add the infra-red option: the infrared plane as
+ a second frame
+
+Film scanners with an infrared method offer it as a separate scan source,
+"Transparency Adapter Infrared", which gives a standalone gray image with
+no relation to any other scan. A frontend that wants the infrared plane of
+the picture it just scanned has to know to switch the source, scan again,
+and align the two.
+
+Add the standard option name, "infra-red" (SANE_NAME_INFRARED), which
+delivers the plane as part of the image: the visible frame with
+last_frame false, then, from a further sane_start() without a sane_cancel()
+in between, a gray frame of the same area, resolution and depth with
+last_frame true. The second frame is the existing infrared scan method run
+with the same settings. sane_get_parameters() describes the frame being
+delivered, including last_frame, before and after sane_start(). Cancelling
+ends the whole image; cancelling after the first frame leaves the next
+sane_start() to begin a new one. A visible frame that has not been read to
+the end refuses the second sane_start() with SANE_STATUS_DEVICE_BUSY.
+
+The option is inactive unless the source is the visible transparency scan
+and the model offers the same resolutions for the infrared method, so the
+two frames always have the same geometry. The source value stays as it is
+for a standalone infrared scan. The man page gains an INFRARED section: the
+option, the frame sequence, that scanimage cannot save the second frame, the
+registration, the shading, and the films the plane cannot be used on.
+
+Tested on a Plustek OpticFilm 8200i SE with a small libsane client:
+ - 600 dpi, Color, 16 bit: frame 1 RGB 864x640 last_frame 0, frame 2 GRAY
+   864x640 last_frame 1, read to the end with no cancel between them;
+ - 300 dpi: cancel after frame 1, then a new image starts at frame 1;
+   two full images in one session;
+ - scratches and dust in the infrared frame line up with the image frame at
+   3600 dpi to within 2 pixels (0.015 mm) in five regions of one scan
+   (dy -0.3 to 0.6, dx -0.9 to 1.8 pixels, by cross-correlation); at 600 dpi the
+   film centre agrees within 0.6 pixel. Separate scans of this scanner repeat
+   less well, about 0.1 mm, so the man page tells frontends to verify;
+ - without the option, and with the infrared source, scans are unchanged.
+Other models have an infrared method but have not been tested.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ backend/genesys/genesys.cpp                   | 99 ++++++++++++++++++-
+ backend/genesys/genesys.h                     |  9 ++
+ doc/sane-genesys.man                          | 50 ++++++++++
+ .../genesys_gl128_8200i_se_parity.backend     |  1 +
+ 4 files changed, 156 insertions(+), 3 deletions(-)
+
+diff --git a/backend/genesys/genesys.cpp b/backend/genesys/genesys.cpp
+index 7e8f7f5d..34a1407a 100644
+--- a/backend/genesys/genesys.cpp
++++ b/backend/genesys/genesys.cpp
+@@ -4240,6 +4240,12 @@ static Genesys_Settings calculate_scan_settings(Genesys_Scanner* s)
+     settings.scan_method = s->scan_method;
+     settings.scan_mode = option_string_to_scan_color_mode(s->mode);
+ 
++    // the infrared frame: a gray scan of the same area with infrared illumination
++    if (s->infrared_frame) {
++        settings.scan_method = ScanMethod::TRANSPARENCY_INFRARED;
++        settings.scan_mode = ScanColorMode::GRAY;
++    }
++
+     settings.depth = s->bit_depth;
+ 
+     if (settings.depth > 8) {
+@@ -4331,6 +4337,11 @@ static void calc_parameters(Genesys_Scanner* s)
+ 
+     s->dev->settings = calculate_scan_settings(s);
+     s->params = calculate_scan_parameters(*s->dev, s->dev->settings);
++
++    // with the infrared option set, the image frame is followed by the infrared frame
++    if (s->infrared && !s->infrared_frame) {
++        s->params.last_frame = false;
++    }
+ }
+ 
+ static void create_bpp_list (Genesys_Scanner * s, const std::vector<unsigned>& bpp)
+@@ -4521,6 +4532,33 @@ static void set_xy_range_option_values(Genesys_Scanner& s)
+     s.pos_bottom_right_y = s.opt_y_range.max;
+ }
+ 
++// The infrared plane of a visible transparency scan is a second scan with the same window and
++// resolution, so the option is offered where the model has an infrared scan method that offers the
++// same resolutions as the visible one.
++static bool infrared_pair_available(const Genesys_Scanner* s)
++{
++    const auto* model = s->dev->model;
++    if (s->scan_method != ScanMethod::TRANSPARENCY ||
++        !model->has_method(ScanMethod::TRANSPARENCY_INFRARED))
++    {
++        return false;
++    }
++    const auto& visible = model->get_resolution_settings(ScanMethod::TRANSPARENCY);
++    const auto& infrared = model->get_resolution_settings(ScanMethod::TRANSPARENCY_INFRARED);
++    return visible.resolutions_x == infrared.resolutions_x &&
++           visible.resolutions_y == infrared.resolutions_y;
++}
++
++static void update_infrared_option(Genesys_Scanner* s)
++{
++    if (infrared_pair_available(s)) {
++        s->opt[OPT_INFRARED].cap &= ~SANE_CAP_INACTIVE;
++    } else {
++        s->opt[OPT_INFRARED].cap |= SANE_CAP_INACTIVE;
++        s->infrared = false;
++    }
++}
++
+ static void init_options(Genesys_Scanner* s)
+ {
+     DBG_HELPER(dbg);
+@@ -4609,6 +4647,18 @@ static void init_options(Genesys_Scanner* s)
+   s->opt[OPT_RESOLUTION].constraint_type = SANE_CONSTRAINT_WORD_LIST;
+     set_resolution_option_values(*s, true);
+ 
++    // infrared: the scan, then its infrared plane as a second frame
++    s->opt[OPT_INFRARED].name = SANE_NAME_INFRARED;
++    s->opt[OPT_INFRARED].title = SANE_TITLE_INFRARED;
++    s->opt[OPT_INFRARED].desc = SANE_I18N("Deliver the infrared plane of the scan as a second "
++                                          "frame: the image frame, then a gray frame of "
++                                          "the same area");
++    s->opt[OPT_INFRARED].type = SANE_TYPE_BOOL;
++    s->opt[OPT_INFRARED].unit = SANE_UNIT_NONE;
++    s->opt[OPT_INFRARED].constraint_type = SANE_CONSTRAINT_NONE;
++    s->infrared = false;
++    update_infrared_option(s);
++
+   /* "Geometry" group: */
+   s->opt[OPT_GEOMETRY_GROUP].name = SANE_NAME_GEOMETRY;
+   s->opt[OPT_GEOMETRY_GROUP].title = SANE_I18N ("Geometry");
+@@ -5689,6 +5739,9 @@ static void get_option_value(Genesys_Scanner* s, int option, void* val)
+     case OPT_PREVIEW:
+         *reinterpret_cast<SANE_Word*>(val) = s->preview;
+         break;
++    case OPT_INFRARED:
++        *reinterpret_cast<SANE_Word*>(val) = s->infrared;
++        break;
+     case OPT_LAMP_OFF:
+         *reinterpret_cast<SANE_Word*>(val) = s->lamp_off;
+         break;
+@@ -5904,6 +5957,11 @@ static void set_option_value(Genesys_Scanner* s, int option, void *val, SANE_Int
+         calc_parameters(s);
+         *myinfo |= SANE_INFO_RELOAD_PARAMS;
+         break;
++    case OPT_INFRARED:
++        s->infrared = *reinterpret_cast<SANE_Word*>(val);
++        calc_parameters(s);
++        *myinfo |= SANE_INFO_RELOAD_PARAMS;
++        break;
+     case OPT_BRIGHTNESS:
+         s->brightness = *reinterpret_cast<SANE_Word*>(val);
+         calc_parameters(s);
+@@ -5935,6 +5993,7 @@ static void set_option_value(Genesys_Scanner* s, int option, void *val, SANE_Int
+ 
+             set_xy_range_option_values(*s);
+             set_resolution_option_values(*s, false);
++            update_infrared_option(s);
+ 
+             *myinfo |= SANE_INFO_RELOAD_PARAMS | SANE_INFO_RELOAD_OPTIONS;
+         }
+@@ -6227,6 +6286,8 @@ SANE_Status sane_get_parameters(SANE_Handle handle, SANE_Parameters* params)
+     });
+ }
+ 
++static void end_frame(Genesys_Scanner* s);
++
+ void sane_start_impl(SANE_Handle handle)
+ {
+     DBG_HELPER(dbg);
+@@ -6254,13 +6315,33 @@ void sane_start_impl(SANE_Handle handle)
+         });
+     }
+ 
++    // With the infrared option set an image is two frames: the scan, then its infrared plane, which
++    // is started with a further sane_start() and no sane_cancel() in between.
++    const bool infrared_frame = s->infrared && s->infrared_frame_pending;
++    if (infrared_frame) {
++        if (dev->total_bytes_read < dev->total_bytes_to_read) {
++            throw SaneException(SANE_STATUS_DEVICE_BUSY,
++                                "the image frame has not been read completely");
++        }
++        // the image frame is complete: end it as sane_cancel() would
++        end_frame(s);
++    }
++    s->infrared_frame = infrared_frame;
++    s->infrared_frame_pending = false;
++
+     // First make sure we have a current parameter set.  Some of the
+     // parameters will be overwritten below, but that's OK.
+ 
+     calc_parameters(s);
+-    genesys_start_scan(dev, s->lamp_off);
++    try {
++        genesys_start_scan(dev, s->lamp_off);
++    } catch (...) {
++        s->infrared_frame = false;
++        throw;
++    }
+ 
+     s->scanning = true;
++    s->infrared_frame_pending = s->infrared && !s->infrared_frame;
+ }
+ 
+ SANE_GENESYS_API_LINKAGE
+@@ -6343,10 +6424,10 @@ SANE_Status sane_read(SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SAN
+     });
+ }
+ 
+-void sane_cancel_impl(SANE_Handle handle)
++// Ends the frame being delivered: stops the scan, parks the head and saves power.
++static void end_frame(Genesys_Scanner* s)
+ {
+     DBG_HELPER(dbg);
+-    Genesys_Scanner* s = reinterpret_cast<Genesys_Scanner*>(handle);
+     auto* dev = s->dev;
+ 
+     s->scanning = false;
+@@ -6374,6 +6455,18 @@ void sane_cancel_impl(SANE_Handle handle)
+     }
+ }
+ 
++void sane_cancel_impl(SANE_Handle handle)
++{
++    DBG_HELPER(dbg);
++    Genesys_Scanner* s = reinterpret_cast<Genesys_Scanner*>(handle);
++
++    // cancelling ends the whole image, not only the frame being delivered
++    s->infrared_frame = false;
++    s->infrared_frame_pending = false;
++
++    end_frame(s);
++}
++
+ SANE_GENESYS_API_LINKAGE
+ void sane_cancel(SANE_Handle handle)
+ {
+diff --git a/backend/genesys/genesys.h b/backend/genesys/genesys.h
+index 65b66e7b..b2e83e6e 100644
+--- a/backend/genesys/genesys.h
++++ b/backend/genesys/genesys.h
+@@ -70,6 +70,7 @@ enum Genesys_Option
+   OPT_PREVIEW,
+   OPT_BIT_DEPTH,
+   OPT_RESOLUTION,
++  OPT_INFRARED,
+ 
+   OPT_GEOMETRY_GROUP,
+   OPT_TL_X,			/* top-left x */
+@@ -209,6 +210,14 @@ struct Genesys_Scanner
+     // the value of the source option
+     ScanMethod scan_method = ScanMethod::FLATBED;
+ 
++    // the value of the infrared option: the image is delivered as two frames, the scan and its
++    // infrared plane
++    bool infrared = false;
++    // the frame being delivered is the infrared plane
++    bool infrared_frame = false;
++    // the visible frame has been started and the infrared frame is the next one
++    bool infrared_frame_pending = false;
++
+     std::string calibration_file;
+     // Button states
+     GenesysButton buttons[NUM_BUTTONS];
+diff --git a/doc/sane-genesys.man b/doc/sane-genesys.man
+index b4767abb..3327adc0 100644
+--- a/doc/sane-genesys.man
++++ b/doc/sane-genesys.man
+@@ -67,6 +67,56 @@ one scanner is detected. In the case of several identical model, the file name w
+ of the logical USB device name. The expiration time manages the time a calibration is valid in cache.
+ A value of -1 means forever, 0 means no cache.
+ 
++.SH "INFRARED"
++Scanners with an infrared scan method (the CanoScan 8400F and 8600F and the
++OpticFilm 7200i, 7500i, 8200i and 8200i SE) can read the infrared transmission of
++film, in which the dyes of chromogenic colour negatives and E-6 slides are
++transparent and dust and scratches are not. Two interfaces are offered.
++.TP
++.B \-\-infra\-red[=(yes|no)]
++Deliver the infrared plane of a transparency scan as a second frame. With the
++option set, one image consists of two frames: the scan (an RGB or gray frame, with
++.I last_frame
++false), then, from a further
++.BR sane_start (),
++a gray frame of the same area with
++.I last_frame
++true. A frontend must start the second frame without calling
++.BR sane_cancel ()
++in between, and must accept that
++.BR scanimage (1)
++cannot save it: it writes both frames to the same output. Cancelling after the
++first frame ends the image; the next
++.BR sane_start ()
++begins a new one. The option is inactive unless the source is "Transparency
++Adapter" and the model offers the same resolutions for the infrared scan.
++.PP
++The infrared frame has the same size and bit depth as the image frame. It is a
++second pass, made after the first one, so it is registered to the image only as
++well as the carriage returns to the same position. Measured on an OpticFilm 8200i
++SE in one scan at 3600 dpi, scratches and dust in the infrared frame lined up with
++the image frame to within 2 pixels (0.015 mm) in five regions, but the scanner's
++position repeats less well between separate scans (about 0.1 mm), so a frontend
++should verify the alignment and correct it. The other models have not been
++measured.
++.PP
++The plane is shading corrected, so that an empty gate reads near full scale. No
++dust detection or repair is applied; that is left to the frontend. Higher values
++mean more infrared transmitted.
++.TP
++.B \-\-source "Transparency Adapter Infrared"
++A scan of the infrared plane alone, delivered as one gray image, with no relation
++to any other scan. Use
++.B \-\-infra\-red
++for an infrared plane that goes with an image.
++.PP
++The infrared plane cannot be used to remove dust from Kodachrome slides, whose dyes
++absorb infrared much as they absorb visible light, so it carries the picture as
++well as the defects. Silver black-and-white film blocks infrared altogether.
++.PP
++.B \-\-infra\-red
++has been tested only on the OpticFilm 8200i SE.
++
+ .SH EXTRAS SCAN OPTIONS
+ 
+ .TP
+diff --git a/newsfragments/genesys_gl128_8200i_se_parity.backend b/newsfragments/genesys_gl128_8200i_se_parity.backend
+index c094bb8c..37667b8b 100644
+--- a/newsfragments/genesys_gl128_8200i_se_parity.backend
++++ b/newsfragments/genesys_gl128_8200i_se_parity.backend
+@@ -1 +1,2 @@
+ genesys: Plustek OpticFilm 8200i SE (GL128): scan the whole film gate, choose the front-end gain from the lit gate, added 8-bit output, the infrared scan source and the IntelliScan and QuickScan buttons.
++genesys: Added the --infra-red option, which delivers the infrared plane of a transparency scan as a second frame; tested on the Plustek OpticFilm 8200i SE.
+-- 
+2.56.0
+

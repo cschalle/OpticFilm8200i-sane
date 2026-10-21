@@ -1,0 +1,80 @@
+From 44a2d295b32eb243dcb317596984a3ab465ff8ab Mon Sep 17 00:00:00 2001
+From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
+Date: Wed, 21 Oct 2026 11:50:46 -0400
+Subject: [PATCH 1/7] genesys: gl128: Cover the whole film gate on the
+ OpticFilm 8200i SE
+
+The default scan window clipped the film on the right-hand side and left
+only 0.2-0.4 mm above and below the frame, so a small positioning error
+of the film holder would cut off part of the picture. Measured on a
+colour negative strip in a standard holder (600 dpi, same unit):
+
+  before: 864 x 586 px, film 0.8 mm from the left edge, cut off 0.25 mm
+          at the right edge, 0.3 mm above and 0.4 mm below the frame
+  after:  864 x 640 px, film 0.5 mm from either side, 1.6 mm above and
+          1.4 mm below the frame
+
+Drop the 96 native pixel frame shift that pyopticfilm skips before the
+image; the film is then centred in the 36.58 mm window. Start the second
+feed 1.4 mm earlier and let the image run 27.3 mm instead of 25 mm. The
+extra travel was checked against a full-frame scan at 3600 dpi
+(5184 x 3845 px).
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ backend/genesys/gl128.cpp        | 20 +++++++++++++-------
+ backend/genesys/tables_model.cpp |  7 +++----
+ 2 files changed, 16 insertions(+), 11 deletions(-)
+
+diff --git a/backend/genesys/gl128.cpp b/backend/genesys/gl128.cpp
+index 750c8f22..4d564588 100644
+--- a/backend/genesys/gl128.cpp
++++ b/backend/genesys/gl128.cpp
+@@ -210,13 +210,19 @@ const Gl128DeviceTables GL128_DEVICE_TABLES[] = {
+             { 0xae, 0x00 }, { 0xaf, 0xff },
+         },
+         // Feeds (capture: 0x3d-0x3f = 00 6e 84 and 00 33 48); window end
+-        // (pyopticfilm scan_window_end_steps); SilverFast's full-frame passes
+-        // end at feed2 13560 plus 13752 steps (600 dpi, LINCNT 2292).
+-        28292, 13128, 27636, 13560 + 13752,
+-        // pyopticfilm gl128_common y_size_ta_mm (27636 - 13128 = 14508 steps).
+-        25.59f,
+-        // pyopticfilm optical_end_inactive_native.
+-        96,
++        // (pyopticfilm scan_window_end_steps). The second feed stops 792 steps
++        // (1.4 mm) above SilverFast's, and the image may run to 27.3 mm below
++        // that, so a default scan covers the whole film gate (a 24 mm frame
++        // plus its margins) instead of leaving 0.2-0.4 mm above and below it.
++        28292, 12336, 27636, 27815,
++        // Height of the scan window from feed2_steps to window_end_steps
++        // (15300 steps).
++        26.99f,
++        // Inactive native pixels skipped before the frame. pyopticfilm uses
++        // 96, but with it the window sits 0.34 mm too far to the film's
++        // right-hand end: the film is cut off there and the left margin is
++        // 1.2 mm. Without it the film is centred in the window.
++        0,
+     },
+ };
+ 
+diff --git a/backend/genesys/tables_model.cpp b/backend/genesys/tables_model.cpp
+index 9a9d7574..7dee746b 100644
+--- a/backend/genesys/tables_model.cpp
++++ b/backend/genesys/tables_model.cpp
+@@ -2801,10 +2801,9 @@ void genesys_init_usb_device_tables()
+     model.x_offset_ta = 0.43;
+     model.y_offset_ta = 28.5;
+     model.x_size_ta = 36.58;
+-    // The image may only run to where SilverFast's own full-frame passes end,
+-    // about 25.02 mm below the top of the 25.59 mm scan window; offer 25 mm
+-    // (a full 24 mm frame), so the default area scans.
+-    model.y_size_ta = 25.0;
++    // The scan window runs 27.3 mm from just above the film gate to just below
++    // it (see the feed positions in gl128.cpp).
++    model.y_size_ta = 27.3;
+ 
+     model.y_offset_sensor_to_ta = 0.0;
+     model.y_offset_calib_black_ta = 6.5;
+-- 
+2.56.0
+

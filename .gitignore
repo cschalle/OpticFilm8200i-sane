@@ -52,6 +52,7 @@ docs/*
 !docs/clean-room/
 !docs/clean-room-analysis/
 !docs/comparison/
+!docs/upstream-genesys-patches/
 
 # Session notes and status documents (root-level)
 SESSION_*.md

@@ -1,0 +1,125 @@
+From 2ffa6d935134810c7b8c07bf84d363a21a7edae9 Mon Sep 17 00:00:00 2001
+From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
+Date: Wed, 21 Oct 2026 11:53:42 -0400
+Subject: [PATCH 3/7] genesys: gl128: Offer 8-bit output on the OpticFilm 8200i
+ SE
+
+The ASIC always delivers 16-bit samples, which is why the model only
+offered --depth 16. Many frontends and film-scanning workflows want
+8-bit images, and a 16-bit frame at 7200 dpi is 460 MB.
+
+Keep scanning at 16 bits and, when 8 bits are requested, convert at the
+end of the image pipeline, which keeps the high byte of each sample.
+Checked with Color and Gray at 600 dpi: the 8-bit values equal the high
+byte of the 16-bit scan of the same frame (median 108/43/30 against
+108/44/30, different scans).
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ backend/genesys/gl128.cpp                 |  6 ++++--
+ backend/genesys/low.cpp                   |  9 +++++++++
+ backend/genesys/tables_model.cpp          |  7 ++++---
+ testsuite/backend/genesys/tests_gl128.cpp | 18 +++++++++++++++++-
+ 4 files changed, 34 insertions(+), 6 deletions(-)
+
+diff --git a/backend/genesys/gl128.cpp b/backend/genesys/gl128.cpp
+index 4797cf4a..be2ca73a 100644
+--- a/backend/genesys/gl128.cpp
++++ b/backend/genesys/gl128.cpp
+@@ -2129,7 +2129,9 @@ ScanSession CommandSetGl128::calculate_scan_session(const Genesys_Device* dev,
+     // Lines at asic_dpi; the pipeline averages host_downsample of them per
+     // output line.
+     session.params.lines = settings.lines * host_downsample;
+-    session.params.depth = settings.depth;
++    // The ASIC always delivers 16-bit samples; build_image_pipeline() reduces
++    // them to 8 bits at the end if settings.depth asks for that.
++    session.params.depth = 16;
+     session.params.channels = settings.get_channels();
+     session.params.scan_method = settings.scan_method;
+     session.params.scan_mode = settings.scan_mode;
+@@ -2197,7 +2199,7 @@ ScanSession CommandSetGl128::calculate_scan_session(const Genesys_Device* dev,
+     session.output_line_count = register_lincnt / 2;
+     session.optical_line_count = session.output_line_count; // not is_cis
+ 
+-    session.output_channel_bytes = (output_pixels * settings.depth + 7) / 8;
++    session.output_channel_bytes = output_pixels * 2;
+     session.output_line_bytes = session.output_channel_bytes * session.params.channels;
+     session.output_line_bytes_raw = session.output_line_bytes;
+     session.output_line_bytes_requested = session.output_line_bytes;
+diff --git a/backend/genesys/low.cpp b/backend/genesys/low.cpp
+index 38468421..7c82a464 100644
+--- a/backend/genesys/low.cpp
++++ b/backend/genesys/low.cpp
+@@ -1329,6 +1329,15 @@ ImagePipelineStack build_image_pipeline(const Genesys_Device& dev, const ScanSes
+         pipeline.push_node<ImagePipelineNodeMirrorX>();
+     }
+ 
++    // GL128 always scans at 16 bits; 8-bit output keeps the high byte.
++    if (dev.model->asic_type == AsicType::GL128 && dev.settings.depth == 8) {
++        if (pipeline.get_output_format() == PixelFormat::RGB161616) {
++            pipeline.push_node<ImagePipelineNodeFormatConvert>(PixelFormat::RGB888);
++        } else if (pipeline.get_output_format() == PixelFormat::I16) {
++            pipeline.push_node<ImagePipelineNodeFormatConvert>(PixelFormat::I8);
++        }
++    }
++
+     return pipeline;
+ }
+ 
+diff --git a/backend/genesys/tables_model.cpp b/backend/genesys/tables_model.cpp
+index 7dee746b..5a82f9c5 100644
+--- a/backend/genesys/tables_model.cpp
++++ b/backend/genesys/tables_model.cpp
+@@ -2781,9 +2781,10 @@ void genesys_init_usb_device_tables()
+         }
+     };
+ 
+-    // Linear 16-bit output only.
+-    model.bpp_gray_values = { 16 };
+-    model.bpp_color_values = { 16 };
++    // The ASIC always delivers 16-bit samples; 8-bit output is the high byte,
++    // taken at the end of the image pipeline.
++    model.bpp_gray_values = { 8, 16 };
++    model.bpp_color_values = { 8, 16 };
+     model.default_method = ScanMethod::TRANSPARENCY;
+ 
+     // Transparency-only scanner: the flatbed geometry and the calibration
+diff --git a/testsuite/backend/genesys/tests_gl128.cpp b/testsuite/backend/genesys/tests_gl128.cpp
+index a3cf5ca5..299b0026 100644
+--- a/testsuite/backend/genesys/tests_gl128.cpp
++++ b/testsuite/backend/genesys/tests_gl128.cpp
+@@ -124,7 +124,22 @@ void test_gl128_model()
+         7200, 3600, 2400, 1800, 1440, 1200, 900, 720, 600, 300, 150
+     };
+     ASSERT_EQ(model.resolutions[0].resolutions_x, expected);
+-    ASSERT_EQ(model.bpp_color_values, std::vector<unsigned>{ 16 });
++    ASSERT_EQ(model.bpp_color_values, (std::vector<unsigned>{ 8, 16 }));
++    ASSERT_EQ(model.bpp_gray_values, (std::vector<unsigned>{ 8, 16 }));
++}
++
++// The ASIC always delivers 16-bit samples; 8-bit output is made at the end of
++// the image pipeline, so the session stays 16-bit.
++void test_gl128_session_depth()
++{
++    Gl128Fixture f;
++    for (unsigned depth : { 8u, 16u }) {
++        auto settings = make_settings(600, 0, 0, 10, 5);
++        settings.depth = depth;
++        auto s = f.session(settings);
++        ASSERT_EQ(s.params.depth, 16u);
++        ASSERT_EQ(s.output_line_bytes, s.params.pixels * 3 * 2);
++    }
+ }
+ 
+ // Width: the native span is a multiple of lcm(4, 2 * step) and at least the
+@@ -223,6 +238,7 @@ void test_gl128()
+     genesys_init_motor_tables();
+ 
+     test_gl128_model();
++    test_gl128_session_depth();
+     test_gl128_session_width();
+     test_gl128_session_stagger();
+     test_gl128_session_mirror();
+-- 
+2.56.0
+

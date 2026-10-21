@@ -1,0 +1,174 @@
+From 0edd64977dba5ce915f88e7154432d2977b0b527 Mon Sep 17 00:00:00 2001
+From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
+Date: Wed, 21 Oct 2026 12:08:39 -0400
+Subject: [PATCH 5/7] genesys: gl128: Report the IntelliScan and QuickScan
+ buttons
+
+The scanner has two buttons on the front, IntelliScan and QuickScan.
+Each press is a single byte on the interrupt endpoint (0x83): 0x40 for
+QuickScan, 0x08 for IntelliScan. There is no packet on release, none
+while a button is held, and the scanner keeps a press queued until the
+endpoint is read, so polling at the rate a frontend asks for the sensor
+options cannot miss one.
+
+Report them as the "scan" (QuickScan) and "extra" (IntelliScan) sensor
+options, as other genesys models report their buttons. A press is
+reported once, as a pulse in the button's value queue. Reading the
+options at open discards a press made while no one was listening.
+
+This needs a way to read the interrupt endpoint with a short timeout:
+add IUsbDevice::interrupt_read(), implemented with sanei_usb_read_int()
+and the test device's stub. sanei_usb has one timeout for all transfers,
+so UsbDevice sets 50 ms for the read and restores the 30 s default.
+
+The packet values and behaviour are from measurements with the
+Plustek8200i backend. Checked here: the options appear as "scan" and
+"extra" with the hardware cap, and the endpoint is read every 50 ms.
+A physical press has not yet been verified through genesys.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ backend/genesys/gl128.cpp           | 28 ++++++++++++++++++++++++++--
+ backend/genesys/tables_model.cpp    |  4 ++++
+ backend/genesys/test_usb_device.cpp | 10 ++++++++++
+ backend/genesys/test_usb_device.h   |  1 +
+ backend/genesys/usb_device.cpp      | 13 +++++++++++++
+ backend/genesys/usb_device.h        |  4 ++++
+ 6 files changed, 58 insertions(+), 2 deletions(-)
+
+diff --git a/backend/genesys/gl128.cpp b/backend/genesys/gl128.cpp
+index 47998b70..a0f1be84 100644
+--- a/backend/genesys/gl128.cpp
++++ b/backend/genesys/gl128.cpp
+@@ -2031,8 +2031,32 @@ SensorExposure CommandSetGl128::led_calibration(Genesys_Device* dev, const Genes
+ void CommandSetGl128::update_hardware_sensors(struct Genesys_Scanner* s) const
+ {
+     DBG_HELPER(dbg);
+-    (void) s;
+-    // No-op: button polling is not known for this scanner.
++
++    // A press is one byte on the interrupt endpoint: 0x40 for QuickScan, 0x08 for IntelliScan.
++    // There is nothing on release or while the button is held, and the scanner keeps a press
++    // queued until it is read, so polling cannot miss one. Each press is reported as a pulse.
++    // The endpoint is silent without a press: wait only long enough for one packet (the
++    // endpoint polls every 16 ms) and read what is queued.
++    constexpr int INTERRUPT_TIMEOUT_MS = 50;
++    constexpr int MAX_PACKETS = 8;
++    for (int i = 0; i < MAX_PACKETS; i++) {
++        std::uint8_t packet = 0;
++        std::size_t size = 1;
++        if (!s->dev->interface->get_usb_device().interrupt_read(&packet, &size,
++                                                                INTERRUPT_TIMEOUT_MS))
++        {
++            break;
++        }
++        DBG(DBG_info, "GL128: button packet 0x%02x\n", packet);
++        if (packet & 0x40) {
++            s->buttons[BUTTON_SCAN_SW].write(true);
++            s->buttons[BUTTON_SCAN_SW].write(false);
++        }
++        if (packet & 0x08) {
++            s->buttons[BUTTON_EXTRA_SW].write(true);
++            s->buttons[BUTTON_EXTRA_SW].write(false);
++        }
++    }
+ }
+ 
+ void CommandSetGl128::update_home_sensor_gpio(Genesys_Device& dev) const
+diff --git a/backend/genesys/tables_model.cpp b/backend/genesys/tables_model.cpp
+index 6c2496a1..944950e8 100644
+--- a/backend/genesys/tables_model.cpp
++++ b/backend/genesys/tables_model.cpp
+@@ -2828,6 +2828,10 @@ void genesys_init_usb_device_tables()
+     model.gpio_id = GpioId::PLUSTEK_OPTICFILM_8200I_SE;
+     model.motor_id = MotorId::PLUSTEK_OPTICFILM_8200I_SE;
+ 
++    // QuickScan is reported as "scan" and IntelliScan as "extra"; see
++    // CommandSetGl128::update_hardware_sensors().
++    model.buttons = GENESYS_HAS_SCAN_SW | GENESYS_HAS_EXTRA_SW;
++
+     // The front end and shading are programmed by gl128.cpp before every
+     // image pass. UNTESTED until the session tests have reference output.
+     model.flags = ModelFlag::UNTESTED |
+diff --git a/backend/genesys/test_usb_device.cpp b/backend/genesys/test_usb_device.cpp
+index a5dbd784..d1a2c8de 100644
+--- a/backend/genesys/test_usb_device.cpp
++++ b/backend/genesys/test_usb_device.cpp
+@@ -107,6 +107,16 @@ void TestUsbDevice::control_msg(int rtype, int reg, int value, int index, int le
+     }
+ }
+ 
++bool TestUsbDevice::interrupt_read(std::uint8_t* buffer, std::size_t* size, int timeout_ms)
++{
++    (void) buffer;
++    (void) timeout_ms;
++    DBG_HELPER(dbg);
++    assert_is_open();
++    *size = 0;
++    return false;
++}
++
+ void TestUsbDevice::bulk_read(std::uint8_t* buffer, std::size_t* size)
+ {
+ 
+diff --git a/backend/genesys/test_usb_device.h b/backend/genesys/test_usb_device.h
+index ae8d4a22..2f981afb 100644
+--- a/backend/genesys/test_usb_device.h
++++ b/backend/genesys/test_usb_device.h
+@@ -48,6 +48,7 @@ public:
+                      std::uint8_t* data) override;
+     void bulk_read(std::uint8_t* buffer, std::size_t* size) override;
+     void bulk_write(const std::uint8_t* buffer, std::size_t* size) override;
++    bool interrupt_read(std::uint8_t* buffer, std::size_t* size, int timeout_ms) override;
+ private:
+     void assert_is_open() const;
+ 
+diff --git a/backend/genesys/usb_device.cpp b/backend/genesys/usb_device.cpp
+index 41b8fbe3..b0fc5588 100644
+--- a/backend/genesys/usb_device.cpp
++++ b/backend/genesys/usb_device.cpp
+@@ -115,6 +115,19 @@ void UsbDevice::control_msg(int rtype, int reg, int value, int index, int length
+     TIE(sanei_usb_control_msg(device_num_, rtype, reg, value, index, length, data));
+ }
+ 
++bool UsbDevice::interrupt_read(std::uint8_t* buffer, std::size_t* size, int timeout_ms)
++{
++    DBG_HELPER(dbg);
++    assert_is_open();
++    // sanei_usb has one timeout for all transfers. A timeout is not distinguishable from an
++    // error, and is the normal answer when nothing was pressed.
++    constexpr int default_timeout_ms = 30000;
++    sanei_usb_set_timeout(timeout_ms);
++    SANE_Status status = sanei_usb_read_int(device_num_, buffer, size);
++    sanei_usb_set_timeout(default_timeout_ms);
++    return status == SANE_STATUS_GOOD && *size > 0;
++}
++
+ void UsbDevice::bulk_read(std::uint8_t* buffer, std::size_t* size)
+ {
+     DBG_HELPER(dbg);
+diff --git a/backend/genesys/usb_device.h b/backend/genesys/usb_device.h
+index fa97e5ca..59b72701 100644
+--- a/backend/genesys/usb_device.h
++++ b/backend/genesys/usb_device.h
+@@ -57,6 +57,9 @@ public:
+     virtual void bulk_read(std::uint8_t* buffer, std::size_t* size) = 0;
+     virtual void bulk_write(const std::uint8_t* buffer, std::size_t* size) = 0;
+ 
++    // Reads one packet from the interrupt endpoint, waiting at most timeout_ms. Returns false
++    // if there was none.
++    virtual bool interrupt_read(std::uint8_t* buffer, std::size_t* size, int timeout_ms) = 0;
+ };
+ 
+ class UsbDevice : public IUsbDevice {
+@@ -83,6 +86,7 @@ public:
+                      std::uint8_t* data) override;
+     void bulk_read(std::uint8_t* buffer, std::size_t* size) override;
+     void bulk_write(const std::uint8_t* buffer, std::size_t* size) override;
++    bool interrupt_read(std::uint8_t* buffer, std::size_t* size, int timeout_ms) override;
+ 
+ private:
+ 
+-- 
+2.56.0
+
