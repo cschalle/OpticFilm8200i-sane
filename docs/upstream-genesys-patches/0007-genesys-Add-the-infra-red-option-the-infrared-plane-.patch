@@ -1,4 +1,4 @@
-From 63d8cb163e6891fdb35e09f95be9f3d219df0c6f Mon Sep 17 00:00:00 2001
+From 0d7471f58b236ebe850b6cfba2de2c00d5efa880 Mon Sep 17 00:00:00 2001
 From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
 Date: Wed, 21 Oct 2026 13:36:37 -0400
 Subject: [PATCH 7/7] genesys: Add the infra-red option: the infrared plane as
@@ -46,11 +46,12 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
  backend/genesys/genesys.cpp                   | 99 ++++++++++++++++++-
  backend/genesys/genesys.h                     |  9 ++
  doc/sane-genesys.man                          | 50 ++++++++++
- .../genesys_gl128_8200i_se_parity.backend     |  1 +
+ .../genesys_infra_red_option.backend          |  1 +
  4 files changed, 156 insertions(+), 3 deletions(-)
+ create mode 100644 newsfragments/genesys_infra_red_option.backend
 
 diff --git a/backend/genesys/genesys.cpp b/backend/genesys/genesys.cpp
-index 7e8f7f5d..34a1407a 100644
+index 7e8f7f5de..34a1407ad 100644
 --- a/backend/genesys/genesys.cpp
 +++ b/backend/genesys/genesys.cpp
 @@ -4240,6 +4240,12 @@ static Genesys_Settings calculate_scan_settings(Genesys_Scanner* s)
@@ -238,7 +239,7 @@ index 7e8f7f5d..34a1407a 100644
  void sane_cancel(SANE_Handle handle)
  {
 diff --git a/backend/genesys/genesys.h b/backend/genesys/genesys.h
-index 65b66e7b..b2e83e6e 100644
+index 65b66e7bb..b2e83e6eb 100644
 --- a/backend/genesys/genesys.h
 +++ b/backend/genesys/genesys.h
 @@ -70,6 +70,7 @@ enum Genesys_Option
@@ -265,7 +266,7 @@ index 65b66e7b..b2e83e6e 100644
      // Button states
      GenesysButton buttons[NUM_BUTTONS];
 diff --git a/doc/sane-genesys.man b/doc/sane-genesys.man
-index b4767abb..3327adc0 100644
+index b4767abb8..3327adc02 100644
 --- a/doc/sane-genesys.man
 +++ b/doc/sane-genesys.man
 @@ -67,6 +67,56 @@ one scanner is detected. In the case of several identical model, the file name w
@@ -325,12 +326,12 @@ index b4767abb..3327adc0 100644
  .SH EXTRAS SCAN OPTIONS
  
  .TP
-diff --git a/newsfragments/genesys_gl128_8200i_se_parity.backend b/newsfragments/genesys_gl128_8200i_se_parity.backend
-index c094bb8c..37667b8b 100644
---- a/newsfragments/genesys_gl128_8200i_se_parity.backend
-+++ b/newsfragments/genesys_gl128_8200i_se_parity.backend
-@@ -1 +1,2 @@
- genesys: Plustek OpticFilm 8200i SE (GL128): scan the whole film gate, choose the front-end gain from the lit gate, added 8-bit output, the infrared scan source and the IntelliScan and QuickScan buttons.
+diff --git a/newsfragments/genesys_infra_red_option.backend b/newsfragments/genesys_infra_red_option.backend
+new file mode 100644
+index 000000000..15093dd08
+--- /dev/null
++++ b/newsfragments/genesys_infra_red_option.backend
+@@ -0,0 +1 @@
 +genesys: Added the --infra-red option, which delivers the infrared plane of a transparency scan as a second frame; tested on the Plustek OpticFilm 8200i SE.
 -- 
 2.56.0

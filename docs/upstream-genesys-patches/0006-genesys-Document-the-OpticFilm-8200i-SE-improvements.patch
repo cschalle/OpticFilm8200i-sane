@@ -1,4 +1,4 @@
-From 47806ef2bed597ade436530acd58a9311ef41015 Mon Sep 17 00:00:00 2001
+From 8801c199b23e9bfe8a266553a91b25941e394dbc Mon Sep 17 00:00:00 2001
 From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
 Date: Wed, 21 Oct 2026 12:08:45 -0400
 Subject: [PATCH 6/7] genesys: Document the OpticFilm 8200i SE improvements
@@ -11,7 +11,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
  create mode 100644 newsfragments/genesys_gl128_8200i_se_parity.backend
 
 diff --git a/doc/descriptions/genesys.desc b/doc/descriptions/genesys.desc
-index 4f2f8050..b95ebb56 100644
+index 4f2f8050b..b95ebb56f 100644
 --- a/doc/descriptions/genesys.desc
 +++ b/doc/descriptions/genesys.desc
 @@ -75,7 +75,7 @@
@@ -25,11 +25,11 @@ index 4f2f8050..b95ebb56 100644
  
 diff --git a/newsfragments/genesys_gl128_8200i_se_parity.backend b/newsfragments/genesys_gl128_8200i_se_parity.backend
 new file mode 100644
-index 00000000..c094bb8c
+index 000000000..2eb965aaf
 --- /dev/null
 +++ b/newsfragments/genesys_gl128_8200i_se_parity.backend
 @@ -0,0 +1 @@
-+genesys: Plustek OpticFilm 8200i SE (GL128): scan the whole film gate, choose the front-end gain from the lit gate, added 8-bit output, the infrared scan source and the IntelliScan and QuickScan buttons.
++genesys: Improved scans on the Plustek OpticFilm 8200i SE (GL128): the whole film gate is scanned, the front-end gain is chosen from the lit gate, and 8-bit output, an infrared scan source and the IntelliScan and QuickScan buttons were added.
 -- 
 2.56.0
 

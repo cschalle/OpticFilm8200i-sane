@@ -1,4 +1,4 @@
-From 0edd64977dba5ce915f88e7154432d2977b0b527 Mon Sep 17 00:00:00 2001
+From ae604d2f5cf5f3e0a453b89efc4bab162aa2210b Mon Sep 17 00:00:00 2001
 From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
 Date: Wed, 21 Oct 2026 12:08:39 -0400
 Subject: [PATCH 5/7] genesys: gl128: Report the IntelliScan and QuickScan
@@ -37,7 +37,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
  6 files changed, 58 insertions(+), 2 deletions(-)
 
 diff --git a/backend/genesys/gl128.cpp b/backend/genesys/gl128.cpp
-index 47998b70..a0f1be84 100644
+index 47998b703..a0f1be849 100644
 --- a/backend/genesys/gl128.cpp
 +++ b/backend/genesys/gl128.cpp
 @@ -2031,8 +2031,32 @@ SensorExposure CommandSetGl128::led_calibration(Genesys_Device* dev, const Genes
@@ -76,7 +76,7 @@ index 47998b70..a0f1be84 100644
  
  void CommandSetGl128::update_home_sensor_gpio(Genesys_Device& dev) const
 diff --git a/backend/genesys/tables_model.cpp b/backend/genesys/tables_model.cpp
-index 6c2496a1..944950e8 100644
+index 6c2496a11..944950e8e 100644
 --- a/backend/genesys/tables_model.cpp
 +++ b/backend/genesys/tables_model.cpp
 @@ -2828,6 +2828,10 @@ void genesys_init_usb_device_tables()
@@ -91,7 +91,7 @@ index 6c2496a1..944950e8 100644
      // image pass. UNTESTED until the session tests have reference output.
      model.flags = ModelFlag::UNTESTED |
 diff --git a/backend/genesys/test_usb_device.cpp b/backend/genesys/test_usb_device.cpp
-index a5dbd784..d1a2c8de 100644
+index a5dbd784d..d1a2c8dec 100644
 --- a/backend/genesys/test_usb_device.cpp
 +++ b/backend/genesys/test_usb_device.cpp
 @@ -107,6 +107,16 @@ void TestUsbDevice::control_msg(int rtype, int reg, int value, int index, int le
@@ -112,7 +112,7 @@ index a5dbd784..d1a2c8de 100644
  {
  
 diff --git a/backend/genesys/test_usb_device.h b/backend/genesys/test_usb_device.h
-index ae8d4a22..2f981afb 100644
+index ae8d4a228..2f981afbd 100644
 --- a/backend/genesys/test_usb_device.h
 +++ b/backend/genesys/test_usb_device.h
 @@ -48,6 +48,7 @@ public:
@@ -124,7 +124,7 @@ index ae8d4a22..2f981afb 100644
      void assert_is_open() const;
  
 diff --git a/backend/genesys/usb_device.cpp b/backend/genesys/usb_device.cpp
-index 41b8fbe3..b0fc5588 100644
+index 41b8fbe38..b0fc55887 100644
 --- a/backend/genesys/usb_device.cpp
 +++ b/backend/genesys/usb_device.cpp
 @@ -115,6 +115,19 @@ void UsbDevice::control_msg(int rtype, int reg, int value, int index, int length
@@ -148,7 +148,7 @@ index 41b8fbe3..b0fc5588 100644
  {
      DBG_HELPER(dbg);
 diff --git a/backend/genesys/usb_device.h b/backend/genesys/usb_device.h
-index fa97e5ca..59b72701 100644
+index fa97e5ca6..59b727010 100644
 --- a/backend/genesys/usb_device.h
 +++ b/backend/genesys/usb_device.h
 @@ -57,6 +57,9 @@ public:

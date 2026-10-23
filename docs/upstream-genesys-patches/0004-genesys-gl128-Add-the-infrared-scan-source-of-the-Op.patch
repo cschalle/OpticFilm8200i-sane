@@ -1,4 +1,4 @@
-From c6ce4c58ad5e2dfebdb1eee368cac5e59b45d894 Mon Sep 17 00:00:00 2001
+From f9974f390d093173d75505b49f8add6f6036e11e Mon Sep 17 00:00:00 2001
 From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
 Date: Wed, 21 Oct 2026 11:57:37 -0400
 Subject: [PATCH 4/7] genesys: gl128: Add the infrared scan source of the
@@ -32,7 +32,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
  4 files changed, 81 insertions(+), 22 deletions(-)
 
 diff --git a/backend/genesys/gl128.cpp b/backend/genesys/gl128.cpp
-index be2ca73a..47998b70 100644
+index be2ca73a4..47998b703 100644
 --- a/backend/genesys/gl128.cpp
 +++ b/backend/genesys/gl128.cpp
 @@ -342,23 +342,48 @@ int gl128_gain_code_for_level(float level, int fallback)
@@ -112,7 +112,7 @@ index be2ca73a..47998b70 100644
      session.params.brightness_adjustment = dev->settings.brightness;
      session.params.flags = ScanFlag::NONE;
 diff --git a/backend/genesys/tables_model.cpp b/backend/genesys/tables_model.cpp
-index 5a82f9c5..6c2496a1 100644
+index 5a82f9c5f..6c2496a11 100644
 --- a/backend/genesys/tables_model.cpp
 +++ b/backend/genesys/tables_model.cpp
 @@ -2772,10 +2772,10 @@ void genesys_init_usb_device_tables()
@@ -129,7 +129,7 @@ index 5a82f9c5..6c2496a1 100644
              { 7200, 3600, 2400, 1800, 1440, 1200, 900, 720, 600, 300, 150 },
          }
 diff --git a/backend/genesys/tables_sensor.cpp b/backend/genesys/tables_sensor.cpp
-index 4c307cb6..9982f929 100644
+index 4c307cb6e..9982f9298 100644
 --- a/backend/genesys/tables_sensor.cpp
 +++ b/backend/genesys/tables_sensor.cpp
 @@ -3731,19 +3731,23 @@ void genesys_init_sensor_tables()
@@ -168,7 +168,7 @@ index 4c307cb6..9982f929 100644
      }
  
 diff --git a/testsuite/backend/genesys/tests_gl128.cpp b/testsuite/backend/genesys/tests_gl128.cpp
-index 299b0026..5f1da41f 100644
+index 299b00265..5f1da41f8 100644
 --- a/testsuite/backend/genesys/tests_gl128.cpp
 +++ b/testsuite/backend/genesys/tests_gl128.cpp
 @@ -112,14 +112,16 @@ unsigned column_step(unsigned dpi)

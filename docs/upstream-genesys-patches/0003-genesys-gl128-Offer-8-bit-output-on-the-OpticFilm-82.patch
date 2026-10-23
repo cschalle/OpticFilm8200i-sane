@@ -1,4 +1,4 @@
-From 2ffa6d935134810c7b8c07bf84d363a21a7edae9 Mon Sep 17 00:00:00 2001
+From f268a42c98694f4d9dca521d6e2d77d76f861c39 Mon Sep 17 00:00:00 2001
 From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
 Date: Wed, 21 Oct 2026 11:53:42 -0400
 Subject: [PATCH 3/7] genesys: gl128: Offer 8-bit output on the OpticFilm 8200i
@@ -23,7 +23,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
  4 files changed, 34 insertions(+), 6 deletions(-)
 
 diff --git a/backend/genesys/gl128.cpp b/backend/genesys/gl128.cpp
-index 4797cf4a..be2ca73a 100644
+index 4797cf4aa..be2ca73a4 100644
 --- a/backend/genesys/gl128.cpp
 +++ b/backend/genesys/gl128.cpp
 @@ -2129,7 +2129,9 @@ ScanSession CommandSetGl128::calculate_scan_session(const Genesys_Device* dev,
@@ -47,7 +47,7 @@ index 4797cf4a..be2ca73a 100644
      session.output_line_bytes_raw = session.output_line_bytes;
      session.output_line_bytes_requested = session.output_line_bytes;
 diff --git a/backend/genesys/low.cpp b/backend/genesys/low.cpp
-index 38468421..7c82a464 100644
+index 38468421e..7c82a464e 100644
 --- a/backend/genesys/low.cpp
 +++ b/backend/genesys/low.cpp
 @@ -1329,6 +1329,15 @@ ImagePipelineStack build_image_pipeline(const Genesys_Device& dev, const ScanSes
@@ -67,7 +67,7 @@ index 38468421..7c82a464 100644
  }
  
 diff --git a/backend/genesys/tables_model.cpp b/backend/genesys/tables_model.cpp
-index 7dee746b..5a82f9c5 100644
+index 7dee746b4..5a82f9c5f 100644
 --- a/backend/genesys/tables_model.cpp
 +++ b/backend/genesys/tables_model.cpp
 @@ -2781,9 +2781,10 @@ void genesys_init_usb_device_tables()
@@ -85,7 +85,7 @@ index 7dee746b..5a82f9c5 100644
  
      // Transparency-only scanner: the flatbed geometry and the calibration
 diff --git a/testsuite/backend/genesys/tests_gl128.cpp b/testsuite/backend/genesys/tests_gl128.cpp
-index a3cf5ca5..299b0026 100644
+index a3cf5ca5e..299b00265 100644
 --- a/testsuite/backend/genesys/tests_gl128.cpp
 +++ b/testsuite/backend/genesys/tests_gl128.cpp
 @@ -124,7 +124,22 @@ void test_gl128_model()

@@ -1,4 +1,4 @@
-From 44a2d295b32eb243dcb317596984a3ab465ff8ab Mon Sep 17 00:00:00 2001
+From 78f0141d3fdd4f4aa456fa1fb93c78ec18745863 Mon Sep 17 00:00:00 2001
 From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
 Date: Wed, 21 Oct 2026 11:50:46 -0400
 Subject: [PATCH 1/7] genesys: gl128: Cover the whole film gate on the
@@ -27,7 +27,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
  2 files changed, 16 insertions(+), 11 deletions(-)
 
 diff --git a/backend/genesys/gl128.cpp b/backend/genesys/gl128.cpp
-index 750c8f22..4d564588 100644
+index 750c8f22f..4d5645888 100644
 --- a/backend/genesys/gl128.cpp
 +++ b/backend/genesys/gl128.cpp
 @@ -210,13 +210,19 @@ const Gl128DeviceTables GL128_DEVICE_TABLES[] = {
@@ -58,7 +58,7 @@ index 750c8f22..4d564588 100644
  };
  
 diff --git a/backend/genesys/tables_model.cpp b/backend/genesys/tables_model.cpp
-index 9a9d7574..7dee746b 100644
+index 9a9d75741..7dee746b4 100644
 --- a/backend/genesys/tables_model.cpp
 +++ b/backend/genesys/tables_model.cpp
 @@ -2801,10 +2801,9 @@ void genesys_init_usb_device_tables()

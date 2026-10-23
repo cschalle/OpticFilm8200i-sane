@@ -1,4 +1,4 @@
-From 8a80275e9bb0a5af08b45a53dad8d3a2e68fb22f Mon Sep 17 00:00:00 2001
+From f3599288e363ca6e5b2bb7619eb7b248972ab71d Mon Sep 17 00:00:00 2001
 From: "Christian F.K. Schaller" <christian.schaller@gmail.com>
 Date: Wed, 21 Oct 2026 11:50:46 -0400
 Subject: [PATCH 2/7] genesys: gl128: Choose the front-end gain from the lit
@@ -33,7 +33,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
  1 file changed, 43 insertions(+), 1 deletion(-)
 
 diff --git a/backend/genesys/gl128.cpp b/backend/genesys/gl128.cpp
-index 4d564588..4797cf4a 100644
+index 4d5645888..4797cf4aa 100644
 --- a/backend/genesys/gl128.cpp
 +++ b/backend/genesys/gl128.cpp
 @@ -326,6 +326,22 @@ std::array<double, 3> gl128_channel_means_u16(const std::vector<std::uint8_t>& s
