@@ -140,6 +140,8 @@ typedef struct plustek8200i_device {
     int       opt_rgbi;          /* mode "Color+Infrared" (RGB + IR frame) */
     SANE_Fixed opt_exposure;     /* exposure factor, 1.0 = default */
     int       in_ir_pass;        /* guard: inside the recursive IR scan */
+    int       rgbi_ir_next;      /* Color+Infrared, image first: the IR frame is the next sane_start */
+    int       s_eof;             /* the streamed frame has delivered its last line */
     volatile int cancel_requested; /* set by sane_cancel during sane_start */
     int       shading_ok;        /* shading table loaded for this pass */
     int       img_lincnt, img_feedl, img_table_period; /* image pass values */

@@ -348,6 +348,8 @@ init_options(plustek8200i_device_t *dev)
     dev->opt_auto_wb = SANE_FALSE;
     dev->opt_exposure = SANE_FIX(1.0);
     dev->in_ir_pass = 0;
+    dev->rgbi_ir_next = 0;
+    dev->s_eof = 0;
     dev->ir_map = NULL;
     dev->ir_map_size = 0;
     dev->btn_latch = 0;
@@ -876,6 +878,32 @@ plustek8200i_crop_rect(plustek8200i_device_t *dev, int fw, int fh,
     *x0 = a; *y0 = b; *x1 = e; *y1 = f;
 }
 
+/*
+ * Color+Infrared delivers the image frame first and the GRAY infrared frame
+ * second, each from its own sane_start and each streamed through sane_read,
+ * so a frontend gets data and progress for both: the colour pass runs first
+ * and the infrared pass follows.  The older order (an infrared pre-pass
+ * inside the first sane_start, which reports nothing until it is done, then
+ * the colour pass, then the stashed plane) stays for --ir-clean, whose repair
+ * needs the infrared plane before the colour data, and for
+ * PLUSTEK8200I_IR_FIRST in the environment.
+ */
+static int
+rgbi_image_first(const plustek8200i_device_t *dev)
+{
+    return dev->opt_rgbi && !dev->opt_ir_clean && !getenv("PLUSTEK8200I_IR_FIRST");
+}
+
+/* Give up on the infrared frame of a Color+Infrared image: the next sane_start
+ * begins a new image. */
+static void
+rgbi_abandon(plustek8200i_device_t *dev)
+{
+    if (dev->opt_rgbi && dev->rgbi_ir_next)
+        dev->opt_mode = MODE_COLOR;
+    dev->rgbi_ir_next = 0;
+}
+
 SANE_Status
 sane_get_parameters(SANE_Handle handle, SANE_Parameters *params)
 {
@@ -911,15 +939,18 @@ sane_get_parameters(SANE_Handle handle, SANE_Parameters *params)
 
     /* Color mode determines the delivered format. The hardware always
      * reads three channels; Gray and Infrared are averaged afterwards. */
-    if (dev->opt_mode == MODE_COLOR) {
-        dev->params.format = SANE_FRAME_RGB;
-        channels = 3;
-    } else {
-        dev->params.format = SANE_FRAME_GRAY;
-        channels = 1;
-    }
+    {
+        int ir_frame = rgbi_image_first(dev) && dev->rgbi_ir_next;
 
-    dev->params.last_frame = dev->opt_rgbi ? SANE_FALSE : SANE_TRUE;
+        if (dev->opt_mode == MODE_COLOR && !ir_frame) {
+            dev->params.format = SANE_FRAME_RGB;
+            channels = 3;
+        } else {
+            dev->params.format = SANE_FRAME_GRAY;
+            channels = 1;
+        }
+        dev->params.last_frame = (dev->opt_rgbi && !ir_frame) ? SANE_FALSE : SANE_TRUE;
+    }
     dev->params.depth = dev->opt_bit_depth;
 
     bytes_per_sample = (dev->opt_bit_depth == 16) ? 2 : 1;
@@ -1493,7 +1524,7 @@ stream_begin(plustek8200i_device_t *dev)
     dev->p_raw = dev->image_buffer;
     dev->p_ring_lines = ring;
     dev->s_bps = bps;
-    if (dev->opt_rgbi && !dev->in_ir_pass) {
+    if (dev->opt_rgbi && !dev->in_ir_pass && !rgbi_image_first(dev)) {
         /* The IR plane is kept as scanned; --ir-clean gets its own copy
          * because detection overwrites the map with marks. */
         size_t need = (size_t)px * 2 * dev->p_res_lines;
@@ -1534,8 +1565,10 @@ stream_begin(plustek8200i_device_t *dev)
         return SANE_STATUS_NO_MEM;
     }
     dev->params.format = comps == 3 ? SANE_FRAME_RGB : SANE_FRAME_GRAY;
-    dev->params.last_frame = dev->opt_rgbi ? SANE_FALSE : SANE_TRUE;
+    /* In the image-first order the infrared frame is the last one. */
+    dev->params.last_frame = (dev->opt_rgbi && !(rgbi_image_first(dev) && dev->opt_mode == MODE_INFRARED)) ? SANE_FALSE : SANE_TRUE;
     dev->s_frame = 0;
+    dev->s_eof = 0;
     dev->params.depth = dev->opt_bit_depth;
     dev->params.pixels_per_line = x1 - x0;
     dev->params.lines = y1 - y0;
@@ -1594,6 +1627,17 @@ stream_read(plustek8200i_device_t *dev, SANE_Byte *data, SANE_Int max_length,
         }
         if (dev->s_out_y >= dev->s_y1) {
             stream_hw_done(dev);
+            if (rgbi_image_first(dev) && !dev->s_eof) {
+                /* The image frame is done: the infrared frame is next.  After
+                 * the infrared frame, the next image starts with colour. */
+                dev->s_eof = 1;
+                if (dev->opt_mode == MODE_COLOR) {
+                    dev->rgbi_ir_next = 1;
+                } else if (dev->opt_mode == MODE_INFRARED) {
+                    dev->opt_mode = MODE_COLOR;
+                    dev->rgbi_ir_next = 0;
+                }
+            }
                 if (dev->ir_ready && !dev->s_ir_reported) {
                 plustek8200i_ir_report(dev);
                 dev->s_ir_reported = 1;
@@ -1697,6 +1741,7 @@ out:
     if (st == SANE_STATUS_GOOD && *length == 0 && dev->s_out_y >= dev->s_y1)
         st = SANE_STATUS_EOF;
     if (st == SANE_STATUS_CANCELLED || (st != SANE_STATUS_GOOD && st != SANE_STATUS_EOF)) {
+        rgbi_abandon(dev);
         if (!dev->s_hw_done) {
             plustek8200i_scan_stop(dev->usb_fd);
             plustek8200i_motor_stop(dev->usb_fd);
@@ -3579,7 +3624,7 @@ start_scan(SANE_Handle handle)
     {
         plustek8200i_device_t *d = handle;
         if ((d->opt_ir_clean || d->opt_rgbi) && d->opt_mode == MODE_COLOR
-            && !d->in_ir_pass) {
+            && !d->in_ir_pass && !rgbi_image_first(d)) {
             SANE_Status irst;
             int saved_mode = d->opt_mode;
 
@@ -3714,6 +3759,9 @@ sane_start(SANE_Handle handle)
     if (dev->streaming)
         stream_cleanup(dev);
     dev->cancel_requested = 0;
+    /* Image-first Color+Infrared: after the colour frame comes the infrared pass. */
+    if (rgbi_image_first(dev) && dev->rgbi_ir_next && dev->opt_mode == MODE_COLOR)
+        dev->opt_mode = MODE_INFRARED;
     dev->in_start = 1;
     status = start_scan(handle);
     dev->in_start = 0;
@@ -3732,6 +3780,8 @@ sane_start(SANE_Handle handle)
         dev->scanning = SANE_FALSE;
         status = SANE_STATUS_CANCELLED;
     }
+    if (status != SANE_STATUS_GOOD)
+        rgbi_abandon(dev);
     if (status == SANE_STATUS_CANCELLED)
         DBG(DBG_warning, "sane_start: cancelled\n");
     return status;
@@ -3835,6 +3885,10 @@ sane_cancel(SANE_Handle handle)
             dev->in_start ? "sane_start" : "sane_read");
         return;
     }
+
+    /* A frontend that stops after the image frame, or has read both: the
+     * next sane_start begins a new image. */
+    rgbi_abandon(dev);
 
     if (!dev->scanning) {
         DBG(DBG_info, "sane_cancel: not scanning, nothing to cancel\n");
