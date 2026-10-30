@@ -115,14 +115,8 @@ static const uint8_t feed_ramp_fast[512] = {
     0xD2, 0x00, 0xD2, 0x00, 0xD1, 0x00, 0xD1, 0x00, 0xD1, 0x00, 0xD0, 0x00, 0xD0, 0x00, 0xD0, 0x00,
 };
 
-/* Registers a feed changes; saved and restored around it */
-static const uint8_t feed_touched[] = {
-    0x01, 0x02, 0x04, 0x05, 0x1C, 0x1D, 0x2C, 0x2D, 0x3B,
-    0x3D, 0x3E, 0x3F, 0x7D, 0x7E, 0x7F, 0x80, 0x81,
-    0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
-    0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F, 0x90, 0x91, 0x92,
-    0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xAB, 0xAE, 0xAF,
-};
+/* The register list and the pair building live in the header, beside the
+ * button helpers, so the unit tests can reach them without a scanner. */
 
 static double
 now_s(void)
@@ -135,26 +129,36 @@ now_s(void)
 SANE_Status
 plustek8200i_feed_save(int fd, plustek8200i_feed_saved_t *saved)
 {
+    const uint8_t *touched = plustek8200i_feed_touched();
     size_t i;
-    for (i = 0; i < sizeof(feed_touched); i++) {
-        SANE_Status st = plustek8200i_read_reg(fd, feed_touched[i], &saved->val[i]);
+
+    /* Set the count first and grow it as each register lands.  The caller
+     * restores whether or not this succeeds -- it wants the registers put
+     * back either way -- so a partial save has to leave a count describing
+     * exactly what was read.  Returning early without touching n left it
+     * holding whatever was on the caller's stack, and feed_restore then
+     * wrote two bytes per phantom entry into an 84-byte buffer. */
+    saved->n = 0;
+    /* val[] is fixed; stop at its capacity too, so adding a register to the
+     * list without growing the struct cannot run off the end. */
+    for (i = 0; i < PLUSTEK8200I_FEED_REGS && i < sizeof(saved->val); i++) {
+        SANE_Status st = plustek8200i_read_reg(fd, touched[i], &saved->val[i]);
         if (st != SANE_STATUS_GOOD)
             return st;
+        saved->n = (int)(i + 1);
     }
-    saved->n = (int)sizeof(feed_touched);
     return SANE_STATUS_GOOD;
 }
 
 SANE_Status
 plustek8200i_feed_restore(int fd, const plustek8200i_feed_saved_t *saved)
 {
-    uint8_t pairs[2 * sizeof(feed_touched)];
-    int i;
-    for (i = 0; i < saved->n; i++) {
-        pairs[2 * i] = feed_touched[i];
-        pairs[2 * i + 1] = saved->val[i];
-    }
-    return plustek8200i_write_regs(fd, pairs, 2 * saved->n);
+    uint8_t pairs[2 * PLUSTEK8200I_FEED_REGS];
+    int n = plustek8200i_feed_pairs(saved, pairs);
+
+    if (n == 0)
+        return SANE_STATUS_GOOD;
+    return plustek8200i_write_regs(fd, pairs, n);
 }
 
 SANE_Status

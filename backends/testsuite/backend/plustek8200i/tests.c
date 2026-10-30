@@ -33,6 +33,7 @@
  */
 
 #include "../../../backend/plustek8200i.h"
+#include "../../../backend/plustek8200i-feed.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -163,6 +164,60 @@ test_button_latch(void)
               PLUSTEK8200I_BTN_QUICKSCAN);
 }
 
+/*
+ * The pure half of the feed register save/restore.  A positioning feed saves
+ * the registers it is about to change and puts them back afterwards, and the
+ * restore runs whether or not the save succeeded.  A save that stopped early
+ * -- a control read of 0x05 failing between the colour and infrared frames at
+ * 1200 dpi did it -- used to leave the count uninitialised, and the restore
+ * then wrote two bytes per phantom entry past the end of an 84-byte stack
+ * buffer.  These check the count is trusted only as far as it can be.
+ */
+static void
+test_feed_pairs(void)
+{
+    uint8_t pairs[2 * PLUSTEK8200I_FEED_REGS];
+    const uint8_t *touched = plustek8200i_feed_touched();
+    plustek8200i_feed_saved_t sv;
+    size_t i;
+
+    for (i = 0; i < sizeof(sv.val); i++)
+        sv.val[i] = (uint8_t)(0x10 + i);
+
+    sv.n = PLUSTEK8200I_FEED_REGS;
+    check_int("a full save writes every register",
+              plustek8200i_feed_pairs(&sv, pairs), 2 * PLUSTEK8200I_FEED_REGS);
+    check_int("and pairs each register with its value",
+              pairs[0] == touched[0] && pairs[1] == sv.val[0]
+              && pairs[2 * (PLUSTEK8200I_FEED_REGS - 1)]
+                 == touched[PLUSTEK8200I_FEED_REGS - 1],
+              1);
+
+    /* A save that stopped part way restores exactly what it read. */
+    sv.n = 3;
+    check_int("a partial save writes only what it saved",
+              plustek8200i_feed_pairs(&sv, pairs), 6);
+    sv.n = 0;
+    check_int("a save that read nothing writes nothing",
+              plustek8200i_feed_pairs(&sv, pairs), 0);
+
+    /* The counts that used to walk off the end of the buffer. */
+    sv.n = 1000000;
+    check_int("a wild count is clamped to the register list",
+              plustek8200i_feed_pairs(&sv, pairs), 2 * PLUSTEK8200I_FEED_REGS);
+    sv.n = -1;
+    check_int("a negative count writes nothing",
+              plustek8200i_feed_pairs(&sv, pairs), 0);
+    sv.n = PLUSTEK8200I_FEED_REGS + 1;
+    check_int("one past the end is clamped",
+              plustek8200i_feed_pairs(&sv, pairs), 2 * PLUSTEK8200I_FEED_REGS);
+
+    /* The restore buffer is sized from the register list, so the saved
+     * values must be able to cover it. */
+    check_int("the register list fits the saved values",
+              PLUSTEK8200I_FEED_REGS <= (int)sizeof(sv.val), 1);
+}
+
 int
 main(void)
 {
@@ -170,6 +225,7 @@ main(void)
     test_vertical_sampling();
     test_monotonic();
     test_button_latch();
+    test_feed_pairs();
 
     printf("\n%s: %d failure%s\n", failures ? "FAILED" : "PASSED",
            failures, failures == 1 ? "" : "s");
