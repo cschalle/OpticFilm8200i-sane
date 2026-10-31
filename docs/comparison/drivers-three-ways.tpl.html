@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three Ways to Read One Frame</title>
+<style>
+:root{
+  --bg:#f6f6f4; --fg:#1d1f21; --muted:#5d6166; --card:#ffffff; --border:#d9dbdd; --stage:#0f1112;
+  --now:#0a8fbf; --oct:#7a5af0; --gen:#d98a00; --film:#1f9d4f; --accent:#0a8fbf;
+  --radius:10px; --gap:16px;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#15171a; --fg:#e8e9ea; --muted:#9aa0a6; --card:#1e2124; --border:#33373b; --stage:#050607;
+         --now:#35b6e6; --oct:#a48ef7; --gen:#f2a928; --film:#46c978; --accent:#35b6e6; }
+}
+*{box-sizing:border-box}
+html{color-scheme:light dark}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 64px}
+h1{font-size:clamp(1.6rem,3.4vw,2.2rem);line-height:1.15;margin:0 0 6px;letter-spacing:-.01em}
+h2{font-size:1.25rem;margin:40px 0 4px}
+h3.sec{font-size:1rem;margin:22px 0 4px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+p.lead{color:var(--muted);margin:0 0 18px;max-width:78ch}
+p.sub{color:var(--muted);margin:0 0 14px;max-width:84ch}
+.pill{display:inline-block;padding:1px 9px;border-radius:99px;font-weight:600;font-size:.85em;color:#fff;white-space:nowrap}
+.pill.n{background:var(--now)} .pill.t{background:var(--oct)} .pill.g{background:var(--gen);color:#1a1200}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:var(--gap);margin:18px 0 6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.card h3{margin:0 0 6px;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.card .row{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.card .row b{font-weight:650;white-space:nowrap}
+.card .row>span:last-child{white-space:nowrap}
+.card .row>span:first-child{min-width:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:12px 0}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card)}
+.seg button{all:unset;cursor:pointer;padding:7px 14px;font-weight:600;font-size:.92rem}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+.seg button:focus-visible,.handle:focus-visible,label:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+label.chk{display:inline-flex;gap:7px;align-items:center;cursor:pointer;font-size:.92rem;user-select:none}
+label.chk i{display:inline-block;width:22px;height:0;border-top:3px solid}
+.stage{position:relative;background:var(--stage);overflow:hidden;border-radius:var(--radius);touch-action:pan-y;user-select:none}
+.stage img{position:absolute;display:block;pointer-events:none;-webkit-user-drag:none}
+.layer{position:absolute;inset:0}
+.frame .stage{aspect-ratio:889/645}
+.crop .stage{aspect-ratio:4/3}
+.crop .stage img{inset:0;width:100%;height:100%}
+.ov{position:absolute;pointer-events:none;display:none}
+.show-win .ov.win{display:block;border:2px solid}
+.show-film .ov.film{display:block;border:2px dashed var(--film)}
+.ov.win.n{border-color:var(--now)} .ov.win.g{border-color:var(--gen)}
+.handle{position:absolute;top:0;bottom:0;width:0;left:50%;cursor:ew-resize;z-index:5}
+.handle::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.handle::after{content:"\2194";position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;background:#fff;color:#111;display:grid;place-items:center;font-size:18px;box-shadow:0 1px 6px rgba(0,0,0,.5)}
+.tag{position:absolute;top:10px;z-index:6;padding:3px 10px;border-radius:99px;font-size:.8rem;font-weight:700;color:#fff;pointer-events:none}
+.tag.l{left:10px} .tag.r{right:10px}
+.tag.n{background:var(--now)} .tag.t{background:var(--oct)} .tag.g{background:var(--gen);color:#1a1200}
+.tag.mid{left:50%;right:auto;transform:translateX(-50%)}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap)}
+.duo{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--gap)}
+@media (max-width:860px){.trio{grid-template-columns:1fr}.duo{grid-template-columns:1fr}}
+.vp{overflow:auto;border-radius:var(--radius);background:var(--stage);max-height:72vh;position:relative}
+.vp .stage{border-radius:0;min-width:100%}
+.cap{font-weight:700;margin:0 0 6px;font-size:.95rem;display:flex;gap:8px;align-items:baseline}
+.cap small{font-weight:400;color:var(--muted)}
+.cap .swap{all:unset;cursor:pointer;margin-left:auto;font-size:.82rem;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:3px 9px}
+.cap .swap:hover{color:var(--accent);border-color:var(--accent)}
+.cap .swap:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.cap.n{color:var(--now)} .cap.t{color:var(--oct)} .cap.g{color:var(--gen)}
+.hint{color:var(--muted);font-size:.86rem;margin:8px 0 0}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.95rem}
+th,td{padding:8px 12px;border-bottom:1px solid var(--border);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+td.neg{color:#d23b3b;font-weight:700}
+td.win{color:var(--film);font-weight:700}
+.crops{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:var(--gap)}
+.note{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius);padding:12px 16px;margin:16px 0;max-width:92ch}
+.note.warn{border-left-color:var(--gen)}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 20px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:9px 15px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);text-decoration:none;font-weight:650;font-size:.95rem}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{color:#fff;filter:brightness(1.08)}
+.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn svg{width:18px;height:18px;flex:none;fill:currentColor}
+.btn span.where{font-weight:400;opacity:.75}
+footer a{color:var(--accent)}
+footer{margin-top:44px;color:var(--muted);font-size:.86rem;max-width:92ch}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Three ways to read one frame</h1>
+  <p class="lead">The same colour negative on the same OpticFilm 8200i, read three ways: upstream SANE's
+  <span class="pill g">genesys GL128</span>, our <span class="pill t">plustek8200i, October</span>, and
+  our <span class="pill n">plustek8200i, today</span>. The first two are the images published in
+  <a href="drivers-comparison.html">the original two-driver comparison</a> on 9 October 2026; the third is the
+  same frame rescanned on 31 October after a month of work on the backend.</p>
+
+  <nav class="links" aria-label="Project links">
+    <a class="btn primary" href="https://github.com/cschalle/OpticFilm8200i-sane">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.63-.18 1.3-.27 1.97-.27.67 0 1.34.09 1.97.27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A7.995 7.995 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      The plustek8200i backend <span class="where">on GitHub</span></a>
+    <a class="btn" href="drivers-comparison.html">The original two-driver page</a>
+  </nav>
+
+  <div class="note warn"><b>Read the columns carefully.</b> The genesys raw data from October no longer
+  exists, so that column cannot be re-converted &mdash; it is the published JPEG, and so is the October
+  column beside it. Both were converted by the negative pipeline <i>as it stood in October</i>, which has
+  itself changed since. So the <b>tone and colour shift</b> between the October and the current column is
+  mostly the converter, not the backend. What the backend alone did is isolated in
+  <a href="#driver">section 4</a>, where two of our own raws taken a day apart go through one and the same
+  conversion.</div>
+
+  <p class="sub">The October and genesys timings are single runs, as published. Ours today is the spread of repeat runs taken for this page &mdash; wide enough that the honest reading is that the backend is no slower than it was, not that it got faster.</p>
+
+  <div class="cards">
+    <div class="card"><h3>Full frame, 600 dpi</h3>
+      <div class="row"><span><span class="pill g">genesys</span></span><b>16.4 s</b></div>
+      <div class="row"><span><span class="pill t">ours, Oct</span></span><b>16.7 s</b></div>
+      <div class="row"><span><span class="pill n">ours, today</span></span><b>16.6&ndash;21.6 s</b></div></div>
+    <div class="card"><h3>Full frame, 3600 dpi</h3>
+      <div class="row"><span><span class="pill g">genesys</span></span><b>54.4 s</b></div>
+      <div class="row"><span><span class="pill t">ours, Oct</span></span><b>34.6 s</b></div>
+      <div class="row"><span><span class="pill n">ours, today</span></span><b>30.4&ndash;34.5 s</b></div></div>
+    <div class="card"><h3>Output size at 3600 dpi</h3>
+      <div class="row"><span>genesys</span><b>5184 &times; 3519</b></div>
+      <div class="row"><span>ours, then &amp; now</span><b>5184 &times; 3877</b></div></div>
+    <div class="card"><h3>Infrared channel</h3>
+      <div class="row"><span>genesys</span><span>&#10007; none</span></div>
+      <div class="row"><span>ours, Oct</span><span>&#10003; one scalar</span></div>
+      <div class="row"><span>ours, today</span><span class="win">&#10003; flat field</span></div></div>
+  </div>
+
+  <h2>1 &middot; Whole frame, 600 dpi</h2>
+  <p class="sub">All three are drawn on one shared film coordinate system, so the same piece of film lies in
+  the same place in every view. <b>Dark</b> areas are where a backend's scan window did not reach.
+  <b>White</b> areas are inside a window but beyond the film, where unexposed film inverts to white.</p>
+
+  <div class="toolbar">
+    <div class="seg" role="group" aria-label="View mode" id="modes">
+      <button aria-pressed="true" data-mode="side">All three</button>
+      <button aria-pressed="false" data-mode="wipe">Wipe two</button>
+      <button aria-pressed="false" data-mode="blink">Blink</button>
+    </div>
+    <span class="seg" id="pairSeg" role="group" aria-label="Which two" hidden>
+      <button aria-pressed="true" data-pair="n,g">today vs genesys</button>
+      <button aria-pressed="false" data-pair="n,t">today vs October</button>
+      <button aria-pressed="false" data-pair="t,g">October vs genesys</button>
+    </span>
+    <label class="chk"><input type="checkbox" id="chkWin"> <i style="border-color:var(--now)"></i><i style="border-color:var(--gen)"></i> scan windows</label>
+    <label class="chk"><input type="checkbox" id="chkFilm"> <i style="border-color:var(--film);border-top-style:dashed"></i> film edges</label>
+    <span class="seg" id="zoomSeg" role="group" aria-label="Zoom">
+      <button aria-pressed="true" data-z="1">Fit</button><button aria-pressed="false" data-z="2">200%</button><button aria-pressed="false" data-z="3">300%</button>
+    </span>
+  </div>
+
+  <div class="frame" id="frame">
+    <div id="m-side">
+      <div class="trio">
+        <div><p class="cap g">genesys <small>9 Oct</small></p><div class="vp"><div class="stage sv"><img data-k="genesys" alt="Genesys scan">@@OV@@</div></div></div>
+        <div><p class="cap t">ours, October <small>9 Oct</small></p><div class="vp"><div class="stage sv"><img data-k="oct" alt="Our October scan">@@OV@@</div></div></div>
+        <div><p class="cap n">ours, today <small>31 Oct</small></p><div class="vp"><div class="stage sv"><img data-k="now" alt="Our current scan">@@OV@@</div></div></div>
+      </div>
+      <p class="hint">Zoom with the buttons above, then scroll: all three panels move together.</p>
+    </div>
+    <div id="m-wipe" hidden>
+      <div class="stage" id="wipeStage">
+        <div class="layer base"><img id="wipeB" alt="Right-hand scan"></div>
+        <div class="layer top"><img id="wipeA" alt="Left-hand scan"></div>
+        @@OV@@
+        <span class="tag l" id="wipeTagA">today</span><span class="tag r" id="wipeTagB">genesys</span>
+        <div class="handle" tabindex="0" role="slider" aria-label="Wipe position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"></div>
+      </div>
+      <p class="hint">Drag anywhere on the picture, or focus the handle and use the arrow keys. Pick which two with the buttons above.</p>
+    </div>
+    <div id="m-blink" hidden>
+      <div class="stage" id="blinkStage" tabindex="0" aria-label="Click or press space to cycle the three scans">
+        <div class="layer"><img id="blinkImg" alt="One of the three scans"></div>
+        @@OV@@
+        <span class="tag mid" id="blinkTag">genesys</span>
+      </div>
+      <p class="hint">Click the picture or press <kbd>Space</kbd> to cycle all three. Whatever moves is a difference.</p>
+    </div>
+  </div>
+
+  <h2>2 &middot; Scan area</h2>
+  <p class="sub">Margin from the scan window to the film edge, in millimetres. Positive means the window
+  clears the film; negative means it cuts in. Our window is unchanged since October &mdash; nothing this
+  month touched the geometry &mdash; so one row covers both of our columns.</p>
+  <table>
+    <thead><tr><th>600 dpi</th><th>left</th><th>right</th><th>top</th><th>bottom</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill n">ours</span> <small>both</small></td><td>+0.13</td><td>+0.80</td><td>+1.65</td><td>+1.44</td></tr>
+      <tr><td><span class="pill g">genesys</span></td><td>+1.19</td><td class="neg">&minus;0.25</td><td>+0.25</td><td>+0.38</td></tr>
+    </tbody>
+    <thead><tr><th>3600 dpi</th><th></th><th></th><th></th><th></th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill n">ours</span> <small>both</small></td><td>+0.17</td><td>+0.85</td><td>+1.64</td><td>+1.56</td></tr>
+      <tr><td><span class="pill g">genesys</span></td><td>+1.19</td><td>+0.06</td><td>+0.45</td><td>+0.22</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><b>What this means.</b> Genesys's window sits <b>1.06 mm to the left</b> of ours, a
+  constant at both resolutions. It leaves a 1.2&nbsp;mm dark strip on the left and runs up against the
+  film's right edge. Its top and bottom margins are only 0.2&ndash;0.45&nbsp;mm and drift with resolution
+  (ours stay at ~1.6&nbsp;mm), so a small positioning error would clip the picture.</div>
+
+  <h2>3 &middot; Detail at 3600 dpi</h2>
+  <p class="sub">The same three crops as the original page, now with the current scan beside them. No
+  resampling happens at 3600 dpi in any version of our backend, so this is the one place where our two
+  columns should look alike &mdash; and they do.</p>
+  <div class="crops" id="crops">
+    @@CROPS@@
+  </div>
+  <div class="note"><b>Sharpness is a wash; colour is not.</b> All three resolve the same detail, and the
+  dust specks line up across every column. What separates them is colour balance: genesys's raw data
+  renders greener and brighter, which comes from each backend's white balance and exposure of the raw,
+  not from lost detail. Between our own two columns the shift is the converter, not the scan.</div>
+
+  <h2 id="driver">4 &middot; What the backend alone changed</h2>
+  <p class="sub">Two of our own raws &mdash; 30 and 31 October, the holder untouched between them, matching
+  to <b>ncc 0.998</b> &mdash; put through one and the same conversion. Nothing here is the converter.</p>
+
+  <h3 class="sec">Vertical detail: a box average replaced by Lanczos-3</h3>
+  <p class="sub">The sensor samples about 2.6&times; finer along the scan direction than across it, so every
+  resolution below the hardware line rate arrives with surplus lines to squash away. That was a box
+  average, which attenuates detail well below the new Nyquist and still passes enough above it to alias.
+  Below: the wall's mortar courses at 600 dpi, where a squash of 2.48 applies, at 3&times; nearest-neighbour
+  so the pixels are visible.</p>
+  <div class="duo">
+    <div><p class="cap t">box average <small>until 31 Oct</small></p><div class="stage" style="aspect-ratio:4/3"><img data-k="wall_prev" style="inset:0;width:100%;height:100%" alt="Wall detail, box average"></div></div>
+    <div><p class="cap n">Lanczos-3 <small>today</small></p><div class="stage" style="aspect-ratio:4/3"><img data-k="wall_now" style="inset:0;width:100%;height:100%" alt="Wall detail, Lanczos-3"></div></div>
+  </div>
+  <p class="sub" style="margin-top:14px">Band power in the picture, exposure-matched, both axes, with a
+  noise floor from repeat scans of each:</p>
+  <table>
+    <thead><tr><th>600 dpi</th><th>horizontal 0.1&ndash;0.25</th><th>horizontal &gt;0.25</th><th>vertical 0.1&ndash;0.25</th><th>vertical &gt;0.25</th></tr></thead>
+    <tbody>
+      <tr><td>repeat scan, same build <small>(noise floor)</small></td><td>1.002</td><td>1.008</td><td>1.004</td><td>1.009</td></tr>
+      <tr><td><b>Lanczos-3 &divide; box</b></td><td>1.011</td><td>0.974</td><td class="win">1.082</td><td class="win">1.061</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><b>+8.2% in the vertical mid-band</b>, against a noise floor under 1%, and +6.1% above
+  it. Horizontal moves by 1&ndash;3%, as it should: the change only touches the scan axis. Measured against
+  SilverFast on the same frame, the vertical mid-band went from 6% behind to level
+  (<b>1.063 &rarr; 0.989</b>). 1200 and 3600 dpi reproduce the old scans at ncc 0.996 and 0.991, and
+  geometry and timing are unchanged.</div>
+
+  <h3 class="sec">The infrared plane: per-column flat field</h3>
+  <p class="sub">The colour pass is shading corrected in hardware; the infrared pass cannot be, because
+  DVDSET clips IR, so the whole calibration was skipped and one scalar stood in for it. Every sensor column
+  kept its own offset. The two calibration strips needed to fix it were already being read and discarded.
+  <b>These figures are from a different negative</b> &mdash; a visibly dusty, scratched frame, the one that
+  exposed the problem; the tulip frame above was scanned without infrared. Spread of the infrared residual,
+  after the lamp surface and the picture&rsquo;s ghost in red are fitted out:</p>
+  <table>
+    <thead><tr><th>600 dpi, before the fix</th><th>ours, October</th><th>SilverFast, same frame</th></tr></thead>
+    <tbody>
+      <tr><td>pixel to pixel along a row</td><td>0.00814</td><td>0.00820</td></tr>
+      <tr><td>line to line down a column</td><td>0.00806</td><td>0.00873</td></tr>
+      <tr><td><b>column means</b></td><td class="neg">0.01999</td><td>0.00211</td></tr>
+      <tr><td>residual MAD</td><td>0.02289</td><td>0.01067</td></tr>
+    </tbody>
+  </table>
+  <p class="sub" style="margin-top:14px">The random noise matched SilverFast; the column pattern was
+  <b>9.5&times;</b> worse and ours alone. After the flat field, measured through the shipped
+  0.1.36 package:</p>
+  <table>
+    <thead><tr><th>600 dpi</th><th>before</th><th>after</th><th>SilverFast</th></tr></thead>
+    <tbody>
+      <tr><td>column means</td><td>0.01999</td><td class="win">0.00163</td><td>0.00211</td></tr>
+      <tr><td>residual MAD</td><td>0.02289</td><td class="win">0.00810</td><td>0.01067</td></tr>
+      <tr><td>a 2&ndash;4 px speck stands at</td><td>6.49 MAD</td><td class="win">18.11 MAD</td><td>13.82 MAD</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><b>The random noise was never the problem.</b> Because dust detection thresholds on a
+  multiple of that spread, a small speck sat under the bar: at the default sensitivity the pipeline found
+  28% of 2&ndash;4 px specks and now finds 98%. End to end, defect visibility above a clean-site control
+  falls by <b>97.8%</b> where it fell by 59.2% before, with high-frequency detail elsewhere moving +0.08%.
+  Genesys exposes no infrared channel at all, so none of this is available through it.</div>
+
+  <footer>
+    <p><b>How this was made.</b> One frame, one OpticFilm 8200i (USB 07b3:1825). The genesys and October
+    columns are the JPEGs published on 2026-10-09 in the original comparison, re-used unchanged: genesys was
+    upstream SANE master (415217c5) with its GL128 command set, ours was <code>plustek8200i</code> at
+    <code>750d632</code>. The current column is <code>plustek8200i</code> at <code>c77b4d2</code>,
+    scanned 2026-10-31 and converted with <code>nv-cli render</code>, no dust removal, the backend's own
+    film-base estimate. Section 4 compares our raws of 30 and 31 October through that same conversion, so
+    the backend is the only variable there. The crops were located by cross-correlating the published
+    images against the new scan (ncc 0.91&ndash;0.99); the whole-frame views use the measured holder offset.
+    Single scanner, single frame, so treat this as a worked example rather than a benchmark.</p>
+    <p><b>Where to go next.</b> The backend, build instructions and the scripts that produced these images
+    live in the <a href="https://github.com/cschalle/OpticFilm8200i-sane">OpticFilm8200i-sane repository</a>.
+    Upstreaming is tracked in SANE backends
+    <a href="https://gitlab.com/sane-project/backends/-/work_items/886">work item #886</a>.
+    The two-driver page this extends is <a href="drivers-comparison.html">here</a>.</p>
+  </footer>
+</div>
+<script>
+const IMG = /*IMG*/;
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+$$('img[data-k]').forEach(i => i.src = IMG[i.dataset.k]);
+
+/* Shared film canvas: every scan is placed on it, so the same piece of film
+   lands in the same place in all three views. */
+const CW = 889, CH = 645;
+const PLACE = {               /* x, y, w, h on the canvas, in canvas pixels */
+  genesys: [0,   34, 864, 586],
+  oct:     [25,   0, 864, 645],
+  now:     [15,   1, 864, 645]
+};
+const KEYS = ['genesys','oct','now'];
+const LABEL = {genesys:'genesys', oct:'ours, October', now:'ours, today'};
+const CLS = {genesys:'g', oct:'t', now:'n'};
+const place = img => {
+  const p = PLACE[img.dataset.k]; if (!p) return;
+  Object.assign(img.style, {left:(p[0]/CW*100)+'%', top:(p[1]/CH*100)+'%',
+                            width:(p[2]/CW*100)+'%', height:(p[3]/CH*100)+'%'});
+};
+$$('.frame img[data-k]').forEach(place);
+
+/* Wipe */
+let pair = ['now','genesys'];
+const wipeA = $('#wipeA'), wipeB = $('#wipeB');
+const setPair = () => {
+  const [a, b] = pair;
+  wipeA.dataset.k = a; wipeA.src = IMG[a]; place(wipeA);
+  wipeB.dataset.k = b; wipeB.src = IMG[b]; place(wipeB);
+  const ta = $('#wipeTagA'), tb = $('#wipeTagB');
+  ta.textContent = LABEL[a]; tb.textContent = LABEL[b];
+  ta.className = 'tag l ' + CLS[a]; tb.className = 'tag r ' + CLS[b];
+};
+setPair();
+(function(root){
+  const top = $('.layer.top', root), h = $('.handle', root); let pos = 50;
+  const set = p => { pos = Math.max(0, Math.min(100, p));
+    top.style.clipPath = `inset(0 ${100-pos}% 0 0)`; h.style.left = pos+'%';
+    h.setAttribute('aria-valuenow', Math.round(pos)); };
+  const ev = e => { const r = root.getBoundingClientRect();
+    set((('touches' in e ? e.touches[0].clientX : e.clientX) - r.left) / r.width * 100); };
+  root.addEventListener('pointerdown', e => { root.dataset.drag = 1; ev(e); root.setPointerCapture(e.pointerId); });
+  root.addEventListener('pointermove', e => { if (root.dataset.drag) ev(e); });
+  ['pointerup','pointercancel'].forEach(t => root.addEventListener(t, () => delete root.dataset.drag));
+  h.addEventListener('keydown', e => {
+    const d = {ArrowLeft:-2, ArrowRight:2, Home:-100, End:100}[e.key];
+    if (d !== undefined) { e.preventDefault(); set(e.key === 'Home' ? 0 : e.key === 'End' ? 100 : pos + d); } });
+  set(50);
+})($('#wipeStage'));
+
+$('#pairSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $$('#pairSeg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  pair = b.dataset.pair.split(',').map(c => ({n:'now', t:'oct', g:'genesys'})[c]);
+  setPair();
+});
+
+/* Blink cycles all three */
+let bi = 0;
+const blinkImg = $('#blinkImg'), blinkTag = $('#blinkTag');
+const showBlink = () => { const k = KEYS[bi];
+  blinkImg.dataset.k = k; blinkImg.src = IMG[k]; place(blinkImg);
+  blinkTag.textContent = LABEL[k]; blinkTag.className = 'tag mid ' + CLS[k]; };
+showBlink();
+const stepBlink = () => { bi = (bi + 1) % KEYS.length; showBlink(); };
+$('#blinkStage').addEventListener('click', stepBlink);
+$('#blinkStage').addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); stepBlink(); } });
+
+/* Modes, overlays, zoom */
+const frame = $('#frame'); let mode = 'side', zoom = 1;
+const applyMode = () => {
+  ['side','wipe','blink'].forEach(m => $('#m-'+m).hidden = m !== mode);
+  $('#pairSeg').hidden = mode !== 'wipe';
+  $('#zoomSeg').hidden = mode !== 'side';
+};
+applyMode();
+$('#modes').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $$('#modes button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  mode = b.dataset.mode; applyMode();
+});
+$('#chkWin').addEventListener('change', e => frame.classList.toggle('show-win', e.target.checked));
+$('#chkFilm').addEventListener('change', e => frame.classList.toggle('show-film', e.target.checked));
+$('#zoomSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $$('#zoomSeg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  zoom = +b.dataset.z;
+  $$('#m-side .stage.sv').forEach(st => st.style.width = (zoom * 100) + '%');
+});
+
+/* Side-by-side: scroll all three together */
+(function(){
+  const vps = $$('#m-side .vp'); let lock = false;
+  vps.forEach(a => a.addEventListener('scroll', () => {
+    if (lock) return; lock = true;
+    vps.forEach(b => { if (b !== a) { b.scrollLeft = a.scrollLeft; b.scrollTop = a.scrollTop; } });
+    requestAnimationFrame(() => lock = false);
+  }));
+})();
+
+/* Crop wipes: three-way, click to cycle which pair */
+$$('.crop .stage').forEach(st => {
+  const k = st.dataset.crop;
+  const order = [['n','g'], ['n','t'], ['t','g']];
+  const src = {g: IMG[k+'_g'], t: IMG[k+'_t'], n: IMG[k+'_n']};
+  const name = {g:'genesys', t:'ours, October', n:'ours, today'};
+  let i = 0;
+  const a = $('.ca', st), b = $('.cb', st), ta = $('.tag.l', st), tb = $('.tag.r', st);
+  const show = () => { const [x, y] = order[i];
+    a.src = src[x]; b.src = src[y];
+    ta.textContent = name[x]; ta.className = 'tag l ' + x;
+    tb.textContent = name[y]; tb.className = 'tag r ' + y; };
+  show();
+  $('.swap', st.parentElement).addEventListener('click', () => { i = (i+1) % order.length; show(); });
+  const top = $('.layer.top', st), h = $('.handle', st); let pos = 50;
+  const set = p => { pos = Math.max(0, Math.min(100, p));
+    top.style.clipPath = `inset(0 ${100-pos}% 0 0)`; h.style.left = pos+'%'; };
+  const ev = e => { const r = st.getBoundingClientRect();
+    set((('touches' in e ? e.touches[0].clientX : e.clientX) - r.left) / r.width * 100); };
+  st.addEventListener('pointerdown', e => { st.dataset.drag = 1; ev(e); st.setPointerCapture(e.pointerId); });
+  st.addEventListener('pointermove', e => { if (st.dataset.drag) ev(e); });
+  ['pointerup','pointercancel'].forEach(t => st.addEventListener(t, () => delete st.dataset.drag));
+  set(50);
+});
+</script>
+</body>
+</html>
