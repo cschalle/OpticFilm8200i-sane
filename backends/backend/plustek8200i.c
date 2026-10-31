@@ -37,6 +37,7 @@
 #include "plustek8200i-shading.h"
 #include "plustek8200i-feed.h"
 #include "plustek8200i-button.h"
+#include "plustek8200i-vresample.h"
 #include "../include/sane/sanei_config.h"
 #include <sys/time.h>
 #include <limits.h>
@@ -1285,8 +1286,8 @@ plustek8200i_ir_report(plustek8200i_device_t *dev)
 /*
  * Line-by-line image pipeline for streaming a scan from sane_read.  The
  * stages match the full-buffer post-processing at the end of start_scan,
- * with the same rounding: vertical area-average resample (rounded to 16
- * bit per row), channel registration (red from row y - s, blue from y + s,
+ * with the same rounding: vertical resample (rounded to 16 bit per row),
+ * channel registration (red from row y - s, blue from y + s,
  * clamped at the edges), horizontal mirror, Gray/IR averaging, IR repair.
  * Auto white balance needs the whole image and is not part of it.
  */
@@ -1304,54 +1305,57 @@ pipe_resample_row(plustek8200i_device_t *dev, int k, uint16_t *out)
 {
     int ncomp = dev->p_raw_line_bytes / 2, x, i;
     double v = dev->p_vsquash;
+    double *acc = dev->p_acc;
+    plustek8200i_vweights_t wt;
 
-    if (v <= 1.01) {
+    if (v <= PLUSTEK8200I_VNONE) {
         memcpy(out, pipe_raw_line(dev, k), dev->p_raw_line_bytes);
         return;
     }
-    {
-        double y0 = k * v, y1 = (k + 1) * v, wsum = 0.0;
-        int i0 = (int)y0, i1 = (int)(y1 - 1e-9);
-        double *acc = dev->p_acc;
-
-        memset(acc, 0, ncomp * sizeof(double));
-        if (i1 >= dev->p_raw_lines) i1 = dev->p_raw_lines - 1;
-        for (i = i0; i <= i1; i++) {
-            double lo = (i > y0) ? i : y0;
-            double hi = ((i + 1) < y1) ? (i + 1) : y1;
-            double w = hi - lo;
-            const uint16_t *src;
-            if (w <= 0) continue;
-            src = (const uint16_t *)pipe_raw_line(dev, i);
-            for (x = 0; x < ncomp; x++) acc[x] += w * src[x];
-            wsum += w;
-        }
-        for (x = 0; x < ncomp; x++) {
-            double val = wsum > 0 ? acc[x] / wsum : 0.0;
-            out[x] = wsum > 0 ? ((val > 65535.0) ? 65535 : (uint16_t)(val + 0.5)) : 0;
-        }
+    if (plustek8200i_vresample_weights(v, k, &wt) != 0) {
+        /* Cannot happen at the supported resolutions -- the unit test pins
+         * the tap counts under the limit -- but deliver the nearest line
+         * rather than a black one if it ever does. */
+        int c = (int)((k + 0.5) * v);
+        if (c < 0) c = 0;
+        if (c >= dev->p_raw_lines) c = dev->p_raw_lines - 1;
+        DBG(DBG_warning, "Vertical resample: no weights for line %d "
+            "(squash %.3f); using raw line %d\n", k, v, c);
+        memcpy(out, pipe_raw_line(dev, c), dev->p_raw_line_bytes);
+        return;
     }
+    memset(acc, 0, ncomp * sizeof(double));
+    for (i = 0; i < wt.n; i++) {
+        double w = wt.w[i];
+        const uint16_t *src;
+        if (w == 0.0) continue;
+        src = (const uint16_t *)pipe_raw_line(dev,
+              plustek8200i_vresample_src(&wt, i, dev->p_raw_lines));
+        for (x = 0; x < ncomp; x++) acc[x] += w * src[x];
+    }
+    for (x = 0; x < ncomp; x++)
+        out[x] = plustek8200i_vresample_clamp(acc[x]);
 }
 
 /* Oldest raw line output line y still reads (for the ring). */
 static int
 pipe_raw_oldest(plustek8200i_device_t *dev, int y)
 {
-    int k = y - dev->p_shift;
+    int k = y - dev->p_shift, first, last;
     if (k < 0) k = 0;
-    return dev->p_vsquash <= 1.01 ? k : (int)(k * dev->p_vsquash);
+    plustek8200i_vresample_span(dev->p_vsquash, k, &first, &last);
+    return first < 0 ? 0 : first;
 }
 
 /* Raw lines that must be in p_raw before output line y can be built. */
 static int
 pipe_raw_needed(plustek8200i_device_t *dev, int y)
 {
-    int k = y + dev->p_shift, n;
+    int k = y + dev->p_shift, first, last, n;
     if (k > dev->p_res_lines - 1) k = dev->p_res_lines - 1;
-    if (dev->p_vsquash <= 1.01)
-        n = k + 1;
-    else
-        n = (int)((k + 1) * dev->p_vsquash - 1e-9) + 1;
+    plustek8200i_vresample_span(dev->p_vsquash, k, &first, &last);
+    n = last + 1;
+    if (n < 1) n = 1;
     return n > dev->p_raw_lines ? dev->p_raw_lines : n;
 }
 
@@ -1412,7 +1416,7 @@ pipe_setup(plustek8200i_device_t *dev, uint8_t *raw, int raw_lines, int raw_line
     dev->p_raw_lines = raw_lines;
     dev->p_raw_line_bytes = raw_line_bytes;
     dev->p_vsquash = (double)plustek8200i_target_vdpi(rdpi) / (double)rdpi;
-    dev->p_res_lines = dev->p_vsquash <= 1.01 ? raw_lines
+    dev->p_res_lines = dev->p_vsquash <= PLUSTEK8200I_VNONE ? raw_lines
                        : (int)(raw_lines / dev->p_vsquash);
     if (dev->p_res_lines < 1) dev->p_res_lines = 1;
     dev->p_shift = dev->opt_resolution / 300;
@@ -1502,13 +1506,18 @@ stream_begin(plustek8200i_device_t *dev)
     /*
      * Raw lines are kept in a ring, not a whole-frame buffer (482 MB at
      * 7200 dpi).  Output line y needs raw lines pipe_raw_oldest(y) up to
-     * pipe_raw_needed(y): (2 * shift + 1) resampled rows of vsquash raw lines,
-     * plus 2 partial lines at each end.  Reading runs at most one USB chunk
-     * ahead.
+     * pipe_raw_needed(y): the channel registration spreads the rows it
+     * reads over 2 * shift output pitches, and each of those rows reaches
+     * the resampler's support either side of its own centre.  Taking the
+     * support from the kernel rather than assuming an area-average keeps
+     * this in step with it -- Lanczos-3 reads 3 output pitches each way,
+     * six times as far as the box it replaced.  Reading runs at most one
+     * USB chunk ahead.
      */
     {
-        double v = dev->p_vsquash <= 1.01 ? 1.0 : dev->p_vsquash;
-        ring = (int)((2 * dev->p_shift + 1) * v + 0.999) + 2
+        double v = dev->p_vsquash <= PLUSTEK8200I_VNONE ? 1.0 : dev->p_vsquash;
+        double sup = plustek8200i_vresample_support(dev->p_vsquash);
+        ring = (int)(2 * dev->p_shift * v + 2 * sup + 0.999) + 3
                + PLUSTEK8200I_STREAM_CHUNK / lb + 2 + 16;
         if (ring > dev->raw_scan_lines)
             ring = dev->raw_scan_lines;
@@ -3340,8 +3349,8 @@ scan_run_image_pass(plustek8200i_device_t *dev)
          * pixel_dpi); Windows gives the same shape (1303 rows x 864 px) and
          * SilverFast resamples.  Measured two ways, agreeing to 0.2%: film
          * rebate edges 2.605, cross-correlation with the Windows scan
-         * 2.611.  Re-measure if the motor setup or LPERIOD changes.  Area
-         * average, a real downsample.
+         * 2.611.  Re-measure if the motor setup or LPERIOD changes.  A real
+         * downsample, through the kernel in plustek8200i-vresample.h.
          */
         {
             /* Fixed by line rate against motor speed at ~PLUSTEK8200I_HW_LINE_DPI,
@@ -3365,7 +3374,7 @@ scan_run_image_pass(plustek8200i_device_t *dev)
             int y, x, i;
 
             if (dst_lines < 1) dst_lines = 1;
-            if (vsquash <= 1.01) {
+            if (vsquash <= PLUSTEK8200I_VNONE) {
                 /* No downsample needed (the motor was slowed so the lines exist).  The
                  * captured count is raw_lines, not the nominal output_lines. */
                 dev->params.lines = dev->raw_scan_lines;
@@ -3384,31 +3393,30 @@ scan_run_image_pass(plustek8200i_device_t *dev)
             }
 
             for (y = 0; y < dst_lines; y++) {
-                double y0 = y * vsquash, y1 = (y + 1) * vsquash;
-                int i0 = (int)y0, i1 = (int)(y1 - 1e-9);
                 uint16_t *dst = (uint16_t *)(dst_buf +
                                 (size_t)y * sline);
-                double wsum = 0.0;
+                plustek8200i_vweights_t wt;
 
+                if (plustek8200i_vresample_weights(vsquash, y, &wt) != 0) {
+                    int c = (int)((y + 0.5) * vsquash);
+                    if (c < 0) c = 0;
+                    if (c >= src_lines) c = src_lines - 1;
+                    DBG(DBG_warning, "Vertical resample: no weights for line %d "
+                        "(squash %.3f); using raw line %d\n", y, vsquash, c);
+                    memcpy(dst, dev->image_buffer + (size_t)c * sline, sline);
+                    continue;
+                }
                 memset(acc, 0, ncomp * sizeof(double));
-                if (i1 >= src_lines) i1 = src_lines - 1;
-                for (i = i0; i <= i1; i++) {
-                    double lo = (i > y0) ? i : y0;
-                    double hi = ((i + 1) < y1) ? (i + 1) : y1;
-                    double w = hi - lo;
+                for (i = 0; i < wt.n; i++) {
+                    double w = wt.w[i];
                     uint16_t *src;
-                    if (w <= 0) continue;
-                    src = (uint16_t *)(dev->image_buffer +
-                          (size_t)i * sline);
+                    if (w == 0.0) continue;
+                    src = (uint16_t *)(dev->image_buffer + (size_t)sline *
+                          plustek8200i_vresample_src(&wt, i, src_lines));
                     for (x = 0; x < ncomp; x++) acc[x] += w * src[x];
-                    wsum += w;
                 }
-                if (wsum > 0) {
-                    for (x = 0; x < ncomp; x++) {
-                        double v = acc[x] / wsum;
-                        dst[x] = (v > 65535.0) ? 65535 : (uint16_t)(v + 0.5);
-                    }
-                }
+                for (x = 0; x < ncomp; x++)
+                    dst[x] = plustek8200i_vresample_clamp(acc[x]);
             }
             free(acc);
             free(dev->image_buffer);

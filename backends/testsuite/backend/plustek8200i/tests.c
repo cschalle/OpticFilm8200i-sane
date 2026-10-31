@@ -23,7 +23,8 @@
 
 /*
  * Unit tests for the parts of the plustek8200i backend that do not need
- * the scanner: the scan geometry.
+ * the scanner: the scan geometry, the button latch, the feed register
+ * save/restore, and the vertical resample kernel.
  *
  * sane_get_parameters() has to predict the frame before sane_start() has
  * computed anything, so it shares these helpers with the scan path. The
@@ -34,6 +35,7 @@
 
 #include "../../../backend/plustek8200i.h"
 #include "../../../backend/plustek8200i-feed.h"
+#include "../../../backend/plustek8200i-vresample.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,6 +50,17 @@ check_int(const char *what, int got, int want)
         failures++;
     } else {
         printf("ok   %-44s %d\n", what, got);
+    }
+}
+
+static void
+check_near(const char *what, double got, double want, double tol)
+{
+    if (!(got - want < tol && want - got < tol)) {
+        printf("FAIL %-44s got %.4f, want %.4f +-%.4f\n", what, got, want, tol);
+        failures++;
+    } else {
+        printf("ok   %-44s %.4f\n", what, got);
     }
 }
 
@@ -218,6 +231,311 @@ test_feed_pairs(void)
               PLUSTEK8200I_FEED_REGS <= (int)sizeof(sv.val), 1);
 }
 
+/*
+ * The vertical resample kernel.  Every resolution below the hardware line
+ * rate arrives with surplus lines to squash away, and the kernel that does
+ * it decides how much real detail survives and how much of what is past the
+ * new Nyquist folds back as aliasing.  A box area-average was shipped
+ * first; Lanczos-3 replaced it above a squash of
+ * PLUSTEK8200I_VLANCZOS_MIN.  No scanner is needed for any of this.
+ */
+
+/* Amplitude a vertical sinusoid of `period` source lines comes out with. */
+static double
+resample_gain(double vsquash, int k, double period)
+{
+    plustek8200i_vweights_t w;
+    double re = 0.0, im = 0.0;
+    int i;
+
+    if (plustek8200i_vresample_weights(vsquash, k, &w) != 0)
+        return -1.0;
+    for (i = 0; i < w.n; i++) {
+        double ph = 2.0 * PLUSTEK8200I_VPI * (w.first + i) / period;
+        re += w.w[i] * cos(ph);
+        im += w.w[i] * sin(ph);
+    }
+    return sqrt(re * re + im * im);
+}
+
+/*
+ * The shipped box average at an arbitrary squash, which the kernel will no
+ * longer build above PLUSTEK8200I_VLANCZOS_MIN.  Here so the two can be
+ * compared at the same squash factor -- that contrast is the whole reason
+ * for the change.
+ */
+static double
+box_gain(double vsquash, int k, double period)
+{
+    double y0 = k * vsquash, y1 = (k + 1) * vsquash;
+    int i0 = (int)y0, i1 = (int)(y1 - 1e-9), i;
+    double wsum = 0.0, re = 0.0, im = 0.0;
+
+    for (i = i0; i <= i1; i++) {
+        double lo = (i > y0) ? i : y0;
+        double hi = ((i + 1) < y1) ? (i + 1) : y1;
+        double ph = 2.0 * PLUSTEK8200I_VPI * i / period;
+
+        if (hi <= lo) continue;
+        wsum += hi - lo;
+        re += (hi - lo) * cos(ph);
+        im += (hi - lo) * sin(ph);
+    }
+    if (wsum <= 0.0) return -1.0;
+    return sqrt(re * re + im * im) / wsum;
+}
+
+static double
+squash_at(int dpi)
+{
+    return (double)plustek8200i_target_vdpi(dpi) / (double)dpi;
+}
+
+/*
+ * Which kernel each resolution gets, and how far it reaches.  The tap
+ * count is the number the fallback in both resample paths is there to
+ * guard: it must stay under the limit, or a line would be built from the
+ * nearest source row instead.
+ */
+static void
+test_vresample_gate(void)
+{
+    size_t i;
+    char name[96];
+    /* dpi, squash, taps -- 300 and 600 resample through Lanczos-3, 1200
+     * stays on the box, and above the line rate nothing is resampled. */
+    static const struct { int dpi, taps; double squash, support; } g[] = {
+        {  300, 31, 4.9667, 14.900 },
+        {  600, 16, 2.4833,  7.450 },
+        { 1200,  2, 1.2417,  0.621 },
+        { 2400,  1, 1.0000,  0.000 },
+        { 3600,  1, 1.0000,  0.000 },
+        { 7200,  1, 1.0000,  0.000 },
+    };
+
+    for (i = 0; i < sizeof(g) / sizeof(g[0]); i++) {
+        double v = squash_at(g[i].dpi);
+        plustek8200i_vweights_t w;
+
+        sprintf(name, "%d dpi: squash", g[i].dpi);
+        check_near(name, v, g[i].squash, 0.0005);
+        sprintf(name, "%d dpi: kernel reach in source lines", g[i].dpi);
+        check_near(name, plustek8200i_vresample_support(v), g[i].support, 0.001);
+        sprintf(name, "%d dpi: taps", g[i].dpi);
+        check_int(name, plustek8200i_vresample_weights(v, 100, &w) == 0 ? w.n : -1,
+                  g[i].taps);
+        sprintf(name, "%d dpi: taps fit the weight array", g[i].dpi);
+        check_int(name, w.n <= PLUSTEK8200I_VTAPS_MAX, 1);
+    }
+}
+
+/*
+ * A flat field has to come out the same flat field: the weights are
+ * normalised, so they sum to one at every output line, including the ones
+ * whose kernel hangs off the end of the frame.
+ */
+static void
+test_vresample_dc(void)
+{
+    static const int dpis[] = { 300, 600, 1200, 2400, 7200 };
+    size_t d;
+    char name[96];
+
+    for (d = 0; d < sizeof(dpis) / sizeof(dpis[0]); d++) {
+        double v = squash_at(dpis[d]);
+        double worst = 0.0;
+        int k, bad = 0;
+
+        for (k = 0; k < 400; k++) {
+            plustek8200i_vweights_t w;
+            double sum = 0.0;
+            int i;
+
+            if (plustek8200i_vresample_weights(v, k, &w) != 0) { bad++; continue; }
+            for (i = 0; i < w.n; i++) sum += w.w[i];
+            if (fabs(sum - 1.0) > worst) worst = fabs(sum - 1.0);
+        }
+        sprintf(name, "%d dpi: every line has weights", dpis[d]);
+        check_int(name, bad, 0);
+        sprintf(name, "%d dpi: weights sum to one", dpis[d]);
+        check_near(name, 1.0 + worst, 1.0, 1e-9);
+    }
+}
+
+/*
+ * 1200 dpi keeps the shipped area-average, so its output must stay
+ * bit-identical: at a squash of 1.24 the band-limiting needed is slight,
+ * the box is already close to ideal, and a wide windowed sinc mostly adds
+ * ringing.  These are the weights the old inline loop computed.
+ */
+static void
+test_vresample_box_unchanged(void)
+{
+    double v = squash_at(1200);
+    double worst = 0.0;
+    int k, shape = 1;
+
+    for (k = 0; k < 400; k++) {
+        plustek8200i_vweights_t w;
+        double y0 = k * v, y1 = (k + 1) * v, wsum = 0.0;
+        int i0 = (int)y0, i1 = (int)(y1 - 1e-9), i;
+
+        if (plustek8200i_vresample_weights(v, k, &w) != 0) { shape = 0; break; }
+        if (w.first != i0 || w.n != i1 - i0 + 1) { shape = 0; break; }
+        for (i = i0; i <= i1; i++) {
+            double lo = (i > y0) ? i : y0;
+            double hi = ((i + 1) < y1) ? (i + 1) : y1;
+            wsum += hi - lo;
+        }
+        for (i = i0; i <= i1; i++) {
+            double lo = (i > y0) ? i : y0;
+            double hi = ((i + 1) < y1) ? (i + 1) : y1;
+            double want = (hi - lo) / wsum;
+            if (fabs(w.w[i - i0] - want) > worst) worst = fabs(w.w[i - i0] - want);
+        }
+    }
+    check_int("1200 dpi: box covers the same source lines", shape, 1);
+    check_near("1200 dpi: box weights are unchanged", 1.0 + worst, 1.0, 1e-12);
+}
+
+/*
+ * What the change bought, as frequency response at 600 dpi.  Periods are
+ * in output pixels: 4 is half the output Nyquist and has to survive, 2 is
+ * the Nyquist itself, and anything shorter can only come back as aliasing
+ * and has to be thrown away.  The box passes a third of the energy at 1.5
+ * output pixels straight into the image; Lanczos-3 passes a twentieth, and
+ * still holds more of the passband.
+ */
+static void
+test_vresample_response(void)
+{
+    double v = squash_at(600);
+    double box = squash_at(1200);
+
+    check_near("600 dpi: gain at 4 output px (keep)",
+               resample_gain(v, 100, 4.0 * v), 1.0116, 0.002);
+    check_near("600 dpi: gain at the Nyquist",
+               resample_gain(v, 100, 2.0 * v), 0.5018, 0.002);
+    check_near("600 dpi: gain at 1.5 output px (alias)",
+               resample_gain(v, 100, 1.5 * v), 0.0485, 0.002);
+    check_near("600 dpi: gain at 1.2 output px (alias)",
+               resample_gain(v, 100, 1.2 * v), 0.0046, 0.002);
+
+    /*
+     * The box at the same squash, which is what 600 dpi used to get: it
+     * loses an eighth of the passband Lanczos-3 keeps, and passes eight
+     * times as much of what can only alias.
+     */
+    check_near("box at 600 dpi squash: gain at 4 output px",
+               box_gain(v, 100, 4.0 * v), 0.8852, 0.002);
+    check_near("box at 600 dpi squash: gain at 1.5 output px",
+               box_gain(v, 100, 1.5 * v), 0.3389, 0.002);
+    check_int("Lanczos-3 keeps more of the passband",
+              resample_gain(v, 100, 4.0 * v) > box_gain(v, 100, 4.0 * v), 1);
+    check_int("and passes far less of the alias band",
+              resample_gain(v, 100, 1.5 * v) < box_gain(v, 100, 1.5 * v) / 5.0, 1);
+
+    /*
+     * 1200 dpi keeps the box, so its response is shipped behaviour: a
+     * third of the energy at 1.5 output pixels still folds back.  That is
+     * the known cost of the gate, and at a squash of 1.24 it is cheaper
+     * than the ringing the alternative brings.
+     */
+    check_near("1200 dpi box: gain at 4 output px",
+               resample_gain(box, 100, 4.0 * box), 0.8316, 0.002);
+    check_near("1200 dpi box: gain at 1.5 output px",
+               resample_gain(box, 100, 1.5 * box), 0.3591, 0.002);
+
+    /* It is a windowed sinc, not a blur: the negative lobes are what sharpen
+     * the passband, and they are why both paths clamp below zero as well as
+     * above. */
+    {
+        plustek8200i_vweights_t w;
+        double lo = 0.0;
+        int i;
+
+        check_int("600 dpi: weights built", plustek8200i_vresample_weights(v, 100, &w), 0);
+        for (i = 0; i < w.n; i++) if (w.w[i] < lo) lo = w.w[i];
+        check_int("600 dpi: Lanczos has negative lobes", lo < -0.01, 1);
+        check_int("a negative accumulation clamps to black",
+                  (int)plustek8200i_vresample_clamp(-1234.5), 0);
+        check_int("an overshoot clamps to white",
+                  (int)plustek8200i_vresample_clamp(70000.0), 65535);
+        check_int("and the range between is rounded",
+                  (int)plustek8200i_vresample_clamp(1234.6), 1235);
+    }
+}
+
+/*
+ * The frame edges, and the window the streaming ring has to hold.  A
+ * kernel that hangs off the top or bottom of the frame reads the first or
+ * last line again rather than dropping taps, which would leave a signed
+ * kernel normalised against a partial sum.
+ */
+static void
+test_vresample_edges(void)
+{
+    double v = squash_at(600);
+    plustek8200i_vweights_t w;
+    int src_lines = 1604, i, off = 0;
+
+    check_int("first line: weights built", plustek8200i_vresample_weights(v, 0, &w), 0);
+    check_int("first line: kernel reaches above the frame", w.first < 0, 1);
+    for (i = 0; i < w.n; i++) {
+        int si = plustek8200i_vresample_src(&w, i, src_lines);
+        if (si < 0 || si >= src_lines) off++;
+    }
+    check_int("first line: every tap lands inside the frame", off, 0);
+    check_int("first line: taps above the top read line 0",
+              plustek8200i_vresample_src(&w, 0, src_lines), 0);
+
+    off = 0;
+    check_int("last line: weights built",
+              plustek8200i_vresample_weights(v, (int)(src_lines / v) - 1, &w), 0);
+    for (i = 0; i < w.n; i++) {
+        int si = plustek8200i_vresample_src(&w, i, src_lines);
+        if (si < 0 || si >= src_lines) off++;
+    }
+    check_int("last line: every tap lands inside the frame", off, 0);
+    check_int("last line: taps past the end read the last line",
+              plustek8200i_vresample_src(&w, w.n - 1, src_lines), src_lines - 1);
+}
+
+/*
+ * The streaming ring is sized from the kernel's support rather than from
+ * an assumed area-average, because channel registration makes one output
+ * line read 2 * shift output pitches of source as well.  If the sizing
+ * ever came up short the reader would overwrite a line the resampler had
+ * not used yet, so check the geometry covers the real window.
+ */
+static void
+test_vresample_ring(void)
+{
+    static const int dpis[] = { 300, 600, 1200, 2400, 7200 };
+    size_t d;
+    char name[96];
+
+    for (d = 0; d < sizeof(dpis) / sizeof(dpis[0]); d++) {
+        int dpi = dpis[d], shift = dpi / 300, y, short_by = 0;
+        double v = squash_at(dpi);
+        double sup = plustek8200i_vresample_support(v);
+        double vr = v <= PLUSTEK8200I_VNONE ? 1.0 : v;
+        /* The geometric half of the ring in plustek8200i.c; the rest is
+         * slack for the USB reader. */
+        int ring = (int)(2 * shift * vr + 2 * sup + 0.999) + 3;
+
+        for (y = shift; y < 400; y++) {
+            int lo, hi, unused;
+
+            plustek8200i_vresample_span(v, y - shift, &lo, &unused);
+            plustek8200i_vresample_span(v, y + shift, &unused, &hi);
+            if (hi - lo + 1 > ring) short_by++;
+        }
+        sprintf(name, "%d dpi: ring covers the resample window", dpi);
+        check_int(name, short_by, 0);
+    }
+}
+
 int
 main(void)
 {
@@ -226,6 +544,12 @@ main(void)
     test_monotonic();
     test_button_latch();
     test_feed_pairs();
+    test_vresample_gate();
+    test_vresample_dc();
+    test_vresample_box_unchanged();
+    test_vresample_response();
+    test_vresample_edges();
+    test_vresample_ring();
 
     printf("\n%s: %d failure%s\n", failures ? "FAILED" : "PASSED",
            failures, failures == 1 ? "" : "s");
