@@ -61,6 +61,7 @@
 #include "plustek8200i-dma.h"
 #include "plustek8200i-scan.h"
 #include "plustek8200i-shading.h"
+#include "plustek8200i-irflat.h"
 
 #define STRIP_LINES      128
 #define TABLE_ADDR       0x10014000
@@ -411,15 +412,18 @@ ir_led(int fd, int on)
 SANE_Status
 plustek8200i_ir_reference(int fd, int pixels, int img_lincnt, int img_feedl,
                           int img_table_period, int img_exposure,
-                          double *scale)
+                          double *scale, double *gain)
 {
     size_t n = (size_t)pixels * 3, i;
     double *ir = calloc(n, sizeof(double));
     double *dark = calloc(n, sizeof(double));
     SANE_Status st = SANE_STATUS_NO_MEM;
     double top = 0, raw = 0;
+    int gain_ok = 0;
 
     *scale = 1.0;
+    if (gain)
+        gain[0] = 0.0;          /* "unusable" until the strips prove out */
     if (!ir || !dark)
         goto out;
 
@@ -439,6 +443,22 @@ plustek8200i_ir_reference(int fd, int pixels, int img_lincnt, int img_feedl,
     ir_led(fd, 1);
     if (st != SANE_STATUS_GOOD)
         goto out;
+    /*
+     * The same two strips give a per-column gain, which is what the
+     * infrared pass has always been missing: it cannot be shading
+     * corrected in hardware, so without this every sensor column keeps its
+     * own offset and the pattern lands in the noise floor a frontend
+     * measures.  This costs no extra scanning -- the strips are read
+     * above either way.
+     *
+     * Built here, before the loop below subtracts the dark strip from the
+     * green channel of `ir` in place: plustek8200i_irflat_open does its
+     * own subtraction over all three channels, so afterwards green would
+     * be subtracted twice.
+     */
+    if (gain)
+        gain_ok = plustek8200i_irflat_build(ir, dark, pixels, gain) == 0;
+
     for (i = 1; i < n; i += 3) {            /* green */
         if (ir[i] > raw) raw = ir[i];
         ir[i] -= dark[i];
@@ -453,6 +473,23 @@ plustek8200i_ir_reference(int fd, int pixels, int img_lincnt, int img_feedl,
     *scale = IR_REF_LEVEL / top;
     DBG(DBG_info, "IR REFERENCE: open IR light %.0f (green) -> IR scaled x%.3f\n",
         top, *scale);
+
+    if (gain && gain_ok) {
+        double glo = gain[0], ghi = gain[0];
+        int x;
+
+        for (x = 1; x < pixels; x++) {
+            if (gain[x] < glo) glo = gain[x];
+            if (gain[x] > ghi) ghi = gain[x];
+        }
+        DBG(DBG_info, "IR REFERENCE: per-column flat field over %d px, "
+            "gain %.3f-%.3f (the scalar it replaces was %.3f)\n",
+            pixels, glo, ghi, *scale);
+    } else if (gain) {
+        DBG(DBG_warning, "IR REFERENCE: per-column flat field rejected -- "
+            "falling back to the scalar\n");
+        gain[0] = 0.0;
+    }
 
 out:
     ir_led(fd, 1);

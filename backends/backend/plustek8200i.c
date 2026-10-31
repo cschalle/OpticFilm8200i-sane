@@ -35,6 +35,7 @@
 #include "plustek8200i-dma.h"
 #include "plustek8200i-scan.h"
 #include "plustek8200i-shading.h"
+#include "plustek8200i-irflat.h"
 #include "plustek8200i-feed.h"
 #include "plustek8200i-button.h"
 #include "plustek8200i-vresample.h"
@@ -1391,8 +1392,9 @@ pipe_line(plustek8200i_device_t *dev, int y, uint16_t *out)
         memcpy(out, row, (size_t)px * 3 * 2);
     } else if (dev->opt_mode == MODE_INFRARED) {
         for (x = 0; x < px; x++) {
-            double v = (row[x * 3] + row[x * 3 + 1] + row[x * 3 + 2])
-                       / 3.0 * dev->ir_scale;
+            double g = plustek8200i_irflat_gain(dev->ir_gain, dev->ir_gain_px,
+                                                x, dev->ir_scale);
+            double v = (row[x * 3] + row[x * 3 + 1] + row[x * 3 + 2]) / 3.0 * g;
             out[x] = v > 65535.0 ? 65535 : (uint16_t)(v + 0.5);
         }
     } else {
@@ -1488,6 +1490,9 @@ static void
 release_scan_resources(plustek8200i_device_t *dev)
 {
     stream_cleanup(dev);
+    free(dev->ir_gain);
+    dev->ir_gain = NULL;
+    dev->ir_gain_px = 0;
     dev->scanning = SANE_FALSE;
     dev->bytes_read = dev->bytes_total = 0;
 }
@@ -3056,11 +3061,23 @@ scan_shading_and_reference(plustek8200i_device_t *dev)
      */
     dev->shading_ok = 0;
     dev->ir_scale = 1.0;
+    free(dev->ir_gain);
+    dev->ir_gain = NULL;
+    dev->ir_gain_px = 0;
     if (dev->opt_mode == MODE_INFRARED || plustek8200i_use_infrared()) {
+        double *gain = calloc((size_t)dev->scan_pixels, sizeof(double));
+
         plustek8200i_ir_reference(dev->usb_fd, dev->scan_pixels,
             dev->img_lincnt, dev->img_feedl, dev->img_table_period,
             (int)(PLUSTEK8200I_BASE_EXPOSURE * SANE_UNFIX(dev->opt_exposure) + 0.5),
-            &dev->ir_scale);
+            &dev->ir_scale, gain);
+        /* gain[0] == 0 is the "strips not trusted" marker; so is no memory. */
+        if (gain && gain[0] > 0.0) {
+            dev->ir_gain = gain;
+            dev->ir_gain_px = dev->scan_pixels;
+        } else {
+            free(gain);
+        }
     }
     dev->shading_ok = 0;
     if (dev->opt_mode != MODE_INFRARED && !plustek8200i_use_infrared()) {
@@ -3152,10 +3169,14 @@ image_reduce_to_one_channel(plustek8200i_device_t *dev)
             uint16_t *dst = (uint16_t *)(gbuf + (size_t)y * out_line);
             if (dev->opt_mode == MODE_INFRARED) {
                 /* mean of the three channels, normalised to the open IR
-                 * light (dev->ir_scale, see plustek8200i_ir_reference) */
+                 * light: per sensor column where the strips allowed a flat
+                 * field, otherwise by dev->ir_scale alone.  The buffer has
+                 * already been mirrored here, as the streaming row has. */
                 for (x = 0; x < px; x++) {
+                    double g = plustek8200i_irflat_gain(dev->ir_gain,
+                                   dev->ir_gain_px, x, dev->ir_scale);
                     double v = (src[x * 3] + src[x * 3 + 1] + src[x * 3 + 2])
-                               / 3.0 * dev->ir_scale;
+                               / 3.0 * g;
                     dst[x] = v > 65535.0 ? 65535 : (uint16_t)(v + 0.5);
                 }
             } else {

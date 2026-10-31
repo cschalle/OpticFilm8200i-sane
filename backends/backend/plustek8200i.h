@@ -146,6 +146,9 @@ typedef struct plustek8200i_device {
     int       shading_ok;        /* shading table loaded for this pass */
     int       img_lincnt, img_feedl, img_table_period; /* image pass values */
     double    ir_scale;          /* IR normalisation for this pass */
+    double   *ir_gain;           /* per-column IR flat field, sensor order,
+                                    NULL when the strips were not usable */
+    int       ir_gain_px;        /* entries in ir_gain */
     int       ir_ready, ir_r0, ir_r1, ir_c0, ir_c1; /* IR repair state */
     int       ir_marked, ir_repaired;
     size_t    ir_n;

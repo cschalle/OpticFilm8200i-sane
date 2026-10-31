@@ -36,6 +36,7 @@
 #include "../../../backend/plustek8200i.h"
 #include "../../../backend/plustek8200i-feed.h"
 #include "../../../backend/plustek8200i-vresample.h"
+#include "../../../backend/plustek8200i-irflat.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -536,6 +537,153 @@ test_vresample_ring(void)
     }
 }
 
+/* ── Infrared per-column flat field ──────────────────────────────────────── */
+
+/*
+ * Build a pair of calibration strips: `pixels` columns of three channels,
+ * each column lit to `base * shape(x)` over a dark offset that also varies
+ * by column, which is the pattern the hardware actually shows.
+ */
+static void
+irflat_strips(double *lit, double *dark, int pixels, double base,
+              double ripple, double dark_base)
+{
+    int x, c;
+
+    for (x = 0; x < pixels; x++) {
+        /* A slow swing plus a column-to-column alternation: a lamp profile
+         * the old scalar could not see, and a per-column offset no smooth
+         * surface fit can absorb. */
+        double shape = 1.0 + ripple * ((x % 2) ? 1.0 : -1.0)
+                           + 0.10 * (double)x / pixels;
+        double d = dark_base + 0.5 * (x % 3);
+
+        for (c = 0; c < 3; c++) {
+            dark[x * 3 + c] = d;
+            lit[x * 3 + c] = d + base * shape;
+        }
+    }
+}
+
+static void
+test_irflat_flattens_a_column_pattern(void)
+{
+    enum { PX = 512 };
+    static double lit[PX * 3], dark[PX * 3], gain[PX];
+    double lo = 1e30, hi = -1e30, mean = 0;
+    int x;
+
+    irflat_strips(lit, dark, PX, 20000.0, 0.08, 300.0);
+    if (plustek8200i_irflat_build(lit, dark, PX, gain) != 0) {
+        printf("FAIL %-44s build rejected a good strip\n", "irflat: builds");
+        failures++;
+        return;
+    }
+    printf("ok   %-44s\n", "irflat: builds from a usable strip");
+
+    /* A clear column must land on the reference level, every column. */
+    for (x = 0; x < PX; x++) {
+        double out = plustek8200i_irflat_open(lit, dark, x) * gain[x];
+
+        if (out < lo) lo = out;
+        if (out > hi) hi = out;
+        mean += out / PX;
+    }
+    check_near("irflat: clear column -> reference", mean,
+               PLUSTEK8200I_IRFLAT_REF, 1.0);
+    check_near("irflat: spread across columns after", hi - lo, 0.0, 1.0);
+
+    /* Without the table the same strip keeps its pattern: the old scalar
+     * is one number, so it can only scale the spread, never remove it. */
+    {
+        double top = 0, slo = 1e30, shi = -1e30, scale;
+
+        for (x = 0; x < PX; x++) {
+            double v = plustek8200i_irflat_open(lit, dark, x);
+            if (v > top) top = v;
+        }
+        scale = PLUSTEK8200I_IRFLAT_REF / top;
+        for (x = 0; x < PX; x++) {
+            double out = plustek8200i_irflat_open(lit, dark, x) * scale;
+            if (out < slo) slo = out;
+            if (out > shi) shi = out;
+        }
+        /* shape runs 0.92 (x=0, even) to 1.1798 (x=511, odd), so anchoring
+         * one number to the top leaves 1 - 0.92/1.1798 of the span behind.
+         * The table above leaves none of it. */
+        check_near("irflat: spread with a scalar instead",
+                   (shi - slo) / PLUSTEK8200I_IRFLAT_REF, 0.2202, 0.001);
+    }
+}
+
+static void
+test_irflat_rejects_what_it_cannot_trust(void)
+{
+    enum { PX = 256 };
+    static double lit[PX * 3], dark[PX * 3], gain[PX];
+    int x;
+
+    /* The IR LED never got going: no usable reference anywhere. */
+    irflat_strips(lit, dark, PX, 40.0, 0.0, 300.0);
+    check_near("irflat: rejects a dark strip",
+               plustek8200i_irflat_build(lit, dark, PX, gain), -1.0, 0.5);
+
+    /* A line too short to be a sensor, and a missing argument. */
+    irflat_strips(lit, dark, PX, 20000.0, 0.0, 300.0);
+    check_near("irflat: rejects too few pixels",
+               plustek8200i_irflat_build(lit, dark,
+                   PLUSTEK8200I_IRFLAT_MIN_PIXELS - 1, gain), -1.0, 0.5);
+    check_near("irflat: rejects a NULL strip",
+               plustek8200i_irflat_build(NULL, dark, PX, gain), -1.0, 0.5);
+
+    /* A handful of dead columns is tolerated and clamped... */
+    irflat_strips(lit, dark, PX, 20000.0, 0.0, 300.0);
+    for (x = 0; x < 2; x++) {
+        int c;
+        for (c = 0; c < 3; c++)
+            lit[x * 3 + c] = dark[x * 3 + c];
+    }
+    check_near("irflat: tolerates a few dead columns",
+               plustek8200i_irflat_build(lit, dark, PX, gain), 0.0, 0.5);
+
+    /* ...but a strip that is mostly dead is not a calibration. */
+    irflat_strips(lit, dark, PX, 20000.0, 0.0, 300.0);
+    for (x = 0; x < PX / 4; x++) {
+        int c;
+        for (c = 0; c < 3; c++)
+            lit[x * 3 + c] = dark[x * 3 + c];
+    }
+    check_near("irflat: rejects a mostly dead strip",
+               plustek8200i_irflat_build(lit, dark, PX, gain), -1.0, 0.5);
+}
+
+static void
+test_irflat_gain_is_read_mirrored(void)
+{
+    enum { PX = 64 };
+    static double gain[PX];
+    int x;
+
+    /*
+     * Both image paths mirror the row before forming the infrared, while
+     * the strips are read straight off the sensor.  Reading the table the
+     * wrong way round would double the pattern rather than cancel it, so
+     * the mapping is pinned here.
+     */
+    for (x = 0; x < PX; x++)
+        gain[x] = (double)x;
+    check_near("irflat: output column 0 reads the last sensor column",
+               plustek8200i_irflat_gain(gain, PX, 0, -1.0), PX - 1, 1e-9);
+    check_near("irflat: output column last reads sensor column 0",
+               plustek8200i_irflat_gain(gain, PX, PX - 1, -1.0), 0.0, 1e-9);
+
+    /* No table, or off the end of one: the caller's scalar stands. */
+    check_near("irflat: no table falls back to the scalar",
+               plustek8200i_irflat_gain(NULL, 0, 3, 1.234), 1.234, 1e-9);
+    check_near("irflat: out of range falls back to the scalar",
+               plustek8200i_irflat_gain(gain, PX, PX, 1.234), 1.234, 1e-9);
+}
+
 int
 main(void)
 {
@@ -550,6 +698,9 @@ main(void)
     test_vresample_response();
     test_vresample_edges();
     test_vresample_ring();
+    test_irflat_flattens_a_column_pattern();
+    test_irflat_rejects_what_it_cannot_trust();
+    test_irflat_gain_is_read_mirrored();
 
     printf("\n%s: %d failure%s\n", failures ? "FAILED" : "PASSED",
            failures, failures == 1 ? "" : "s");

@@ -55,9 +55,15 @@ SANE_Status plustek8200i_shading_calibrate(int fd, int pixels, int img_lincnt,
  * and off) and return in *scale the factor that normalises the IR image
  * to a fixed level. Restores the image registers like
  * plustek8200i_shading_calibrate. *scale is 1.0 if the measurement fails.
+ *
+ * When `gain` is non-NULL it must hold `pixels` doubles and is filled with
+ * a per-column flat field from the same strips (see
+ * plustek8200i-irflat.h), in sensor order. gain[0] is set to 0 if the
+ * strips could not be trusted, and the caller must then use *scale alone.
  */
 SANE_Status plustek8200i_ir_reference(int fd, int pixels, int img_lincnt,
                                       int img_feedl, int img_table_period,
-                                      int img_exposure, double *scale);
+                                      int img_exposure, double *scale,
+                                      double *gain);
 
 #endif
